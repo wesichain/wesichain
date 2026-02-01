@@ -4,6 +4,7 @@ use crate::WesichainError;
 
 pub type Value = serde_json::Value;
 
+/// Converts a value into `Value`, falling back to `Value::Null` on serialization errors (v0 behavior).
 pub trait IntoValue {
     fn into_value(self) -> Value;
 }

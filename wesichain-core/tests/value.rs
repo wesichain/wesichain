@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use wesichain_core::{IntoValue, TryFromValue, Value};
+use wesichain_core::{IntoValue, TryFromValue, Value, WesichainError};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]
 struct Demo {
@@ -38,4 +38,14 @@ fn value_roundtrip_for_struct() {
 fn into_value_falls_back_to_null_on_serialize_error() {
     let value: Value = FailingSerialize.into_value();
     assert_eq!(value, Value::Null);
+}
+
+#[test]
+fn try_from_value_rejects_string_for_struct() {
+    let value = Value::String("not a struct".to_string());
+    let error = Demo::try_from_value(value).expect_err("invalid value should error");
+    match error {
+        WesichainError::Serde(_) => {}
+        other => panic!("expected serde error, got {other:?}"),
+    }
 }
