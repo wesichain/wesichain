@@ -54,9 +54,7 @@ where
             }
         }
 
-        Err(WesichainError::MaxRetriesExceeded {
-            max: self.max_attempts,
-        })
+        unreachable!("retry loop always returns when max_attempts > 0")
     }
 
     /// Retries apply to invoke only; stream delegates in v0.
