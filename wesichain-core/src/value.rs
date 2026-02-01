@@ -17,7 +17,7 @@ where
     T: Serialize,
 {
     fn into_value(self) -> Value {
-        serde_json::to_value(self).expect("Failed to serialize into wesichain_core::Value")
+        serde_json::to_value(self).unwrap_or(Value::Null)
     }
 }
 
