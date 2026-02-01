@@ -1,10 +1,17 @@
-use futures::stream::StreamExt;
+use futures::stream::{BoxStream, StreamExt};
 
 use wesichain_core::{Runnable, RunnableExt, WesichainError};
 
 struct AddPrefix;
 struct Uppercase;
 struct AddSuffix;
+
+fn empty_stream<'a>() -> BoxStream<'a, Result<wesichain_core::StreamEvent, WesichainError>> {
+    futures::stream::iter(vec![Ok(wesichain_core::StreamEvent::FinalAnswer(
+        String::new(),
+    ))])
+    .boxed()
+}
 
 #[async_trait::async_trait]
 impl Runnable<String, String> for AddPrefix {
@@ -16,10 +23,7 @@ impl Runnable<String, String> for AddPrefix {
         &self,
         _input: String,
     ) -> futures::stream::BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
-        futures::stream::iter(vec![Ok(wesichain_core::StreamEvent::FinalAnswer(
-            "".to_string(),
-        ))])
-        .boxed()
+        empty_stream()
     }
 }
 
@@ -33,10 +37,7 @@ impl Runnable<String, String> for Uppercase {
         &self,
         _input: String,
     ) -> futures::stream::BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
-        futures::stream::iter(vec![Ok(wesichain_core::StreamEvent::FinalAnswer(
-            "".to_string(),
-        ))])
-        .boxed()
+        empty_stream()
     }
 }
 
@@ -50,10 +51,7 @@ impl Runnable<String, String> for AddSuffix {
         &self,
         _input: String,
     ) -> futures::stream::BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
-        futures::stream::iter(vec![Ok(wesichain_core::StreamEvent::FinalAnswer(
-            "".to_string(),
-        ))])
-        .boxed()
+        empty_stream()
     }
 }
 
