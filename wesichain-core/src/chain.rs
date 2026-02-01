@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use futures::stream::{self, BoxStream};
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 
 use crate::{Runnable, StreamEvent, WesichainError};
 
