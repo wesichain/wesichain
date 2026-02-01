@@ -1,6 +1,7 @@
 use std::marker::PhantomData;
 
-use futures::stream::{self, BoxStream, StreamExt};
+use futures::stream::{self, BoxStream};
+use futures::TryStreamExt;
 
 use crate::{Runnable, StreamEvent, WesichainError};
 
@@ -35,39 +36,13 @@ where
     }
 
     fn stream(&self, input: Input) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        type TailStream<'a> = BoxStream<'a, Result<StreamEvent, WesichainError>>;
-
-        enum ChainState<'a, Input> {
-            Start(Option<Input>),
-            Tail(TailStream<'a>),
-            Done,
-        }
-
+        // v0: streaming reflects the tail runnable only; the head is executed via invoke.
         let head = &self.head;
         let tail = &self.tail;
-
-        let start_state: ChainState<'_, Input> = ChainState::Start(Some(input));
-
-        stream::unfold(start_state, move |state| async move {
-            match state {
-                ChainState::Start(Some(input)) => match head.invoke(input).await {
-                    Ok(mid) => {
-                        let mut tail_stream = tail.stream(mid);
-                        match tail_stream.next().await {
-                            Some(item) => Some((item, ChainState::Tail(tail_stream))),
-                            None => None,
-                        }
-                    }
-                    Err(err) => Some((Err(err), ChainState::Done)),
-                },
-                ChainState::Tail(mut tail_stream) => match tail_stream.next().await {
-                    Some(item) => Some((item, ChainState::Tail(tail_stream))),
-                    None => None,
-                },
-                ChainState::Start(None) | ChainState::Done => None,
-            }
-        })
-        .boxed()
+        let stream = stream::once(async move { head.invoke(input).await })
+            .map_ok(move |mid| tail.stream(mid))
+            .try_flatten();
+        stream.boxed()
     }
 }
 
