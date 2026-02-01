@@ -60,6 +60,7 @@ pub trait RunnableExt<Input: Send + 'static, Output: Send + 'static>:
     fn with_retries(self, max_attempts: usize) -> Retrying<Self>
     where
         Self: Send + Sync,
+        Input: Clone,
     {
         Retrying::new(self, max_attempts)
     }

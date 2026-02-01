@@ -25,6 +25,22 @@ impl Flaky {
     }
 }
 
+struct ParseFailer {
+    attempts: Arc<AtomicUsize>,
+}
+
+impl ParseFailer {
+    fn new() -> Self {
+        Self {
+            attempts: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    fn attempts_counter(&self) -> Arc<AtomicUsize> {
+        Arc::clone(&self.attempts)
+    }
+}
+
 fn empty_stream<'a>() -> BoxStream<'a, Result<wesichain_core::StreamEvent, WesichainError>> {
     futures::stream::iter(vec![Ok(wesichain_core::StreamEvent::FinalAnswer(
         String::new(),
@@ -41,6 +57,24 @@ impl Runnable<String, String> for Flaky {
         }
 
         Ok(format!("ok:{input}"))
+    }
+
+    fn stream(
+        &self,
+        _input: String,
+    ) -> BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
+        empty_stream()
+    }
+}
+
+#[async_trait::async_trait]
+impl Runnable<String, String> for ParseFailer {
+    async fn invoke(&self, _input: String) -> Result<String, WesichainError> {
+        self.attempts.fetch_add(1, Ordering::SeqCst);
+        Err(WesichainError::ParseFailed {
+            output: "bad".to_string(),
+            reason: "invalid".to_string(),
+        })
     }
 
     fn stream(
@@ -77,4 +111,38 @@ async fn returns_max_retries_exceeded() {
 
     assert!(matches!(err, WesichainError::MaxRetriesExceeded { max: 2 }));
     assert_eq!(attempts.load(Ordering::SeqCst), 2);
+}
+
+#[tokio::test]
+async fn returns_max_retries_exceeded_immediately_when_max_attempts_zero() {
+    let flaky = Flaky::new(1);
+    let attempts = flaky.attempts_counter();
+    let err = flaky
+        .with_retries(0)
+        .invoke("ping".to_string())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(err, WesichainError::MaxRetriesExceeded { max: 0 }));
+    assert_eq!(attempts.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn non_retryable_error_fails_fast() {
+    let parse_failer = ParseFailer::new();
+    let attempts = parse_failer.attempts_counter();
+    let err = parse_failer
+        .with_retries(3)
+        .invoke("ping".to_string())
+        .await
+        .unwrap_err();
+
+    assert!(matches!(
+        err,
+        WesichainError::ParseFailed {
+            output: _,
+            reason: _
+        }
+    ));
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
 }

@@ -59,6 +59,7 @@ where
         })
     }
 
+    /// Retries apply to invoke only; stream delegates in v0.
     fn stream(&self, input: Input) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
         self.runnable.stream(input)
     }
