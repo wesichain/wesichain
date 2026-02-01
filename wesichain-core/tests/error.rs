@@ -11,7 +11,7 @@ fn error_display_for_max_retries() {
 #[test]
 fn error_display_for_llm_provider() {
     let err = WesichainError::LlmProvider("rate limited".to_string());
-    assert_eq!(format!("{err}"), "LLM provider error: rate limited");
+    assert_eq!(format!("{err}"), "LLM provider failed: rate limited");
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn error_display_for_tool_call_failed() {
         tool_name: "search".to_string(),
         reason: "timeout".to_string(),
     };
-    assert_eq!(format!("{err}"), "Tool call failed (search): timeout");
+    assert_eq!(format!("{err}"), "Tool call failed for 'search': timeout");
 }
 
 #[test]
@@ -31,14 +31,14 @@ fn error_display_for_parse_failed() {
     };
     assert_eq!(
         format!("{err}"),
-        "Parse failed: unexpected token. Output: <html>"
+        "Parsing failed on output '<html>': unexpected token"
     );
 }
 
 #[test]
 fn error_display_for_timeout() {
     let err = WesichainError::Timeout(Duration::from_secs(5));
-    assert_eq!(format!("{err}"), "Timeout after 5s");
+    assert_eq!(format!("{err}"), "Operation timed out after 5s");
 }
 
 #[test]
@@ -50,24 +50,24 @@ fn error_display_for_checkpoint_failed() {
 #[test]
 fn error_display_for_cancelled() {
     let err = WesichainError::Cancelled;
-    assert_eq!(format!("{err}"), "Operation cancelled");
+    assert_eq!(format!("{err}"), "Operation was cancelled");
 }
 
 #[test]
 fn error_display_for_invalid_config() {
     let err = WesichainError::InvalidConfig("missing api key".to_string());
-    assert_eq!(format!("{err}"), "Invalid config: missing api key");
+    assert_eq!(format!("{err}"), "Invalid configuration: missing api key");
 }
 
 #[test]
 fn error_display_for_serde() {
     let parse_error = serde_json::from_str::<serde_json::Value>("not json").unwrap_err();
     let err = WesichainError::Serde(parse_error);
-    assert!(format!("{err}").starts_with("Serde error: "));
+    assert!(format!("{err}").starts_with("Serialization/deserialization error: "));
 }
 
 #[test]
 fn error_display_for_custom() {
     let err = WesichainError::Custom("something odd".to_string());
-    assert_eq!(format!("{err}"), "Custom error: something odd");
+    assert_eq!(format!("{err}"), "something odd");
 }
