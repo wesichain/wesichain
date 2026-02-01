@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use futures::stream::{self, BoxStream};
 use futures::{StreamExt, TryStreamExt};
 
-use crate::{Runnable, StreamEvent, WesichainError};
+use crate::{Retrying, Runnable, StreamEvent, WesichainError};
 
 pub struct Chain<Head, Tail, Mid> {
     head: Head,
@@ -55,6 +55,13 @@ pub trait RunnableExt<Input: Send + 'static, Output: Send + 'static>:
         NextOutput: Send + 'static,
     {
         Chain::new(self, next)
+    }
+
+    fn with_retries(self, max_attempts: usize) -> Retrying<Self>
+    where
+        Self: Send + Sync,
+    {
+        Retrying::new(self, max_attempts)
     }
 }
 
