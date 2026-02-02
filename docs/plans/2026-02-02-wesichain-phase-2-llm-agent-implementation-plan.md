@@ -716,7 +716,6 @@ git commit -m "feat(prompt): add PromptTemplate"
 **Step 1: Write the failing test**
 
 ```rust
-use std::collections::HashMap;
 use wesichain_agent::{Tool, ToolRegistry};
 use wesichain_core::{Value, WesichainError};
 use wesichain_llm::ToolSpec;
