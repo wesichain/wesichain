@@ -21,3 +21,29 @@ fn does_not_confuse_overlapping_keys() {
     let rendered = tmpl.render(&vars).expect("render");
     assert_eq!(rendered, "X Y");
 }
+
+#[test]
+fn missing_var_kept() {
+    let tmpl = PromptTemplate::new("Hi {{name}}".to_string());
+    let vars = HashMap::new();
+    let rendered = tmpl.render(&vars).expect("render");
+    assert_eq!(rendered, "Hi {{name}}");
+}
+
+#[test]
+fn renders_key_with_dot() {
+    let tmpl = PromptTemplate::new("User {{user.name}}".to_string());
+    let mut vars = HashMap::new();
+    vars.insert("user.name".to_string(), Value::from("Ana"));
+    let rendered = tmpl.render(&vars).expect("render");
+    assert_eq!(rendered, "User Ana");
+}
+
+#[test]
+fn renders_non_string_value() {
+    let tmpl = PromptTemplate::new("Count {{total}}".to_string());
+    let mut vars = HashMap::new();
+    vars.insert("total".to_string(), Value::from(42));
+    let rendered = tmpl.render(&vars).expect("render");
+    assert_eq!(rendered, "Count 42");
+}
