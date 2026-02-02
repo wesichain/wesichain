@@ -52,10 +52,20 @@ struct OllamaMessage {
 #[async_trait::async_trait]
 impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
     async fn invoke(&self, input: LlmRequest) -> Result<LlmResponse, WesichainError> {
+        let LlmRequest {
+            model,
+            messages,
+            tools,
+        } = input;
+        let model = if model.is_empty() {
+            self.model.clone()
+        } else {
+            model
+        };
         let request = OllamaChatRequest {
-            model: self.model.clone(),
-            messages: input.messages,
-            tools: input.tools,
+            model,
+            messages,
+            tools,
             stream: false,
         };
 
@@ -66,6 +76,8 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
             .json(&request)
             .send()
             .await
+            .map_err(|err| WesichainError::LlmProvider(err.to_string()))?
+            .error_for_status()
             .map_err(|err| WesichainError::LlmProvider(err.to_string()))?
             .json()
             .await
