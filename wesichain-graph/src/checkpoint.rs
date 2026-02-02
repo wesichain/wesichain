@@ -24,6 +24,17 @@ pub trait Checkpointer<S: StateSchema>: Send + Sync {
     async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, GraphError>;
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct CheckpointMetadata {
+    pub seq: u64,
+    pub created_at: String,
+}
+
+#[async_trait::async_trait]
+pub trait HistoryCheckpointer<S: StateSchema>: Send + Sync {
+    async fn list_checkpoints(&self, thread_id: &str) -> Result<Vec<CheckpointMetadata>, GraphError>;
+}
+
 #[derive(Default, Clone)]
 pub struct InMemoryCheckpointer<S: StateSchema> {
     inner: Arc<RwLock<HashMap<String, Checkpoint<S>>>>,

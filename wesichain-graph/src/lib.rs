@@ -1,11 +1,13 @@
 mod config;
 mod checkpoint;
 mod error;
+mod file_checkpointer;
 mod graph;
 mod state;
 
 pub use config::{ExecutionConfig, ExecutionOptions};
-pub use checkpoint::{Checkpoint, Checkpointer, InMemoryCheckpointer};
+pub use checkpoint::{Checkpoint, CheckpointMetadata, Checkpointer, HistoryCheckpointer, InMemoryCheckpointer};
 pub use error::GraphError;
+pub use file_checkpointer::{CheckpointRecord, FileCheckpointer};
 pub use graph::{ExecutableGraph, GraphBuilder};
 pub use state::{GraphState, StateSchema, StateUpdate};
