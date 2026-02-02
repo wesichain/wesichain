@@ -33,7 +33,7 @@ impl Runnable<GraphState<DemoState>, StateUpdate<DemoState>> for AddOne {
 
 #[tokio::test]
 async fn graph_builder_compiles_single_node() {
-    let graph = GraphBuilder::new()
+    let graph = GraphBuilder::default()
         .add_node("add", AddOne)
         .set_entry("add")
         .build();

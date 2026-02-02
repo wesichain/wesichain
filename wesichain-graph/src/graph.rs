@@ -13,6 +13,12 @@ pub struct GraphBuilder<S: StateSchema> {
     entry: Option<String>,
 }
 
+impl<S: StateSchema> Default for GraphBuilder<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S: StateSchema> GraphBuilder<S> {
     pub fn new() -> Self {
         Self {
