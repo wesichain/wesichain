@@ -48,3 +48,9 @@ impl ToolRegistry {
         specs
     }
 }
+
+impl Default for ToolRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}

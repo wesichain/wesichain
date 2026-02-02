@@ -32,7 +32,7 @@ async fn spawn_chunked_server(chunks: Vec<&'static str>) -> String {
         );
         socket.write_all(headers.as_bytes()).await.expect("headers");
         for chunk in chunks {
-            let len = chunk.as_bytes().len();
+            let len = chunk.len();
             socket
                 .write_all(format!("{:X}\r\n", len).as_bytes())
                 .await
