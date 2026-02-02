@@ -133,7 +133,7 @@ pub struct ToolCall {
 pub struct LlmRequest {
     pub model: String,
     pub messages: Vec<Message>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tools: Vec<ToolSpec>,
 }
 
