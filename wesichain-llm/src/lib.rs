@@ -1,5 +1,7 @@
+mod ollama;
 mod types;
 
+pub use ollama::OllamaClient;
 pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
 
 use wesichain_core::Runnable;
