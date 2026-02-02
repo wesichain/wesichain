@@ -15,17 +15,7 @@ pub struct OllamaClient {
 }
 
 pub fn ollama_stream_events(input: &[u8]) -> Result<Vec<StreamEvent>, WesichainError> {
-    if let Ok(events) = parse_ollama_stream(input) {
-        return Ok(events);
-    }
-
-    let raw = std::str::from_utf8(input).map_err(|err| WesichainError::ParseFailed {
-        output: String::new(),
-        reason: err.to_string(),
-    })?;
-    let wrapped = format!("\"{}\"", raw);
-    let decoded: String = serde_json::from_str(&wrapped)?;
-    parse_ollama_stream(decoded.as_bytes())
+    parse_ollama_stream(input)
 }
 
 fn parse_ollama_stream(input: &[u8]) -> Result<Vec<StreamEvent>, WesichainError> {
