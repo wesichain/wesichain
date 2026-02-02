@@ -10,6 +10,7 @@ description.workspace = true
 
 [dependencies]
 async-trait = "0.1"
+futures = "0.3"
 wesichain-core = { path = "../wesichain-core" }
 wesichain-llm = { path = "../wesichain-llm" }
 

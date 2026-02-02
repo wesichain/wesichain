@@ -2136,6 +2136,7 @@ name = "wesichain-agent"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "futures",
  "tokio",
  "wesichain-core",
  "wesichain-llm",
