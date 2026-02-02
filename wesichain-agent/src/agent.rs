@@ -76,9 +76,9 @@ where
     }
 
     fn stream(&self, _input: String) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        stream::once(async move {
-            Err(WesichainError::Custom("stream not implemented".to_string()))
-        })
+        stream::once(
+            async move { Err(WesichainError::Custom("stream not implemented".to_string())) },
+        )
         .boxed()
     }
 }

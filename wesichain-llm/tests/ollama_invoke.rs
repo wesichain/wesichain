@@ -7,14 +7,12 @@ use wesichain_llm::{LlmRequest, Message, OllamaClient, Role};
 async fn ollama_invoke_maps_response() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
-        when.method(POST)
-            .path("/api/chat")
-            .json_body(json!({
-                "model": "request-model",
-                "messages": [{"role": "user", "content": "hi"}],
-                "tools": [],
-                "stream": false
-            }));
+        when.method(POST).path("/api/chat").json_body(json!({
+            "model": "request-model",
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [],
+            "stream": false
+        }));
         then.status(200).json_body(json!({
             "message": {"content": "hello"},
             "done": true,

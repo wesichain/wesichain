@@ -146,9 +146,9 @@ async fn agent_includes_assistant_message_before_tool_results() {
     let recorded = calls.lock().unwrap();
     assert_eq!(recorded.len(), 2);
     let second_call = &recorded[1];
-    assert!(second_call.iter().any(|message| {
-        message.role == Role::Assistant && message.content == "need tool"
-    }));
+    assert!(second_call
+        .iter()
+        .any(|message| { message.role == Role::Assistant && message.content == "need tool" }));
     assert_eq!(second_call.len(), 3);
 }
 
@@ -191,5 +191,7 @@ async fn agent_stream_returns_not_implemented_error() {
     let agent = ToolCallingAgent::new(MockLlm, tools, "mock".to_string());
     let mut stream = agent.stream("hi".to_string());
     let result = stream.next().await.unwrap();
-    assert!(matches!(result, Err(WesichainError::Custom(message)) if message == "stream not implemented"));
+    assert!(
+        matches!(result, Err(WesichainError::Custom(message)) if message == "stream not implemented")
+    );
 }

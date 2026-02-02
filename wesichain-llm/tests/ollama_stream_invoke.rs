@@ -55,14 +55,12 @@ async fn ollama_stream_emits_events() {
     let server = MockServer::start();
     let body = "{\"message\":{\"content\":\"Hel\"},\"done\":false}\n{\"message\":{\"content\":\"lo\"},\"done\":true}";
     server.mock(|when, then| {
-        when.method(POST)
-            .path("/api/chat")
-            .json_body(json!({
-                "model": "llama3.1",
-                "messages": [{"role": "user", "content": "hi"}],
-                "tools": [],
-                "stream": true
-            }));
+        when.method(POST).path("/api/chat").json_body(json!({
+            "model": "llama3.1",
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [],
+            "stream": true
+        }));
         then.status(200)
             .body(body)
             .header("content-type", "application/x-ndjson");
@@ -90,7 +88,8 @@ async fn ollama_stream_surfaces_http_errors() {
     let server = MockServer::start();
     let mock = server.mock(|when, then| {
         when.method(POST).path("/api/chat");
-        then.status(500).body("{\"message\":{\"content\":\"bad\"},\"done\":true}");
+        then.status(500)
+            .body("{\"message\":{\"content\":\"bad\"},\"done\":true}");
     });
 
     let client = OllamaClient::new(server.url(""), "llama3.1".to_string()).expect("client");

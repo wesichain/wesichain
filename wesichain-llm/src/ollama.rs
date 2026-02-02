@@ -78,7 +78,9 @@ fn stream_from_ndjson(
     let terminated_for_take = terminated.clone();
     response
         .bytes_stream()
-        .take_while(move |_| future::ready(!terminated_for_take.load(std::sync::atomic::Ordering::SeqCst)))
+        .take_while(move |_| {
+            future::ready(!terminated_for_take.load(std::sync::atomic::Ordering::SeqCst))
+        })
         .flat_map(move |chunk| match chunk {
             Ok(bytes) => {
                 buffer.extend_from_slice(&bytes);
@@ -210,8 +212,9 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
         .flat_map(|result| match result {
             Ok(resp) => match resp.error_for_status() {
                 Ok(resp) => stream_from_ndjson(resp),
-                Err(err) => stream::iter(vec![Err(WesichainError::LlmProvider(err.to_string()))])
-                    .boxed(),
+                Err(err) => {
+                    stream::iter(vec![Err(WesichainError::LlmProvider(err.to_string()))]).boxed()
+                }
             },
             Err(err) => stream::iter(vec![Err(err)]).boxed(),
         })

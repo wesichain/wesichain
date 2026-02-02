@@ -27,10 +27,13 @@ impl ToolRegistry {
     }
 
     pub async fn call(&self, name: &str, input: Value) -> Result<Value, WesichainError> {
-        let tool = self.tools.get(name).ok_or_else(|| WesichainError::ToolCallFailed {
-            tool_name: name.to_string(),
-            reason: "not found".to_string(),
-        })?;
+        let tool = self
+            .tools
+            .get(name)
+            .ok_or_else(|| WesichainError::ToolCallFailed {
+                tool_name: name.to_string(),
+                reason: "not found".to_string(),
+            })?;
         tool.call(input).await
     }
 
