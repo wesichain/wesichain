@@ -35,13 +35,16 @@ impl ToolRegistry {
     }
 
     pub fn to_specs(&self) -> Vec<ToolSpec> {
-        self.tools
+        let mut specs: Vec<ToolSpec> = self
+            .tools
             .values()
             .map(|tool| ToolSpec {
                 name: tool.name().to_string(),
                 description: tool.description().to_string(),
                 parameters: tool.schema(),
             })
-            .collect()
+            .collect();
+        specs.sort_by(|a, b| a.name.cmp(&b.name));
+        specs
     }
 }
