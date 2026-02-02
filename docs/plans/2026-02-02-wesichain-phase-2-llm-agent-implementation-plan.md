@@ -57,6 +57,33 @@ fn llm_request_serializes_with_tools() {
     let tool_value = serde_json::to_value(tool_msg).expect("serialize tool msg");
     assert_eq!(tool_value["tool_call_id"], "call-1");
 }
+
+#[test]
+fn llm_response_serializes_with_content_and_tool_calls_only() {
+    let response = LlmResponse {
+        content: "hello".to_string(),
+        tool_calls: vec![ToolCall {
+            id: "call-1".to_string(),
+            name: "calculator".to_string(),
+            args: json!({"x": 1}),
+        }],
+    };
+
+    let value = serde_json::to_value(response).expect("serialize response");
+    assert_eq!(value["content"], "hello");
+    assert!(value.get("tool_calls").is_some());
+}
+
+#[test]
+fn llm_response_omits_tool_calls_when_empty() {
+    let response = LlmResponse {
+        content: "hello".to_string(),
+        tool_calls: vec![],
+    };
+
+    let value = serde_json::to_value(response).expect("serialize response");
+    assert!(value.get("tool_calls").is_none());
+}
 ```
 
 **Step 2: Run test to verify it fails**
@@ -113,7 +140,7 @@ pub struct LlmRequest {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LlmResponse {
     pub content: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
 }
 ```
