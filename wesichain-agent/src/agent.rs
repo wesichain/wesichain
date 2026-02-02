@@ -53,6 +53,12 @@ where
                 return Ok(response.content);
             }
 
+            messages.push(Message {
+                role: Role::Assistant,
+                content: response.content,
+                tool_call_id: None,
+            });
+
             for call in response.tool_calls {
                 let result = self.tools.call(&call.name, call.args).await?;
                 messages.push(Message {
@@ -69,7 +75,12 @@ where
         )))
     }
 
-    fn stream(&self, input: String) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        stream::once(async move { Ok(StreamEvent::FinalAnswer(input)) }).boxed()
+    fn stream(&self, _input: String) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+        stream::once(async move {
+            Err(WesichainError::Custom(format!(
+                "stream not implemented"
+            )))
+        })
+        .boxed()
     }
 }
