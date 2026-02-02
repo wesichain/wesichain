@@ -1,6 +1,7 @@
 use futures::stream::StreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Deserializer;
 
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 
@@ -11,6 +12,35 @@ pub struct OllamaClient {
     base_url: String,
     model: String,
     http: Client,
+}
+
+pub fn ollama_stream_events(input: &[u8]) -> Result<Vec<StreamEvent>, WesichainError> {
+    if let Ok(events) = parse_ollama_stream(input) {
+        return Ok(events);
+    }
+
+    let raw = std::str::from_utf8(input).map_err(|err| WesichainError::ParseFailed {
+        output: String::new(),
+        reason: err.to_string(),
+    })?;
+    let wrapped = format!("\"{}\"", raw);
+    let decoded: String = serde_json::from_str(&wrapped)?;
+    parse_ollama_stream(decoded.as_bytes())
+}
+
+fn parse_ollama_stream(input: &[u8]) -> Result<Vec<StreamEvent>, WesichainError> {
+    let mut events = Vec::new();
+    let stream = Deserializer::from_slice(input).into_iter::<OllamaChatResponse>();
+    for item in stream {
+        let chunk = item?;
+        let event = if chunk.done {
+            StreamEvent::FinalAnswer(chunk.message.content)
+        } else {
+            StreamEvent::ContentChunk(chunk.message.content)
+        };
+        events.push(event);
+    }
+    Ok(events)
 }
 
 impl OllamaClient {
