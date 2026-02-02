@@ -16,3 +16,6 @@ rust-version = "1.75"
 repository = "https://github.com/wesichain/wesichain"
 homepage = "https://github.com/wesichain/wesichain"
 description = "Rust-native LLM agents & chains with resumable ReAct workflows"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
