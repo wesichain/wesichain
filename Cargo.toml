@@ -5,6 +5,7 @@ members = [
   "wesichain-prompt",
   "wesichain-llm",
   "wesichain-agent",
+  "wesichain-graph",
 ]
 resolver = "2"
 
