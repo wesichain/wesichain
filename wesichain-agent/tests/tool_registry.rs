@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use wesichain_agent::{Tool, ToolRegistry};
 use wesichain_core::{Value, WesichainError};
 use wesichain_llm::ToolSpec;
