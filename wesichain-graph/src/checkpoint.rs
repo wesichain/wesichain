@@ -32,7 +32,10 @@ pub struct CheckpointMetadata {
 
 #[async_trait::async_trait]
 pub trait HistoryCheckpointer<S: StateSchema>: Send + Sync {
-    async fn list_checkpoints(&self, thread_id: &str) -> Result<Vec<CheckpointMetadata>, GraphError>;
+    async fn list_checkpoints(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<CheckpointMetadata>, GraphError>;
 }
 
 #[derive(Default, Clone)]

@@ -16,8 +16,14 @@ async fn file_checkpointer_appends_and_loads_latest() {
     let dir = tempdir().unwrap();
     let checkpointer = FileCheckpointer::new(dir.path());
 
-    let first = Checkpoint::new("thread/1".to_string(), GraphState::new(DemoState { count: 1 }));
-    let second = Checkpoint::new("thread/1".to_string(), GraphState::new(DemoState { count: 2 }));
+    let first = Checkpoint::new(
+        "thread/1".to_string(),
+        GraphState::new(DemoState { count: 1 }),
+    );
+    let second = Checkpoint::new(
+        "thread/1".to_string(),
+        GraphState::new(DemoState { count: 2 }),
+    );
 
     checkpointer.save(&first).await.unwrap();
     checkpointer.save(&second).await.unwrap();
@@ -34,16 +40,24 @@ async fn file_checkpointer_lists_metadata() {
     let dir = tempdir().unwrap();
     let checkpointer = FileCheckpointer::new(dir.path());
 
-    let first = Checkpoint::new("thread-2".to_string(), GraphState::new(DemoState { count: 1 }));
-    let second = Checkpoint::new("thread-2".to_string(), GraphState::new(DemoState { count: 2 }));
+    let first = Checkpoint::new(
+        "thread-2".to_string(),
+        GraphState::new(DemoState { count: 1 }),
+    );
+    let second = Checkpoint::new(
+        "thread-2".to_string(),
+        GraphState::new(DemoState { count: 2 }),
+    );
 
     checkpointer.save(&first).await.unwrap();
     checkpointer.save(&second).await.unwrap();
 
-    let history =
-        <FileCheckpointer as HistoryCheckpointer<DemoState>>::list_checkpoints(&checkpointer, "thread-2")
-            .await
-            .unwrap();
+    let history = <FileCheckpointer as HistoryCheckpointer<DemoState>>::list_checkpoints(
+        &checkpointer,
+        "thread-2",
+    )
+    .await
+    .unwrap();
     assert_eq!(history.len(), 2);
     assert_eq!(history[0].seq, 1);
     assert_eq!(history[1].seq, 2);

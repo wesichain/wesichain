@@ -1,6 +1,9 @@
 use std::collections::{HashMap, VecDeque};
 
-use crate::{Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState, StateSchema, StateUpdate};
+use crate::{
+    Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState,
+    StateSchema, StateUpdate,
+};
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;

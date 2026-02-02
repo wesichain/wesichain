@@ -68,7 +68,8 @@ impl FileCheckpointer {
                 continue;
             }
             last = Some(
-                serde_json::from_str(&line).map_err(|err| GraphError::Checkpoint(err.to_string()))?,
+                serde_json::from_str(&line)
+                    .map_err(|err| GraphError::Checkpoint(err.to_string()))?,
             );
         }
         Ok(last.map(|record| record.seq + 1).unwrap_or(1))
@@ -93,7 +94,8 @@ impl<S: StateSchema> Checkpointer<S> for FileCheckpointer {
             .append(true)
             .open(&path)
             .map_err(|err| GraphError::Checkpoint(err.to_string()))?;
-        let line = serde_json::to_string(&record).map_err(|err| GraphError::Checkpoint(err.to_string()))?;
+        let line = serde_json::to_string(&record)
+            .map_err(|err| GraphError::Checkpoint(err.to_string()))?;
         file.write_all(format!("{line}\n").as_bytes())
             .map_err(|err| GraphError::Checkpoint(err.to_string()))?;
         Ok(())
@@ -113,7 +115,8 @@ impl<S: StateSchema> Checkpointer<S> for FileCheckpointer {
                 continue;
             }
             last = Some(
-                serde_json::from_str(&line).map_err(|err| GraphError::Checkpoint(err.to_string()))?,
+                serde_json::from_str(&line)
+                    .map_err(|err| GraphError::Checkpoint(err.to_string()))?,
             );
         }
         Ok(last.map(|record| record.checkpoint))
@@ -122,7 +125,10 @@ impl<S: StateSchema> Checkpointer<S> for FileCheckpointer {
 
 #[async_trait::async_trait]
 impl<S: StateSchema> HistoryCheckpointer<S> for FileCheckpointer {
-    async fn list_checkpoints(&self, thread_id: &str) -> Result<Vec<CheckpointMetadata>, GraphError> {
+    async fn list_checkpoints(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<CheckpointMetadata>, GraphError> {
         let path = self.thread_path(thread_id);
         if !path.exists() {
             return Ok(Vec::new());
@@ -135,8 +141,8 @@ impl<S: StateSchema> HistoryCheckpointer<S> for FileCheckpointer {
             if line.trim().is_empty() {
                 continue;
             }
-            let record: CheckpointRecord<S> =
-                serde_json::from_str(&line).map_err(|err| GraphError::Checkpoint(err.to_string()))?;
+            let record: CheckpointRecord<S> = serde_json::from_str(&line)
+                .map_err(|err| GraphError::Checkpoint(err.to_string()))?;
             history.push(CheckpointMetadata {
                 seq: record.seq,
                 created_at: record.created_at,
