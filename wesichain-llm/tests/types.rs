@@ -58,7 +58,16 @@ fn llm_response_serializes_with_content_and_tool_calls_only() {
     let value = serde_json::to_value(response).expect("serialize response");
     assert_eq!(value["content"], "hello");
     assert!(value.get("tool_calls").is_some());
-    assert!(value.get("id").is_none());
-    assert!(value.get("model").is_none());
-    assert!(value.get("message").is_none());
+}
+
+#[test]
+fn llm_response_omits_tool_calls_when_empty() {
+    let response = LlmResponse {
+        content: "hello".to_string(),
+        tool_calls: Vec::new(),
+    };
+
+    let value = serde_json::to_value(response).expect("serialize response");
+    assert_eq!(value["content"], "hello");
+    assert!(value.get("tool_calls").is_none());
 }

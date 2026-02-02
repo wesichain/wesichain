@@ -43,6 +43,6 @@ pub struct LlmRequest {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct LlmResponse {
     pub content: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub tool_calls: Vec<ToolCall>,
 }
