@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 
-use crate::{Checkpoint, Checkpointer, GraphState, StateSchema, StateUpdate};
+use crate::{
+    Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState,
+    StateSchema, StateUpdate,
+};
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
@@ -10,6 +13,7 @@ pub struct GraphBuilder<S: StateSchema> {
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
+    default_config: ExecutionConfig,
     entry: Option<String>,
 }
 
@@ -26,6 +30,7 @@ impl<S: StateSchema> GraphBuilder<S> {
             edges: HashMap::new(),
             conditional: HashMap::new(),
             checkpointer: None,
+            default_config: ExecutionConfig::default(),
             entry: None,
         }
     }
@@ -65,12 +70,18 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn with_default_config(mut self, config: ExecutionConfig) -> Self {
+        self.default_config = config;
+        self
+    }
+
     pub fn build(self) -> ExecutableGraph<S> {
         ExecutableGraph {
             nodes: self.nodes,
             edges: self.edges,
             conditional: self.conditional,
             checkpointer: self.checkpointer,
+            default_config: self.default_config,
             entry: self.entry.expect("entry"),
         }
     }
@@ -81,13 +92,57 @@ pub struct ExecutableGraph<S: StateSchema> {
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
+    default_config: ExecutionConfig,
     entry: String,
 }
 
 impl<S: StateSchema> ExecutableGraph<S> {
-    pub async fn invoke(&self, mut state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
+    pub async fn invoke(&self, state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
+        self.invoke_with_options(state, ExecutionOptions::default())
+            .await
+    }
+
+    pub async fn invoke_with_options(
+        &self,
+        mut state: GraphState<S>,
+        options: ExecutionOptions,
+    ) -> Result<GraphState<S>, WesichainError> {
+        let effective = self.default_config.merge(&options);
+        let mut step_count = 0usize;
+        let mut recent: VecDeque<String> = VecDeque::new();
         let mut current = self.entry.clone();
+
         loop {
+            if let Some(max) = effective.max_steps {
+                if step_count >= max {
+                    return Err(WesichainError::Custom(
+                        GraphError::MaxStepsExceeded {
+                            max,
+                            reached: step_count,
+                        }
+                        .to_string(),
+                    ));
+                }
+            }
+            step_count += 1;
+
+            if effective.cycle_detection {
+                if recent.len() == effective.cycle_window {
+                    recent.pop_front();
+                }
+                recent.push_back(current.clone());
+                let count = recent.iter().filter(|node| **node == current).count();
+                if count >= 2 {
+                    return Err(WesichainError::Custom(
+                        GraphError::CycleDetected {
+                            node: current.clone(),
+                            recent: recent.iter().cloned().collect(),
+                        }
+                        .to_string(),
+                    ));
+                }
+            }
+
             let node = self.nodes.get(&current).expect("node");
             let update = node.invoke(state).await?;
             state = GraphState::new(update.data);
