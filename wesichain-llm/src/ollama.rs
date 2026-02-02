@@ -1,5 +1,5 @@
 use bytes::{Buf, BytesMut};
-use futures::{stream, stream::StreamExt};
+use futures::{future, stream, stream::StreamExt};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::error::Category;
@@ -56,8 +56,10 @@ fn parse_ndjson_buffer(buffer: &mut BytesMut) -> Result<Vec<StreamEvent>, Wesich
                 if err.classify() == Category::Eof {
                     break;
                 }
+                let output = String::from_utf8_lossy(buffer).to_string();
+                buffer.clear();
                 return Err(WesichainError::ParseFailed {
-                    output: String::from_utf8_lossy(buffer).to_string(),
+                    output,
                     reason: err.to_string(),
                 });
             }
@@ -72,17 +74,26 @@ fn stream_from_ndjson(
     response: reqwest::Response,
 ) -> futures::stream::BoxStream<'static, Result<StreamEvent, WesichainError>> {
     let mut buffer = BytesMut::new();
+    let terminated = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let terminated_for_take = terminated.clone();
     response
         .bytes_stream()
+        .take_while(move |_| future::ready(!terminated_for_take.load(std::sync::atomic::Ordering::SeqCst)))
         .flat_map(move |chunk| match chunk {
             Ok(bytes) => {
                 buffer.extend_from_slice(&bytes);
                 match parse_ndjson_buffer(&mut buffer) {
                     Ok(events) => stream::iter(events.into_iter().map(Ok).collect::<Vec<_>>()),
-                    Err(err) => stream::iter(vec![Err(err)]),
+                    Err(err) => {
+                        terminated.store(true, std::sync::atomic::Ordering::SeqCst);
+                        stream::iter(vec![Err(err)])
+                    }
                 }
             }
-            Err(err) => stream::iter(vec![Err(WesichainError::LlmProvider(err.to_string()))]),
+            Err(err) => {
+                terminated.store(true, std::sync::atomic::Ordering::SeqCst);
+                stream::iter(vec![Err(WesichainError::LlmProvider(err.to_string()))])
+            }
         })
         .boxed()
 }
@@ -197,7 +208,11 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
                 .map_err(|err| WesichainError::LlmProvider(err.to_string()))
         })
         .flat_map(|result| match result {
-            Ok(resp) => stream_from_ndjson(resp),
+            Ok(resp) => match resp.error_for_status() {
+                Ok(resp) => stream_from_ndjson(resp),
+                Err(err) => stream::iter(vec![Err(WesichainError::LlmProvider(err.to_string()))])
+                    .boxed(),
+            },
             Err(err) => stream::iter(vec![Err(err)]).boxed(),
         })
         .boxed()
