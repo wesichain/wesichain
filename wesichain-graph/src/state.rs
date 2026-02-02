@@ -16,8 +16,9 @@ impl<S: StateSchema> GraphState<S> {
         Self { data }
     }
 
-    pub fn apply(self, update: StateUpdate<S>) -> Self {
-        Self { data: update.data }
+    pub fn apply(mut self, update: StateUpdate<S>) -> Self {
+        self.data = update.data;
+        self
     }
 }
 
