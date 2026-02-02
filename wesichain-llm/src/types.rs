@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use wesichain_core::Value;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -29,7 +29,7 @@ pub struct ToolSpec {
 pub struct ToolCall {
     pub id: String,
     pub name: String,
-    pub arguments: Value,
+    pub args: Value,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -42,10 +42,7 @@ pub struct LlmRequest {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct LlmResponse {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub id: Option<String>,
-    pub model: String,
-    pub message: Message,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub content: String,
+    #[serde(default)]
     pub tool_calls: Vec<ToolCall>,
 }
