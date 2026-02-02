@@ -1,14 +1,11 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+mod ollama;
+mod types;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub use ollama::{ollama_stream_events, OllamaClient};
+pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+use wesichain_core::Runnable;
+
+pub trait Llm: Runnable<LlmRequest, LlmResponse> {}
+
+impl<T> Llm for T where T: Runnable<LlmRequest, LlmResponse> {}
