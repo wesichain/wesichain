@@ -275,6 +275,8 @@ dependencies = [
 name = "wesichain-llm"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "futures",
  "serde",
  "serde_json",
  "wesichain-core",
