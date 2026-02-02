@@ -5,6 +5,7 @@ use wesichain_core::{Runnable, WesichainError};
 
 pub struct GraphBuilder<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    edges: HashMap<String, String>,
     entry: Option<String>,
 }
 
@@ -12,6 +13,7 @@ impl<S: StateSchema> GraphBuilder<S> {
     pub fn new() -> Self {
         Self {
             nodes: HashMap::new(),
+            edges: HashMap::new(),
             entry: None,
         }
     }
@@ -29,9 +31,15 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn add_edge(mut self, from: &str, to: &str) -> Self {
+        self.edges.insert(from.to_string(), to.to_string());
+        self
+    }
+
     pub fn build(self) -> ExecutableGraph<S> {
         ExecutableGraph {
             nodes: self.nodes,
+            edges: self.edges,
             entry: self.entry.expect("entry"),
         }
     }
@@ -39,13 +47,25 @@ impl<S: StateSchema> GraphBuilder<S> {
 
 pub struct ExecutableGraph<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    edges: HashMap<String, String>,
     entry: String,
 }
 
 impl<S: StateSchema> ExecutableGraph<S> {
-    pub async fn invoke(&self, state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
-        let node = self.nodes.get(&self.entry).expect("entry node");
-        let update = node.invoke(state).await?;
-        Ok(GraphState::new(update.data))
+    pub async fn invoke(
+        &self,
+        mut state: GraphState<S>,
+    ) -> Result<GraphState<S>, WesichainError> {
+        let mut current = self.entry.clone();
+        loop {
+            let node = self.nodes.get(&current).expect("node");
+            let update = node.invoke(state).await?;
+            state = GraphState::new(update.data);
+            match self.edges.get(&current) {
+                Some(next) => current = next.clone(),
+                None => break,
+            }
+        }
+        Ok(state)
     }
 }
