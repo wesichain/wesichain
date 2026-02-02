@@ -46,7 +46,8 @@ impl<S: StateSchema> GraphBuilder<S> {
     where
         F: Fn(&GraphState<S>) -> String + Send + Sync + 'static,
     {
-        self.conditional.insert(from.to_string(), Box::new(condition));
+        self.conditional
+            .insert(from.to_string(), Box::new(condition));
         self
     }
 
@@ -78,10 +79,7 @@ pub struct ExecutableGraph<S: StateSchema> {
 }
 
 impl<S: StateSchema> ExecutableGraph<S> {
-    pub async fn invoke(
-        &self,
-        mut state: GraphState<S>,
-    ) -> Result<GraphState<S>, WesichainError> {
+    pub async fn invoke(&self, mut state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
         let mut current = self.entry.clone();
         loop {
             let node = self.nodes.get(&current).expect("node");
