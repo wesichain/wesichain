@@ -3,9 +3,12 @@ use std::collections::HashMap;
 use crate::{GraphState, StateSchema, StateUpdate};
 use wesichain_core::{Runnable, WesichainError};
 
+pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
+
 pub struct GraphBuilder<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
     edges: HashMap<String, String>,
+    conditional: HashMap<String, Condition<S>>,
     entry: Option<String>,
 }
 
@@ -14,6 +17,7 @@ impl<S: StateSchema> GraphBuilder<S> {
         Self {
             nodes: HashMap::new(),
             edges: HashMap::new(),
+            conditional: HashMap::new(),
             entry: None,
         }
     }
@@ -36,10 +40,19 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn add_conditional_edge<F>(mut self, from: &str, condition: F) -> Self
+    where
+        F: Fn(&GraphState<S>) -> String + Send + Sync + 'static,
+    {
+        self.conditional.insert(from.to_string(), Box::new(condition));
+        self
+    }
+
     pub fn build(self) -> ExecutableGraph<S> {
         ExecutableGraph {
             nodes: self.nodes,
             edges: self.edges,
+            conditional: self.conditional,
             entry: self.entry.expect("entry"),
         }
     }
@@ -48,6 +61,7 @@ impl<S: StateSchema> GraphBuilder<S> {
 pub struct ExecutableGraph<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
     edges: HashMap<String, String>,
+    conditional: HashMap<String, Condition<S>>,
     entry: String,
 }
 
@@ -61,6 +75,10 @@ impl<S: StateSchema> ExecutableGraph<S> {
             let node = self.nodes.get(&current).expect("node");
             let update = node.invoke(state).await?;
             state = GraphState::new(update.data);
+            if let Some(condition) = self.conditional.get(&current) {
+                current = condition(&state);
+                continue;
+            }
             match self.edges.get(&current) {
                 Some(next) => current = next.clone(),
                 None => break,
