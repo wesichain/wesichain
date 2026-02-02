@@ -1012,7 +1012,9 @@ git commit -m "feat(agent): add tool-calling agent"
 
 **Files:**
 - Create: `examples/agent.rs`
-- Modify: `Cargo.toml`
+- Modify: `wesichain-core/Cargo.toml`
+
+**Note:** The workspace root `Cargo.toml` is a virtual manifest and cannot declare dev-dependencies; add them to `wesichain-core/Cargo.toml` instead.
 
 **Step 1: Write the failing test**
 
@@ -1060,7 +1062,7 @@ impl Tool for EchoTool {
 ```
 
 ```toml
-# Cargo.toml
+# wesichain-core/Cargo.toml
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
@@ -1073,8 +1075,8 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add examples/agent.rs Cargo.toml
-git commit -m "docs: add agent example"
+git add examples/agent.rs wesichain-core/Cargo.toml
+git commit -m "docs: align agent example"
 ```
 
 ---
