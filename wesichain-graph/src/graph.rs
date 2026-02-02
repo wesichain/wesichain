@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{GraphState, StateSchema, StateUpdate};
+use crate::{Checkpoint, Checkpointer, GraphState, StateSchema, StateUpdate};
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
@@ -9,6 +9,7 @@ pub struct GraphBuilder<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
+    checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
     entry: Option<String>,
 }
 
@@ -18,6 +19,7 @@ impl<S: StateSchema> GraphBuilder<S> {
             nodes: HashMap::new(),
             edges: HashMap::new(),
             conditional: HashMap::new(),
+            checkpointer: None,
             entry: None,
         }
     }
@@ -48,11 +50,20 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn with_checkpointer<C>(mut self, checkpointer: C, thread_id: &str) -> Self
+    where
+        C: Checkpointer<S> + 'static,
+    {
+        self.checkpointer = Some((Box::new(checkpointer), thread_id.to_string()));
+        self
+    }
+
     pub fn build(self) -> ExecutableGraph<S> {
         ExecutableGraph {
             nodes: self.nodes,
             edges: self.edges,
             conditional: self.conditional,
+            checkpointer: self.checkpointer,
             entry: self.entry.expect("entry"),
         }
     }
@@ -62,6 +73,7 @@ pub struct ExecutableGraph<S: StateSchema> {
     nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
+    checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
     entry: String,
 }
 
@@ -75,6 +87,13 @@ impl<S: StateSchema> ExecutableGraph<S> {
             let node = self.nodes.get(&current).expect("node");
             let update = node.invoke(state).await?;
             state = GraphState::new(update.data);
+            if let Some((checkpointer, thread_id)) = &self.checkpointer {
+                let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
+                checkpointer
+                    .save(&checkpoint)
+                    .await
+                    .map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+            }
             if let Some(condition) = self.conditional.get(&current) {
                 current = condition(&state);
                 continue;
