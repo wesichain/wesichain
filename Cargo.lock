@@ -2162,6 +2162,7 @@ dependencies = [
  "futures",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "wesichain-core",
 ]
