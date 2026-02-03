@@ -30,7 +30,7 @@ pub enum WesichainError {
 pub enum EmbeddingError {
     #[error("Invalid embedding response: {0}")]
     InvalidResponse(String),
-    #[error("Embedding rate limited")]
+    #[error("Embedding rate limited (retry_after={retry_after:?})")]
     RateLimited { retry_after: Option<Duration> },
     #[error("Embedding request timed out after {0:?}")]
     Timeout(Duration),

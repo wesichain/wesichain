@@ -12,7 +12,7 @@ impl Embedding for TestEmbedding {
         Ok(vec![0.0])
     }
 
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
         Ok(vec![vec![0.0]; texts.len()])
     }
 
