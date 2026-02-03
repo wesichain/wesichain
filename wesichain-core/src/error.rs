@@ -1,4 +1,4 @@
-use std::{error::Error as StdError, time::Duration};
+use std::{error::Error as StdError, fmt, time::Duration};
 
 use thiserror::Error;
 
@@ -26,16 +26,37 @@ pub enum WesichainError {
     Custom(String),
 }
 
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum EmbeddingError {
-    #[error("Invalid embedding response: {0}")]
     InvalidResponse(String),
-    #[error("Embedding rate limited (retry_after={retry_after:?})")]
     RateLimited { retry_after: Option<Duration> },
-    #[error("Embedding request timed out after {0:?}")]
     Timeout(Duration),
-    #[error("Embedding provider failed: {0}")]
     Provider(String),
-    #[error("embedding error: {0}")]
-    Other(#[source] Box<dyn StdError + Send + Sync>),
+    Other(Box<dyn StdError + Send + Sync>),
+}
+
+impl fmt::Display for EmbeddingError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            EmbeddingError::InvalidResponse(message) => {
+                write!(f, "Invalid embedding response: {message}")
+            }
+            EmbeddingError::RateLimited { retry_after } => match retry_after {
+                Some(duration) => write!(f, "rate limited (retry_after={duration:?})"),
+                None => write!(f, "rate limited (retry_after=unknown)"),
+            },
+            EmbeddingError::Timeout(duration) => write!(f, "timeout after {duration:?}"),
+            EmbeddingError::Provider(message) => write!(f, "Embedding provider failed: {message}"),
+            EmbeddingError::Other(error) => write!(f, "Embedding error: {error}"),
+        }
+    }
+}
+
+impl StdError for EmbeddingError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            EmbeddingError::Other(error) => Some(error.as_ref()),
+            _ => None,
+        }
+    }
 }

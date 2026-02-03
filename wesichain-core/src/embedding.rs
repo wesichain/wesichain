@@ -6,7 +6,15 @@ use crate::EmbeddingError;
 pub trait Embedding: Send + Sync {
     async fn embed(&self, text: &str) -> Result<Vec<f32>, EmbeddingError>;
 
-    async fn embed_batch(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError>;
+    async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError>;
+
+    async fn embed_batch_strs(&self, texts: &[&str]) -> Result<Vec<Vec<f32>>, EmbeddingError>
+    where
+        Self: Sized,
+    {
+        let owned: Vec<String> = texts.iter().map(|text| (*text).to_string()).collect();
+        self.embed_batch(&owned).await
+    }
 
     fn dimension(&self) -> usize;
 }
