@@ -92,6 +92,6 @@ fn embedding_error_display_for_timeout() {
 #[test]
 fn embedding_error_display_for_other() {
     let err = EmbeddingError::Other("network".to_string().into());
-    assert_eq!(format!("{err}"), "network");
+    assert_eq!(format!("{err}"), "embedding error: network");
     assert!(err.source().is_some());
 }

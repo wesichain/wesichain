@@ -36,6 +36,6 @@ pub enum EmbeddingError {
     Timeout(Duration),
     #[error("Embedding provider failed: {0}")]
     Provider(String),
-    #[error("{0}")]
+    #[error("embedding error: {0}")]
     Other(#[source] Box<dyn StdError + Send + Sync>),
 }
