@@ -8,19 +8,21 @@ impl TextSplitter {
 
         let mut chunks = Vec::new();
         let mut start = 0usize;
-        let bytes = text.as_bytes();
+        let chars: Vec<char> = text.chars().collect();
+        let max_overlap = chunk_size.saturating_sub(1);
+        let clamped_overlap = overlap.min(max_overlap);
+        let step = (chunk_size - clamped_overlap).max(1);
 
-        while start < bytes.len() {
-            let end = usize::min(start + chunk_size, bytes.len());
-            let chunk = String::from_utf8_lossy(&bytes[start..end]).to_string();
+        while start < chars.len() {
+            let end = usize::min(start + chunk_size, chars.len());
+            let chunk: String = chars[start..end].iter().collect();
             chunks.push(chunk);
 
-            if end == bytes.len() {
+            if end == chars.len() {
                 break;
             }
 
-            let step = chunk_size.saturating_sub(overlap);
-            start = start.saturating_add(step.max(1));
+            start = start.saturating_add(step);
         }
 
         chunks
