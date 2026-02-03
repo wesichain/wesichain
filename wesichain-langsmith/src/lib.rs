@@ -9,7 +9,7 @@ mod sanitize;
 
 pub use client::{LangSmithClient, LangSmithError};
 pub use config::LangSmithConfig;
-pub use events::{RunEvent, RunStatus, RunType};
+pub use events::{LangSmithInputs, LangSmithOutputs, RunEvent, RunStatus, RunType};
 pub use exporter::{FlushError, FlushStats, LangSmithExporter};
 pub use observer::LangSmithObserver;
 pub use run_store::{RunContextStore, RunMetadata, RunUpdateDecision};
