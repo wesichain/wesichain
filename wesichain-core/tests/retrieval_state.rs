@@ -1,6 +1,9 @@
 use wesichain_core::{Document, HasMetadataFilter, HasQuery, HasRetrievedDocs, MetadataFilter};
 
-struct DemoState;
+struct DemoState {
+    docs: Vec<Document>,
+    filter: Option<MetadataFilter>,
+}
 
 impl HasQuery for DemoState {
     fn query(&self) -> &str {
@@ -9,14 +12,14 @@ impl HasQuery for DemoState {
 }
 
 impl HasRetrievedDocs for DemoState {
-    fn retrieved_docs(&self) -> &[Document] {
-        &[]
+    fn set_retrieved_docs(&mut self, docs: Vec<Document>) {
+        self.docs = docs;
     }
 }
 
 impl HasMetadataFilter for DemoState {
-    fn metadata_filter(&self) -> Option<&MetadataFilter> {
-        None
+    fn metadata_filter(&self) -> Option<MetadataFilter> {
+        self.filter.clone()
     }
 }
 
