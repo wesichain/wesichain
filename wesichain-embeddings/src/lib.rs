@@ -1,28 +1,13 @@
-mod error {
-    use thiserror::Error;
-
-    #[derive(Debug, Error)]
-    #[error("embedding provider error")]
-    pub struct EmbeddingProviderError;
-}
+mod error;
 
 #[cfg(feature = "openai")]
-mod openai {
-    #[derive(Debug, Default, Clone)]
-    pub struct OpenAiEmbedding;
-}
+mod openai;
 
 #[cfg(feature = "ollama")]
-mod ollama {
-    #[derive(Debug, Default, Clone)]
-    pub struct OllamaEmbedding;
-}
+mod ollama;
 
 #[cfg(feature = "candle")]
-mod candle {
-    #[derive(Debug, Default, Clone)]
-    pub struct CandleEmbedding;
-}
+mod candle;
 
 pub use error::EmbeddingProviderError;
 
