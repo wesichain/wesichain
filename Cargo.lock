@@ -3652,6 +3652,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "wesichain-core",
+ "wesichain-retrieval",
 ]
 
 [[package]]
