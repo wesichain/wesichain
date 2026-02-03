@@ -3,6 +3,7 @@ use async_openai::types::CreateEmbeddingRequestArgs;
 use async_openai::Client;
 use async_trait::async_trait;
 use wesichain_core::{Embedding, EmbeddingError};
+use crate::EmbeddingProviderError;
 
 #[derive(Clone)]
 pub struct OpenAiEmbedding {
@@ -35,17 +36,31 @@ impl Embedding for OpenAiEmbedding {
             .embeddings()
             .create(request)
             .await
-            .map_err(|err| EmbeddingError::Provider(err.to_string()))?;
+            .map_err(|err| EmbeddingProviderError::Request(err.to_string()))?;
 
-        response
+        let embedding = response
             .data
             .get(0)
             .map(|item| item.embedding.clone())
-            .ok_or_else(|| EmbeddingError::InvalidResponse("missing embedding".to_string()))
+            .ok_or_else(|| {
+                EmbeddingProviderError::InvalidResponse("missing embedding".to_string())
+            })?;
+
+        if embedding.len() != self.dimension {
+            return Err(EmbeddingProviderError::InvalidResponse(format!(
+                "expected embedding dimension {}, got {}",
+                self.dimension,
+                embedding.len()
+            ))
+            .into());
+        }
+
+        Ok(embedding)
     }
 
     async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
         let inputs = texts.to_vec();
+        let inputs_len = inputs.len();
         let request = CreateEmbeddingRequestArgs::default()
             .model(&self.model)
             .input(inputs)
@@ -57,9 +72,31 @@ impl Embedding for OpenAiEmbedding {
             .embeddings()
             .create(request)
             .await
-            .map_err(|err| EmbeddingError::Provider(err.to_string()))?;
+            .map_err(|err| EmbeddingProviderError::Request(err.to_string()))?;
 
-        Ok(response.data.into_iter().map(|item| item.embedding).collect())
+        if response.data.len() != inputs_len {
+            return Err(EmbeddingProviderError::InvalidResponse(format!(
+                "expected {} embeddings, got {}",
+                inputs_len,
+                response.data.len()
+            ))
+            .into());
+        }
+
+        let mut out = Vec::with_capacity(response.data.len());
+        for item in response.data {
+            if item.embedding.len() != self.dimension {
+                return Err(EmbeddingProviderError::InvalidResponse(format!(
+                    "expected embedding dimension {}, got {}",
+                    self.dimension,
+                    item.embedding.len()
+                ))
+                .into());
+            }
+            out.push(item.embedding);
+        }
+
+        Ok(out)
     }
 
     fn dimension(&self) -> usize {

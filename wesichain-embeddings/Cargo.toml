@@ -11,7 +11,7 @@ description = "Embedding providers for Wesichain"
 [features]
 default = []
 openai = ["dep:async-openai"]
-ollama = ["dep:ollama-rs", "dep:reqwest"]
+ollama = ["dep:reqwest"]
 candle = ["dep:candle-core", "dep:candle-nn"]
 
 [dependencies]
@@ -22,7 +22,6 @@ thiserror = "1"
 wesichain-core = { path = "../wesichain-core" }
 
 async-openai = { version = "0.23", optional = true }
-ollama-rs = { version = "0.2", optional = true }
 reqwest = { version = "0.12", optional = true }
 candle-core = { version = "0.4", optional = true }
 candle-nn = { version = "0.4", optional = true }

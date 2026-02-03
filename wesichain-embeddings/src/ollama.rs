@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use crate::EmbeddingProviderError;
 use wesichain_core::{Embedding, EmbeddingError};
 
 #[derive(Clone)]
@@ -47,12 +48,22 @@ impl Embedding for OllamaEmbedding {
             .json(&req)
             .send()
             .await
-            .map_err(|err| EmbeddingError::Provider(err.to_string()))?
+            .map_err(|err| EmbeddingProviderError::Request(err.to_string()))?
             .error_for_status()
-            .map_err(|err| EmbeddingError::Provider(err.to_string()))?
+            .map_err(|err| EmbeddingProviderError::Request(err.to_string()))?
             .json()
             .await
-            .map_err(|err| EmbeddingError::Provider(err.to_string()))?;
+            .map_err(|err| EmbeddingProviderError::Request(err.to_string()))?;
+
+        if response.embedding.len() != self.dimension {
+            return Err(EmbeddingProviderError::InvalidResponse(format!(
+                "expected embedding dimension {}, got {}",
+                self.dimension,
+                response.embedding.len()
+            ))
+            .into());
+        }
+
         Ok(response.embedding)
     }
 
