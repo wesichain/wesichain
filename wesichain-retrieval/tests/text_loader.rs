@@ -2,7 +2,7 @@ use std::fs;
 
 use serde_json::Value;
 use tempfile::tempdir;
-use wesichain_retrieval::TextLoader;
+use wesichain_retrieval::{PdfLoader, TextLoader};
 
 #[test]
 fn text_loader_returns_document_with_metadata() {
@@ -21,4 +21,17 @@ fn text_loader_returns_document_with_metadata() {
         documents[0].metadata.get("source"),
         Some(&Value::String(path.to_string_lossy().into_owned()))
     );
+}
+
+#[cfg(not(feature = "pdf"))]
+#[test]
+fn pdf_loader_returns_error_when_feature_disabled() {
+    let dir = tempdir().expect("temp dir");
+    let path = dir.path().join("demo.pdf");
+    fs::write(&path, "not a real pdf").expect("write temp file");
+
+    let loader = PdfLoader::new(path);
+    let err = loader.load().expect_err("pdf load should error");
+
+    assert_eq!(err.kind(), std::io::ErrorKind::Other);
 }

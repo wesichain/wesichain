@@ -58,3 +58,23 @@ impl PdfLoader {
         }])
     }
 }
+
+#[cfg(not(feature = "pdf"))]
+pub struct PdfLoader {
+    path: PathBuf,
+}
+
+#[cfg(not(feature = "pdf"))]
+impl PdfLoader {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+
+    pub fn load(&self) -> Result<Vec<Document>, std::io::Error> {
+        let _ = &self.path;
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "pdf feature disabled",
+        ))
+    }
+}
