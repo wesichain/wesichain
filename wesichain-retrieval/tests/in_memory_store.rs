@@ -189,6 +189,50 @@ async fn in_memory_store_filters_metadata_range() {
 }
 
 #[tokio::test]
+async fn in_memory_store_filters_metadata_range_rejects_non_numeric_metadata() {
+    let store = InMemoryVectorStore::new();
+    let mut string_metadata = HashMap::new();
+    string_metadata.insert("score".to_string(), Value::String("high".to_string()));
+    let docs = vec![Document {
+        id: "string".to_string(),
+        content: "string".to_string(),
+        metadata: string_metadata,
+        embedding: Some(vec![1.0, 0.0, 0.0]),
+    }];
+    store.add(docs).await.unwrap();
+
+    let filter = MetadataFilter::Range {
+        key: "score".to_string(),
+        min: Some(Value::String("a".to_string())),
+        max: Some(Value::String("z".to_string())),
+    };
+    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    assert!(results.is_empty());
+}
+
+#[tokio::test]
+async fn in_memory_store_filters_metadata_range_rejects_non_numeric_bounds() {
+    let store = InMemoryVectorStore::new();
+    let mut numeric_metadata = HashMap::new();
+    numeric_metadata.insert("score".to_string(), Value::Number(7.into()));
+    let docs = vec![Document {
+        id: "numeric".to_string(),
+        content: "numeric".to_string(),
+        metadata: numeric_metadata,
+        embedding: Some(vec![1.0, 0.0, 0.0]),
+    }];
+    store.add(docs).await.unwrap();
+
+    let filter = MetadataFilter::Range {
+        key: "score".to_string(),
+        min: Some(Value::String("low".to_string())),
+        max: None,
+    };
+    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    assert!(results.is_empty());
+}
+
+#[tokio::test]
 async fn in_memory_store_filters_metadata_all() {
     let store = InMemoryVectorStore::new();
     let mut match_metadata = HashMap::new();

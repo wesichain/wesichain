@@ -141,13 +141,22 @@ fn metadata_matches(filter: &MetadataFilter, metadata: &HashMap<String, Value>) 
             let Some(value) = metadata.get(key) else {
                 return false;
             };
+            let Some(value) = value.as_f64() else {
+                return false;
+            };
             if let Some(min_value) = min {
-                if !value_gte(value, min_value) {
+                let Some(min_value) = min_value.as_f64() else {
+                    return false;
+                };
+                if value < min_value {
                     return false;
                 }
             }
             if let Some(max_value) = max {
-                if !value_lte(value, max_value) {
+                let Some(max_value) = max_value.as_f64() else {
+                    return false;
+                };
+                if value > max_value {
                     return false;
                 }
             }
@@ -159,30 +168,5 @@ fn metadata_matches(filter: &MetadataFilter, metadata: &HashMap<String, Value>) 
         MetadataFilter::Any(filters) => filters
             .iter()
             .any(|filter| metadata_matches(filter, metadata)),
-    }
-}
-
-fn value_gte(value: &Value, bound: &Value) -> bool {
-    compare_values(value, bound)
-        .map(|ordering| ordering != std::cmp::Ordering::Less)
-        .unwrap_or(false)
-}
-
-fn value_lte(value: &Value, bound: &Value) -> bool {
-    compare_values(value, bound)
-        .map(|ordering| ordering != std::cmp::Ordering::Greater)
-        .unwrap_or(false)
-}
-
-fn compare_values(value: &Value, bound: &Value) -> Option<std::cmp::Ordering> {
-    match (value, bound) {
-        (Value::Number(value), Value::Number(bound)) => {
-            let value = value.as_f64()?;
-            let bound = bound.as_f64()?;
-            value.partial_cmp(&bound)
-        }
-        (Value::String(value), Value::String(bound)) => Some(value.cmp(bound)),
-        (Value::Bool(value), Value::Bool(bound)) => Some(value.cmp(bound)),
-        _ => None,
     }
 }
