@@ -31,9 +31,9 @@ pub enum EmbeddingError {
     #[error("Invalid embedding response: {0}")]
     InvalidResponse(String),
     #[error("Embedding rate limited")]
-    RateLimited,
-    #[error("Embedding request timed out")]
-    Timeout,
+    RateLimited { retry_after: Option<Duration> },
+    #[error("Embedding request timed out after {0:?}")]
+    Timeout(Duration),
     #[error("Embedding provider failed: {0}")]
     Provider(String),
     #[error("{0}")]
