@@ -50,10 +50,15 @@ impl VectorStore for InMemoryVectorStore {
                 _ => {}
             }
 
-            let index = inner.docs.len();
-            inner.id_map.insert(doc.id.clone(), index);
-            inner.docs.push(Some(doc));
-            inner.embeddings.push(Some(embedding));
+            if let Some(&index) = inner.id_map.get(&doc.id) {
+                inner.docs[index] = Some(doc);
+                inner.embeddings[index] = Some(embedding);
+            } else {
+                let index = inner.docs.len();
+                inner.id_map.insert(doc.id.clone(), index);
+                inner.docs.push(Some(doc));
+                inner.embeddings.push(Some(embedding));
+            }
         }
         Ok(())
     }
@@ -76,7 +81,10 @@ impl VectorStore for InMemoryVectorStore {
         let mut scored = Vec::new();
         for (idx, embedding) in inner.embeddings.iter().enumerate() {
             let Some(embedding) = embedding else { continue };
-            let score = cosine_similarity(query_embedding, embedding);
+            let mut score = cosine_similarity(query_embedding, embedding);
+            if score.is_nan() {
+                score = f32::NEG_INFINITY;
+            }
             let Some(doc) = inner.docs[idx].as_ref() else { continue };
             scored.push(SearchResult {
                 document: doc.clone(),
