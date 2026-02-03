@@ -145,6 +145,48 @@ async fn main() -> Result<(), WesichainError> {
 }
 ```
 
+## LangSmith Observability
+
+```toml
+[dependencies]
+wesichain-graph = { path = "wesichain-graph" }
+wesichain-langsmith = { path = "wesichain-langsmith" }
+secrecy = "0.8"
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+```rust
+use std::sync::Arc;
+use std::time::Duration;
+
+use secrecy::SecretString;
+use wesichain_graph::{ExecutionOptions, ExecutableGraph, GraphState, StateSchema};
+use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
+
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+struct DemoState;
+
+impl StateSchema for DemoState {}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = LangSmithConfig::new(SecretString::new("key".to_string()), "example");
+    let observer = Arc::new(LangSmithObserver::new(config));
+    let options = ExecutionOptions {
+        observer: Some(observer.clone()),
+        ..Default::default()
+    };
+
+    let graph: ExecutableGraph<DemoState> = todo!("build with GraphBuilder");
+    let state = GraphState::new(DemoState::default());
+    let _ = graph.invoke_with_options(state, options).await;
+    let _ = observer.flush(Duration::from_secs(5)).await;
+
+    Ok(())
+}
+```
+
 ## ReAct Graph Agent (Tool Calling)
 
 ```toml
