@@ -4,7 +4,7 @@ use wesichain_llm::{LlmRequest, LlmResponse, Message, Role};
 
 use crate::ToolRegistry;
 
-#[deprecated(since = "0.x", note = "Use ReActAgentNode in wesichain-graph")]
+#[deprecated(since = "0.1.0", note = "Use ReActAgentNode in wesichain-graph")]
 pub struct ToolCallingAgent<L> {
     llm: L,
     tools: ToolRegistry,
@@ -12,6 +12,7 @@ pub struct ToolCallingAgent<L> {
     max_steps: usize,
 }
 
+#[allow(deprecated)]
 impl<L> ToolCallingAgent<L> {
     pub fn new(llm: L, tools: ToolRegistry, model: String) -> Self {
         Self {
@@ -28,6 +29,7 @@ impl<L> ToolCallingAgent<L> {
     }
 }
 
+#[allow(deprecated)]
 #[async_trait::async_trait]
 impl<L> Runnable<String, String> for ToolCallingAgent<L>
 where
@@ -51,7 +53,10 @@ where
                     tools: tool_specs,
                 })
                 .await?;
-            let LlmResponse { content, tool_calls } = response;
+            let LlmResponse {
+                content,
+                tool_calls,
+            } = response;
             if tool_calls.is_empty() {
                 return Ok(content);
             }
@@ -64,12 +69,14 @@ where
             });
 
             for call in tool_calls {
-                let result = self.tools.call(&call.name, call.args).await.map_err(|err| {
-                    WesichainError::ToolCallFailed {
+                let result = self
+                    .tools
+                    .call(&call.name, call.args)
+                    .await
+                    .map_err(|err| WesichainError::ToolCallFailed {
                         tool_name: call.name.clone(),
                         reason: err.to_string(),
-                    }
-                })?;
+                    })?;
                 messages.push(Message {
                     role: Role::Tool,
                     content: result.to_string(),

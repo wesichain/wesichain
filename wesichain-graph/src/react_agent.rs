@@ -13,16 +13,11 @@ use crate::state::{GraphState, StateSchema, StateUpdate};
 
 const DEFAULT_SYSTEM_PROMPT: &str = "You are a helpful assistant. Use tools when helpful. If a tool is used, wait for the tool result before answering.";
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ToolFailurePolicy {
+    #[default]
     FailFast,
     AppendErrorAndContinue,
-}
-
-impl Default for ToolFailurePolicy {
-    fn default() -> Self {
-        Self::FailFast
-    }
 }
 
 pub struct ReActAgentNode {
@@ -196,9 +191,9 @@ impl ReActAgentNodeBuilder {
     }
 
     pub fn build(self) -> Result<ReActAgentNode, GraphError> {
-        let llm = self.llm.ok_or_else(|| {
-            GraphError::InvalidToolCallResponse("missing llm".to_string())
-        })?;
+        let llm = self
+            .llm
+            .ok_or_else(|| GraphError::InvalidToolCallResponse("missing llm".to_string()))?;
         let mut tools = HashMap::new();
         for tool in self.tools {
             let name = tool.name().to_string();
@@ -263,7 +258,10 @@ where
                     tools: self.tool_specs.clone(),
                 })
                 .await?;
-            let LlmResponse { content, tool_calls } = response;
+            let LlmResponse {
+                content,
+                tool_calls,
+            } = response;
             last_content = Some(content.clone());
             data.increment_iteration();
 
@@ -287,7 +285,8 @@ where
                             "unknown tool: {}",
                             call.name
                         ));
-                        data.scratchpad_mut().push(ReActStep::Error(error.to_string()));
+                        data.scratchpad_mut()
+                            .push(ReActStep::Error(error.to_string()));
                         if let Some(observer) = &context.observer {
                             observer.on_error(&context.node_id, &error).await;
                         }
@@ -313,17 +312,16 @@ where
                         let reason = err.to_string();
                         match self.tool_failure_policy {
                             ToolFailurePolicy::FailFast => {
-                                let error =
-                                    GraphError::ToolCallFailed(call.name.clone(), reason);
-                                data.scratchpad_mut().push(ReActStep::Error(error.to_string()));
+                                let error = GraphError::ToolCallFailed(call.name.clone(), reason);
+                                data.scratchpad_mut()
+                                    .push(ReActStep::Error(error.to_string()));
                                 if let Some(observer) = &context.observer {
                                     observer.on_error(&context.node_id, &error).await;
                                 }
                                 return Err(WesichainError::Custom(error.to_string()));
                             }
                             ToolFailurePolicy::AppendErrorAndContinue => {
-                                let message =
-                                    format!("[TOOL ERROR] {}: {}", call.name, reason);
+                                let message = format!("[TOOL ERROR] {}: {}", call.name, reason);
                                 let value = Value::String(message);
                                 data.scratchpad_mut()
                                     .push(ReActStep::Observation(value.clone()));

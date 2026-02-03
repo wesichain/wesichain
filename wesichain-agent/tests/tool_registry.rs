@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use wesichain_agent::{Tool, ToolRegistry};
 use wesichain_core::{ToolError, ToolSpec, Value};
 

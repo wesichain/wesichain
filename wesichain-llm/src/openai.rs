@@ -141,9 +141,10 @@ impl ToolCallingLlm for OpenAiClient {
             .await
             .map_err(|err| WesichainError::LlmProvider(err.to_string()))?;
 
-        let choice = response.choices.first().ok_or_else(|| {
-            WesichainError::LlmProvider("no choices returned".to_string())
-        })?;
+        let choice = response
+            .choices
+            .first()
+            .ok_or_else(|| WesichainError::LlmProvider("no choices returned".to_string()))?;
         let content = choice.message.content.clone().unwrap_or_default();
         let tool_calls = choice
             .message
@@ -161,6 +162,9 @@ impl ToolCallingLlm for OpenAiClient {
             })
             .collect::<Result<Vec<_>, WesichainError>>()?;
 
-        Ok(LlmResponse { content, tool_calls })
+        Ok(LlmResponse {
+            content,
+            tool_calls,
+        })
     }
 }

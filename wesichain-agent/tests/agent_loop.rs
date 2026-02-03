@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 use async_trait::async_trait;
 use futures::stream::StreamExt;
 use std::sync::{Arc, Mutex};
