@@ -25,9 +25,24 @@ impl ExecutionConfig {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Default)]
 pub struct ExecutionOptions {
     pub max_steps: Option<usize>,
     pub cycle_detection: Option<bool>,
     pub cycle_window: Option<usize>,
+    pub observer: Option<Arc<dyn Observer>>,
 }
+
+impl std::fmt::Debug for ExecutionOptions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExecutionOptions")
+            .field("max_steps", &self.max_steps)
+            .field("cycle_detection", &self.cycle_detection)
+            .field("cycle_window", &self.cycle_window)
+            .field("observer", &self.observer.is_some())
+            .finish()
+    }
+}
+use std::sync::Arc;
+
+use crate::Observer;

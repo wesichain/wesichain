@@ -4,6 +4,7 @@ use wesichain_llm::{LlmRequest, LlmResponse, Message, Role};
 
 use crate::ToolRegistry;
 
+#[deprecated(since = "0.x", note = "Use ReActAgentNode in wesichain-graph")]
 pub struct ToolCallingAgent<L> {
     llm: L,
     tools: ToolRegistry,
@@ -37,6 +38,7 @@ where
             role: Role::User,
             content: input,
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }];
 
         for _ in 0..self.max_steps {
@@ -49,22 +51,30 @@ where
                     tools: tool_specs,
                 })
                 .await?;
-            if response.tool_calls.is_empty() {
-                return Ok(response.content);
+            let LlmResponse { content, tool_calls } = response;
+            if tool_calls.is_empty() {
+                return Ok(content);
             }
 
             messages.push(Message {
                 role: Role::Assistant,
-                content: response.content,
+                content,
                 tool_call_id: None,
+                tool_calls: tool_calls.clone(),
             });
 
-            for call in response.tool_calls {
-                let result = self.tools.call(&call.name, call.args).await?;
+            for call in tool_calls {
+                let result = self.tools.call(&call.name, call.args).await.map_err(|err| {
+                    WesichainError::ToolCallFailed {
+                        tool_name: call.name.clone(),
+                        reason: err.to_string(),
+                    }
+                })?;
                 messages.push(Message {
                     role: Role::Tool,
                     content: result.to_string(),
                     tool_call_id: Some(call.id.clone()),
+                    tool_calls: Vec::new(),
                 });
             }
         }

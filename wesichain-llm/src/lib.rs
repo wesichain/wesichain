@@ -1,8 +1,12 @@
 mod ollama;
-mod types;
+#[cfg(feature = "openai")]
+mod openai;
 
 pub use ollama::{ollama_stream_events, OllamaClient};
-pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
+pub use wesichain_core::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
+
+#[cfg(feature = "openai")]
+pub use openai::OpenAiClient;
 
 use wesichain_core::Runnable;
 
