@@ -25,3 +25,13 @@ pub enum WesichainError {
     #[error("{0}")]
     Custom(String),
 }
+
+#[derive(Debug, Error)]
+pub enum EmbeddingError {
+    #[error("Embedding provider failed: {0}")]
+    Provider(String),
+    #[error("Invalid embedding input: {0}")]
+    InvalidInput(String),
+    #[error("{0}")]
+    Custom(String),
+}
