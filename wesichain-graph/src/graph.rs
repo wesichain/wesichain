@@ -1,15 +1,47 @@
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
+use std::time::Instant;
 
 use crate::{
-    Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState,
+    Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState, Observer,
     StateSchema, StateUpdate,
 };
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
 
+pub struct GraphContext {
+    pub remaining_steps: Option<usize>,
+    pub observer: Option<Arc<dyn Observer>>,
+    pub node_id: String,
+}
+
+#[async_trait::async_trait]
+pub trait GraphNode<S: StateSchema>: Send + Sync {
+    async fn invoke_with_context(
+        &self,
+        input: GraphState<S>,
+        context: &GraphContext,
+    ) -> Result<StateUpdate<S>, WesichainError>;
+}
+
+#[async_trait::async_trait]
+impl<S, R> GraphNode<S> for R
+where
+    S: StateSchema,
+    R: Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync,
+{
+    async fn invoke_with_context(
+        &self,
+        input: GraphState<S>,
+        _context: &GraphContext,
+    ) -> Result<StateUpdate<S>, WesichainError> {
+        self.invoke(input).await
+    }
+}
+
 pub struct GraphBuilder<S: StateSchema> {
-    nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    nodes: HashMap<String, Box<dyn GraphNode<S>>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
@@ -37,7 +69,7 @@ impl<S: StateSchema> GraphBuilder<S> {
 
     pub fn add_node<R>(mut self, name: &str, node: R) -> Self
     where
-        R: Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync + 'static,
+        R: GraphNode<S> + 'static,
     {
         self.nodes.insert(name.to_string(), Box::new(node));
         self
@@ -88,7 +120,7 @@ impl<S: StateSchema> GraphBuilder<S> {
 }
 
 pub struct ExecutableGraph<S: StateSchema> {
-    nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    nodes: HashMap<String, Box<dyn GraphNode<S>>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
@@ -108,6 +140,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
         options: ExecutionOptions,
     ) -> Result<GraphState<S>, WesichainError> {
         let effective = self.default_config.merge(&options);
+        let observer = options.observer.clone();
         let mut step_count = 0usize;
         let mut recent: VecDeque<String> = VecDeque::new();
         let mut current = self.entry.clone();
@@ -115,13 +148,14 @@ impl<S: StateSchema> ExecutableGraph<S> {
         loop {
             if let Some(max) = effective.max_steps {
                 if step_count >= max {
-                    return Err(WesichainError::Custom(
-                        GraphError::MaxStepsExceeded {
-                            max,
-                            reached: step_count,
-                        }
-                        .to_string(),
-                    ));
+                    let error = GraphError::MaxStepsExceeded {
+                        max,
+                        reached: step_count,
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(WesichainError::Custom(error.to_string()));
                 }
             }
             step_count += 1;
@@ -133,25 +167,46 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 recent.push_back(current.clone());
                 let count = recent.iter().filter(|node| **node == current).count();
                 if count >= 2 {
-                    return Err(WesichainError::Custom(
-                        GraphError::CycleDetected {
-                            node: current.clone(),
-                            recent: recent.iter().cloned().collect(),
-                        }
-                        .to_string(),
-                    ));
+                    let error = GraphError::CycleDetected {
+                        node: current.clone(),
+                        recent: recent.iter().cloned().collect(),
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(WesichainError::Custom(error.to_string()));
                 }
             }
 
             let node = self.nodes.get(&current).expect("node");
-            let update = node.invoke(state).await?;
+            if let Some(obs) = &observer {
+                let input_value = serde_json::to_value(&state.data)?;
+                obs.on_node_start(&current, &input_value).await;
+            }
+            let context = GraphContext {
+                remaining_steps: effective
+                    .max_steps
+                    .map(|max| max.saturating_sub(step_count.saturating_sub(1))),
+                observer: observer.clone(),
+                node_id: current.clone(),
+            };
+            let start = Instant::now();
+            let update = node.invoke_with_context(state, &context).await?;
+            let duration_ms = start.elapsed().as_millis();
             state = GraphState::new(update.data);
+            if let Some(obs) = &observer {
+                let output_value = serde_json::to_value(&state.data)?;
+                obs.on_node_end(&current, &output_value, duration_ms).await;
+            }
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
                 let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
-                checkpointer
-                    .save(&checkpoint)
-                    .await
-                    .map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+                if let Err(err) = checkpointer.save(&checkpoint).await {
+                    let error = GraphError::Checkpoint(err.to_string());
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(WesichainError::CheckpointFailed(error.to_string()));
+                }
             }
             if let Some(condition) = self.conditional.get(&current) {
                 current = condition(&state);

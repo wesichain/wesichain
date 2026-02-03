@@ -145,6 +145,117 @@ async fn main() -> Result<(), WesichainError> {
 }
 ```
 
+## ReAct Graph Agent (Tool Calling)
+
+```toml
+[dependencies]
+wesichain-core = { path = "wesichain-core" }
+wesichain-graph = { path = "wesichain-graph" }
+wesichain-llm = { path = "wesichain-llm", features = ["openai"] }
+async-trait = "0.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+```rust
+use std::sync::Arc;
+
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+use wesichain_core::{
+    HasFinalOutput, HasUserInput, ReActStep, ScratchpadState, Tool, ToolError, Value,
+    WesichainError,
+};
+use wesichain_graph::{GraphBuilder, GraphState, ReActAgentNode, StateSchema};
+use wesichain_llm::OpenAiClient;
+
+#[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
+struct DemoState {
+    input: String,
+    scratchpad: Vec<ReActStep>,
+    final_output: Option<String>,
+    iterations: u32,
+}
+
+impl StateSchema for DemoState {}
+
+impl ScratchpadState for DemoState {
+    fn scratchpad(&self) -> &Vec<ReActStep> {
+        &self.scratchpad
+    }
+
+    fn scratchpad_mut(&mut self) -> &mut Vec<ReActStep> {
+        &mut self.scratchpad
+    }
+
+    fn iteration_count(&self) -> u32 {
+        self.iterations
+    }
+
+    fn increment_iteration(&mut self) {
+        self.iterations += 1;
+    }
+}
+
+impl HasUserInput for DemoState {
+    fn user_input(&self) -> &str {
+        &self.input
+    }
+}
+
+impl HasFinalOutput for DemoState {
+    fn final_output(&self) -> Option<&str> {
+        self.final_output.as_deref()
+    }
+
+    fn set_final_output(&mut self, value: String) {
+        self.final_output = Some(value);
+    }
+}
+
+struct Calculator;
+
+#[async_trait::async_trait]
+impl Tool for Calculator {
+    fn name(&self) -> &str {
+        "calculator"
+    }
+
+    fn description(&self) -> &str {
+        "basic math"
+    }
+
+    fn schema(&self) -> Value {
+        json!({"type": "object", "properties": {"expression": {"type": "string"}}})
+    }
+
+    async fn invoke(&self, _args: Value) -> Result<Value, ToolError> {
+        Ok(json!({"result": 4}))
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), WesichainError> {
+    let llm = Arc::new(OpenAiClient::new("gpt-4o-mini".to_string()));
+    let node = ReActAgentNode::builder()
+        .llm(llm)
+        .tools(vec![Arc::new(Calculator)])
+        .build()
+        .expect("react agent");
+
+    let graph = GraphBuilder::new().add_node("agent", node).set_entry("agent").build();
+    let state = GraphState::new(DemoState {
+        input: "2+2".to_string(),
+        ..Default::default()
+    });
+    let out = graph.invoke(state).await?;
+    println!("Final: {}", out.data.final_output().unwrap_or(""));
+
+    Ok(())
+}
+```
+
 ## Status
 - v0 design locked: docs/plans/2026-02-01-wesichain-v0-design.md
 - Implementation: pending

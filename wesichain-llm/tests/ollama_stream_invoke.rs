@@ -73,6 +73,7 @@ async fn ollama_stream_emits_events() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
     };
@@ -99,6 +100,7 @@ async fn ollama_stream_surfaces_http_errors() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
     };
@@ -125,6 +127,7 @@ async fn ollama_stream_stops_on_parse_error() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
     };
