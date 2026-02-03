@@ -16,4 +16,4 @@ pub use metadata_filter::MetadataFilter;
 pub use retry::Retrying;
 pub use runnable::{Runnable, StreamEvent};
 pub use value::{IntoValue, TryFromValue, Value};
-pub use vector_store::{SearchResult, VectorStore};
+pub use vector_store::{delete_ref_dyn, delete_strs_dyn, SearchResult, VectorStore};

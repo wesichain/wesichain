@@ -18,4 +18,37 @@ pub trait VectorStore: Send + Sync {
         filter: Option<&MetadataFilter>,
     ) -> Result<Vec<SearchResult>, StoreError>;
     async fn delete(&self, ids: &[String]) -> Result<(), StoreError>;
+
+    async fn delete_strs(&self, ids: &[&str]) -> Result<(), StoreError>
+    where
+        Self: Sized,
+    {
+        let owned: Vec<String> = ids.iter().map(|id| (*id).to_string()).collect();
+        self.delete(&owned).await
+    }
+
+    async fn delete_ref<T>(&self, ids: &[T]) -> Result<(), StoreError>
+    where
+        T: AsRef<str> + Sync,
+        Self: Sized,
+    {
+        let owned: Vec<String> = ids.iter().map(|id| id.as_ref().to_string()).collect();
+        self.delete(&owned).await
+    }
+}
+
+pub async fn delete_strs_dyn(
+    store: &dyn VectorStore,
+    ids: &[&str],
+) -> Result<(), StoreError> {
+    let owned: Vec<String> = ids.iter().map(|id| (*id).to_string()).collect();
+    store.delete(&owned).await
+}
+
+pub async fn delete_ref_dyn<T: AsRef<str> + Sync>(
+    store: &dyn VectorStore,
+    ids: &[T],
+) -> Result<(), StoreError> {
+    let owned: Vec<String> = ids.iter().map(|id| id.as_ref().to_string()).collect();
+    store.delete(&owned).await
 }

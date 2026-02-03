@@ -67,6 +67,6 @@ pub enum StoreError {
     DimensionMismatch { expected: usize, got: usize },
     #[error("invalid document id: {0}")]
     InvalidId(String),
-    #[error("internal store error: {0}")]
-    Internal(String),
+    #[error("Store error: {0}")]
+    Internal(#[source] Box<dyn StdError + Send + Sync>),
 }
