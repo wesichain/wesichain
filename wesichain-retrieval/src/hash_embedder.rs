@@ -1,7 +1,17 @@
-use std::hash::{Hash, Hasher};
-
 use async_trait::async_trait;
 use wesichain_core::{Embedding, EmbeddingError};
+
+const FNV_OFFSET: u64 = 14695981039346656037;
+const FNV_PRIME: u64 = 1099511628211;
+
+fn fnv1a(bytes: &[u8], seed: u64) -> u64 {
+    let mut hash = FNV_OFFSET ^ seed;
+    for byte in bytes {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+    }
+    hash
+}
 
 #[derive(Clone)]
 pub struct HashEmbedder {
@@ -14,12 +24,10 @@ impl HashEmbedder {
     }
 
     fn hash_to_vec(&self, text: &str) -> Vec<f32> {
+        let bytes = text.as_bytes();
         let mut vec = Vec::with_capacity(self.dimension);
         for idx in 0..self.dimension {
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            text.hash(&mut hasher);
-            idx.hash(&mut hasher);
-            let value = hasher.finish();
+            let value = fnv1a(bytes, idx as u64);
             let normalized = (value % 10_000) as f32 / 10_000.0;
             vec.push(normalized);
         }
