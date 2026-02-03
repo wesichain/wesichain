@@ -6,9 +6,7 @@ use std::time::{Duration, Instant};
 use serde_json::{json, Map, Value};
 use tokio::sync::{Mutex, Notify};
 
-use crate::{
-    LangSmithClient, LangSmithConfig, LangSmithError, RunContextStore, RunEvent, RunType,
-};
+use crate::{LangSmithClient, LangSmithConfig, LangSmithError, RunContextStore, RunEvent, RunType};
 
 #[derive(Clone, Debug, Default)]
 pub struct FlushStats {
@@ -20,8 +18,14 @@ pub struct FlushStats {
 
 #[derive(Debug)]
 pub enum FlushError {
-    Timeout { waited: Duration, pending: usize },
-    Permanent { reason: String, batch_dropped: usize },
+    Timeout {
+        waited: Duration,
+        pending: usize,
+    },
+    Permanent {
+        reason: String,
+        batch_dropped: usize,
+    },
 }
 
 #[derive(Clone)]
@@ -185,7 +189,9 @@ impl LangSmithExporter {
                 if let Some(duration_ms) = duration_ms {
                     payload.insert("extra".to_string(), json!({"duration_ms": duration_ms}));
                 }
-                self.client.update_run(*run_id, &Value::Object(payload)).await
+                self.client
+                    .update_run(*run_id, &Value::Object(payload))
+                    .await
             }
         }
     }

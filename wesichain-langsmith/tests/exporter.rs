@@ -8,9 +8,7 @@ use uuid::Uuid;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use wesichain_langsmith::{
-    LangSmithConfig, LangSmithExporter, RunContextStore, RunEvent, RunType,
-};
+use wesichain_langsmith::{LangSmithConfig, LangSmithExporter, RunContextStore, RunEvent, RunType};
 
 #[tokio::test]
 async fn drops_oldest_when_queue_full() {
