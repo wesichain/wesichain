@@ -60,3 +60,13 @@ impl StdError for EmbeddingError {
         }
     }
 }
+
+#[derive(Debug, Error)]
+pub enum StoreError {
+    #[error("dimension mismatch: expected {expected}, got {got}")]
+    DimensionMismatch { expected: usize, got: usize },
+    #[error("invalid document id: {0}")]
+    InvalidId(String),
+    #[error("internal store error: {0}")]
+    Internal(String),
+}
