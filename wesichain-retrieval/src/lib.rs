@@ -6,7 +6,7 @@ mod loader;
 mod retriever;
 mod splitter;
 
-pub use error::{RetrievalError, RetrievalResult};
+pub use error::RetrievalError;
 pub use hash_embedder::HashEmbedder;
 pub use in_memory::InMemoryVectorStore;
 pub use indexer::Indexer;

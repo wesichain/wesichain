@@ -10,5 +10,3 @@ pub enum RetrievalError {
     #[error("store error: {0}")]
     Store(#[from] StoreError),
 }
-
-pub type RetrievalResult<T> = Result<T, RetrievalError>;

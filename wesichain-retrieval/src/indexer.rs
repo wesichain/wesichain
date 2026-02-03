@@ -23,8 +23,8 @@ where
             }
         }
 
-        let texts: Vec<&str> = docs.iter().map(|doc| doc.content.as_str()).collect();
-        let embeddings = self.embedder.embed_batch_strs(&texts).await?;
+        let texts: Vec<String> = docs.iter().map(|doc| doc.content.clone()).collect();
+        let embeddings = self.embedder.embed_batch(&texts).await?;
         let docs_with_embeddings = docs
             .into_iter()
             .zip(embeddings)
