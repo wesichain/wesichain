@@ -16,6 +16,7 @@ use crate::{
 
 const MAX_FIELD_BYTES: usize = 100_000;
 
+/// Observer implementation that emits LangSmith run events.
 #[derive(Clone)]
 pub struct LangSmithObserver {
     exporter: LangSmithExporter,
@@ -32,6 +33,16 @@ struct NodeRunContext {
 }
 
 impl LangSmithObserver {
+    /// Create a new observer with default sampling behavior.
+    ///
+    /// ```rust,no_run
+    /// use secrecy::SecretString;
+    /// use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
+    ///
+    /// let config = LangSmithConfig::new(SecretString::new("key".to_string()), "project");
+    /// let observer = LangSmithObserver::new(config);
+    /// let _ = observer;
+    /// ```
     pub fn new(config: LangSmithConfig) -> Self {
         let sampler: Arc<dyn Sampler> = Arc::new(ProbabilitySampler {
             rate: config.sampling_rate,
@@ -54,6 +65,22 @@ impl LangSmithObserver {
         self.exporter.dropped_events()
     }
 
+    /// Flush pending events with a timeout.
+    ///
+    /// The timeout bounds how long to wait for the queue to drain.
+    ///
+    /// ```rust,no_run
+    /// use std::time::Duration;
+    /// use secrecy::SecretString;
+    /// use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
+    ///
+    /// # #[tokio::main]
+    /// # async fn main() {
+    /// let config = LangSmithConfig::new(SecretString::new("key".to_string()), "project");
+    /// let observer = LangSmithObserver::new(config);
+    /// let _ = observer.flush(Duration::from_secs(5)).await;
+    /// # }
+    /// ```
     pub async fn flush(
         &self,
         timeout: std::time::Duration,
