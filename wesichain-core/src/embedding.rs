@@ -27,3 +27,19 @@ pub trait Embedding: Send + Sync {
 
     fn dimension(&self) -> usize;
 }
+
+pub async fn embed_batch_strs_dyn(
+    embedder: &dyn Embedding,
+    texts: &[&str],
+) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    let owned: Vec<String> = texts.iter().map(|text| (*text).to_string()).collect();
+    embedder.embed_batch(&owned).await
+}
+
+pub async fn embed_batch_ref_dyn<T: AsRef<str> + Sync>(
+    embedder: &dyn Embedding,
+    texts: &[T],
+) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+    let owned: Vec<String> = texts.iter().map(|text| text.as_ref().to_string()).collect();
+    embedder.embed_batch(&owned).await
+}

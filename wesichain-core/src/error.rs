@@ -39,14 +39,14 @@ impl fmt::Display for EmbeddingError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             EmbeddingError::InvalidResponse(message) => {
-                write!(f, "Invalid embedding response: {message}")
+                write!(f, "Embedding invalid response: {message}")
             }
             EmbeddingError::RateLimited { retry_after } => match retry_after {
-                Some(duration) => write!(f, "embedding rate limited (retry_after={duration:?})"),
-                None => write!(f, "embedding rate limited (retry_after=unknown)"),
+                Some(duration) => write!(f, "Embedding rate limited (retry_after={duration:?})"),
+                None => write!(f, "Embedding rate limited (retry_after=unknown)"),
             },
-            EmbeddingError::Timeout(duration) => write!(f, "embedding timeout after {duration:?}"),
-            EmbeddingError::Provider(message) => write!(f, "Embedding provider failed: {message}"),
+            EmbeddingError::Timeout(duration) => write!(f, "Embedding timeout after {duration:?}"),
+            EmbeddingError::Provider(message) => write!(f, "Embedding provider error: {message}"),
             EmbeddingError::Other(error) => write!(f, "Embedding error: {error}"),
         }
     }

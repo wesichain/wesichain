@@ -77,13 +77,13 @@ fn embedding_error_display_for_rate_limited() {
     let err = EmbeddingError::RateLimited {
         retry_after: Some(Duration::from_secs(2)),
     };
-    assert_eq!(format!("{err}"), "embedding rate limited (retry_after=2s)");
+    assert_eq!(format!("{err}"), "Embedding rate limited (retry_after=2s)");
 }
 
 #[test]
 fn embedding_error_display_for_timeout() {
     let err = EmbeddingError::Timeout(Duration::from_millis(750));
-    assert_eq!(format!("{err}"), "embedding timeout after 750ms");
+    assert_eq!(format!("{err}"), "Embedding timeout after 750ms");
 }
 
 #[test]
@@ -91,4 +91,16 @@ fn embedding_error_display_for_other() {
     let err = EmbeddingError::Other("network".to_string().into());
     assert_eq!(format!("{err}"), "Embedding error: network");
     assert!(err.source().is_some());
+}
+
+#[test]
+fn embedding_error_display_for_invalid_response() {
+    let err = EmbeddingError::InvalidResponse("bad shape".to_string());
+    assert_eq!(format!("{err}"), "Embedding invalid response: bad shape");
+}
+
+#[test]
+fn embedding_error_display_for_provider() {
+    let err = EmbeddingError::Provider("overloaded".to_string());
+    assert_eq!(format!("{err}"), "Embedding provider error: overloaded");
 }

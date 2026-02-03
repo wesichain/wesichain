@@ -9,7 +9,7 @@ mod value;
 
 pub use chain::{Chain, RunnableExt};
 pub use document::Document;
-pub use embedding::Embedding;
+pub use embedding::{embed_batch_ref_dyn, embed_batch_strs_dyn, Embedding};
 pub use error::{EmbeddingError, WesichainError};
 pub use metadata_filter::MetadataFilter;
 pub use retry::Retrying;
