@@ -40,6 +40,14 @@ async fn embed_batch_strs_helper_works_for_concrete_type() {
     assert_eq!(result, vec![vec![0.0; 2], vec![0.0; 5]]);
 }
 
+fn assert_embedding_impl<E: Embedding>(_embedder: E) {}
+
+#[test]
+fn embedding_trait_supports_arc_embedder() {
+    let embedder = Arc::new(TestEmbedding);
+    assert_embedding_impl(embedder);
+}
+
 #[tokio::test]
 async fn embed_batch_ref_helper_supports_string_inputs() {
     let embedder = TestEmbedding;

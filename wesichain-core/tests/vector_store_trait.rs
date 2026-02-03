@@ -64,6 +64,14 @@ async fn vector_store_trait_delete_helpers_forward_ids_for_concrete_store() {
     );
 }
 
+fn assert_vector_store_impl<S: VectorStore>(_store: S) {}
+
+#[test]
+fn vector_store_trait_supports_arc_store() {
+    let store = Arc::new(RecordingStore::new());
+    assert_vector_store_impl(store);
+}
+
 #[tokio::test]
 async fn vector_store_trait_delete_helpers_forward_ids_for_dyn_store() {
     let store = RecordingStore::new();

@@ -28,6 +28,21 @@ pub trait Embedding: Send + Sync {
     fn dimension(&self) -> usize;
 }
 
+#[async_trait]
+impl<T: Embedding + ?Sized> Embedding for std::sync::Arc<T> {
+    async fn embed(&self, text: &str) -> Result<Vec<f32>, EmbeddingError> {
+        self.as_ref().embed(text).await
+    }
+
+    async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+        self.as_ref().embed_batch(texts).await
+    }
+
+    fn dimension(&self) -> usize {
+        self.as_ref().dimension()
+    }
+}
+
 pub async fn embed_batch_strs_dyn(
     embedder: &dyn Embedding,
     texts: &[&str],

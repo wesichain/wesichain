@@ -16,6 +16,10 @@ where
         Self { embedder, store }
     }
 
+    pub async fn index(&self, docs: Vec<Document>) -> Result<(), RetrievalError> {
+        self.add_documents(docs).await
+    }
+
     pub async fn add_documents(&self, docs: Vec<Document>) -> Result<(), RetrievalError> {
         for doc in &docs {
             if doc.id.trim().is_empty() {

@@ -16,7 +16,7 @@ async fn indexer_rejects_empty_id() {
         embedding: None,
     };
 
-    let error = indexer.add_documents(vec![doc]).await.unwrap_err();
+    let error = indexer.index(vec![doc]).await.unwrap_err();
 
     assert!(matches!(error, RetrievalError::InvalidId(id) if id.trim().is_empty()));
 }
@@ -43,7 +43,7 @@ async fn indexer_embeds_and_adds_documents() {
         },
     ];
 
-    indexer.add_documents(docs).await.unwrap();
+    indexer.index(docs).await.unwrap();
 
     let query_embedding = query_embedder.embed("first document").await.unwrap();
     let results = store.search(&query_embedding, 1, None).await.unwrap();
