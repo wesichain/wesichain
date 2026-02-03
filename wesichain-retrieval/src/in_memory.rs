@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use tokio::sync::RwLock;
-use wesichain_core::{Document, MetadataFilter, SearchResult, StoreError, VectorStore};
+use wesichain_core::{Document, MetadataFilter, SearchResult, StoreError, Value, VectorStore};
 
 #[derive(Default)]
 struct StoreInner {
@@ -67,7 +67,7 @@ impl VectorStore for InMemoryVectorStore {
         &self,
         query_embedding: &[f32],
         top_k: usize,
-        _filter: Option<&MetadataFilter>,
+        filter: Option<&MetadataFilter>,
     ) -> Result<Vec<SearchResult>, StoreError> {
         let inner = self.inner.read().await;
         let expected = inner.dimension.unwrap_or(query_embedding.len());
@@ -81,13 +81,20 @@ impl VectorStore for InMemoryVectorStore {
         let mut scored = Vec::new();
         for (idx, embedding) in inner.embeddings.iter().enumerate() {
             let Some(embedding) = embedding else { continue };
+            let Some(doc) = inner.docs[idx].as_ref() else { continue };
+            if let Some(filter) = filter {
+                if !metadata_matches(filter, &doc.metadata) {
+                    continue;
+                }
+            }
             let mut score = cosine_similarity(query_embedding, embedding);
             if score.is_nan() {
                 score = f32::NEG_INFINITY;
             }
-            let Some(doc) = inner.docs[idx].as_ref() else { continue };
+            let mut result_doc = doc.clone();
+            result_doc.embedding = None;
             scored.push(SearchResult {
-                document: doc.clone(),
+                document: result_doc,
                 score,
             });
         }
@@ -122,4 +129,60 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         return 0.0;
     }
     dot / (norm_a.sqrt() * norm_b.sqrt())
+}
+
+fn metadata_matches(filter: &MetadataFilter, metadata: &HashMap<String, Value>) -> bool {
+    match filter {
+        MetadataFilter::Eq(key, value) => metadata.get(key).map_or(false, |entry| entry == value),
+        MetadataFilter::In(key, values) => metadata
+            .get(key)
+            .map_or(false, |entry| values.iter().any(|value| value == entry)),
+        MetadataFilter::Range { key, min, max } => {
+            let Some(value) = metadata.get(key) else {
+                return false;
+            };
+            if let Some(min_value) = min {
+                if !value_gte(value, min_value) {
+                    return false;
+                }
+            }
+            if let Some(max_value) = max {
+                if !value_lte(value, max_value) {
+                    return false;
+                }
+            }
+            true
+        }
+        MetadataFilter::All(filters) => filters
+            .iter()
+            .all(|filter| metadata_matches(filter, metadata)),
+        MetadataFilter::Any(filters) => filters
+            .iter()
+            .any(|filter| metadata_matches(filter, metadata)),
+    }
+}
+
+fn value_gte(value: &Value, bound: &Value) -> bool {
+    compare_values(value, bound)
+        .map(|ordering| ordering != std::cmp::Ordering::Less)
+        .unwrap_or(false)
+}
+
+fn value_lte(value: &Value, bound: &Value) -> bool {
+    compare_values(value, bound)
+        .map(|ordering| ordering != std::cmp::Ordering::Greater)
+        .unwrap_or(false)
+}
+
+fn compare_values(value: &Value, bound: &Value) -> Option<std::cmp::Ordering> {
+    match (value, bound) {
+        (Value::Number(value), Value::Number(bound)) => {
+            let value = value.as_f64()?;
+            let bound = bound.as_f64()?;
+            value.partial_cmp(&bound)
+        }
+        (Value::String(value), Value::String(bound)) => Some(value.cmp(bound)),
+        (Value::Bool(value), Value::Bool(bound)) => Some(value.cmp(bound)),
+        _ => None,
+    }
 }
