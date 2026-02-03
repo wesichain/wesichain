@@ -42,10 +42,10 @@ impl fmt::Display for EmbeddingError {
                 write!(f, "Invalid embedding response: {message}")
             }
             EmbeddingError::RateLimited { retry_after } => match retry_after {
-                Some(duration) => write!(f, "rate limited (retry_after={duration:?})"),
-                None => write!(f, "rate limited (retry_after=unknown)"),
+                Some(duration) => write!(f, "embedding rate limited (retry_after={duration:?})"),
+                None => write!(f, "embedding rate limited (retry_after=unknown)"),
             },
-            EmbeddingError::Timeout(duration) => write!(f, "timeout after {duration:?}"),
+            EmbeddingError::Timeout(duration) => write!(f, "embedding timeout after {duration:?}"),
             EmbeddingError::Provider(message) => write!(f, "Embedding provider failed: {message}"),
             EmbeddingError::Other(error) => write!(f, "Embedding error: {error}"),
         }

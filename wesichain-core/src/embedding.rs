@@ -16,5 +16,14 @@ pub trait Embedding: Send + Sync {
         self.embed_batch(&owned).await
     }
 
+    async fn embed_batch_ref<T>(&self, texts: &[T]) -> Result<Vec<Vec<f32>>, EmbeddingError>
+    where
+        T: AsRef<str> + Sync,
+        Self: Sized,
+    {
+        let owned: Vec<String> = texts.iter().map(|text| text.as_ref().to_string()).collect();
+        self.embed_batch(&owned).await
+    }
+
     fn dimension(&self) -> usize;
 }

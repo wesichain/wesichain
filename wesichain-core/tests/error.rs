@@ -77,13 +77,13 @@ fn embedding_error_display_for_rate_limited() {
     let err = EmbeddingError::RateLimited {
         retry_after: Some(Duration::from_secs(2)),
     };
-    assert_eq!(format!("{err}"), "rate limited (retry_after=2s)");
+    assert_eq!(format!("{err}"), "embedding rate limited (retry_after=2s)");
 }
 
 #[test]
 fn embedding_error_display_for_timeout() {
     let err = EmbeddingError::Timeout(Duration::from_millis(750));
-    assert_eq!(format!("{err}"), "timeout after 750ms");
+    assert_eq!(format!("{err}"), "embedding timeout after 750ms");
 }
 
 #[test]
