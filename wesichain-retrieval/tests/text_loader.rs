@@ -1,26 +1,24 @@
-use std::io::Write;
+use std::fs;
 
-use tempfile::NamedTempFile;
+use serde_json::Value;
+use tempfile::tempdir;
 use wesichain_retrieval::TextLoader;
 
 #[test]
-fn text_loader_loads_text_file_contents() {
-    let mut file = NamedTempFile::new().expect("temp file");
-    write!(file, "Hello, Wesichain!").expect("write temp file");
+fn text_loader_returns_document_with_metadata() {
+    let dir = tempdir().expect("temp dir");
+    let path = dir.path().join("demo.txt");
+    fs::write(&path, "Hello, Wesichain!").expect("write temp file");
 
-    let loader = TextLoader::new();
-    let contents = loader.load(file.path()).expect("load temp file");
+    let loader = TextLoader::new(path.clone());
+    let documents = loader.load().expect("load temp file");
 
-    assert_eq!(contents, "Hello, Wesichain!");
-}
-
-#[test]
-fn text_loader_returns_error_for_missing_file() {
-    let dir = tempfile::tempdir().expect("temp dir");
-    let missing_path = dir.path().join("missing.txt");
-
-    let loader = TextLoader::new();
-    let result = loader.load(&missing_path);
-
-    assert!(result.is_err());
+    assert_eq!(documents.len(), 1);
+    assert_eq!(documents[0].content, "Hello, Wesichain!");
+    assert_eq!(documents[0].id, path.to_string_lossy());
+    assert_eq!(documents[0].embedding, None);
+    assert_eq!(
+        documents[0].metadata.get("source"),
+        Some(&Value::String(path.to_string_lossy().into_owned()))
+    );
 }

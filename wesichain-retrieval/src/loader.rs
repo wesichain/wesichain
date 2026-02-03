@@ -1,42 +1,60 @@
-use std::path::Path;
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 
-pub struct TextLoader;
+use wesichain_core::{Document, Value};
+
+pub struct TextLoader {
+    path: PathBuf,
+}
 
 impl TextLoader {
-    pub fn new() -> Self {
-        Self
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
     }
 
-    pub fn load<P: AsRef<Path>>(&self, path: P) -> std::io::Result<String> {
-        std::fs::read_to_string(path)
+    pub fn load(&self) -> Result<Vec<Document>, std::io::Error> {
+        let content = fs::read_to_string(&self.path)?;
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "source".to_string(),
+            Value::String(self.path.to_string_lossy().to_string()),
+        );
+
+        Ok(vec![Document {
+            id: self.path.to_string_lossy().to_string(),
+            content,
+            metadata,
+            embedding: None,
+        }])
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PdfLoaderError {
-    FeatureDisabled,
-    ExtractFailed(String),
+#[cfg(feature = "pdf")]
+pub struct PdfLoader {
+    path: PathBuf,
 }
 
-pub struct PdfLoader;
-
+#[cfg(feature = "pdf")]
 impl PdfLoader {
-    pub fn new() -> Self {
-        Self
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
     }
 
-    pub fn load<P: AsRef<Path>>(&self, path: P) -> Result<String, PdfLoaderError> {
-        self.load_internal(path)
-    }
+    pub fn load(&self) -> Result<Vec<Document>, std::io::Error> {
+        let content = pdf_extract::extract_text(&self.path)
+            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+        let mut metadata = HashMap::new();
+        metadata.insert(
+            "source".to_string(),
+            Value::String(self.path.to_string_lossy().to_string()),
+        );
 
-    #[cfg(feature = "pdf")]
-    fn load_internal<P: AsRef<Path>>(&self, path: P) -> Result<String, PdfLoaderError> {
-        pdf_extract::extract_text(path)
-            .map_err(|err| PdfLoaderError::ExtractFailed(err.to_string()))
-    }
-
-    #[cfg(not(feature = "pdf"))]
-    fn load_internal<P: AsRef<Path>>(&self, _path: P) -> Result<String, PdfLoaderError> {
-        Err(PdfLoaderError::FeatureDisabled)
+        Ok(vec![Document {
+            id: self.path.to_string_lossy().to_string(),
+            content,
+            metadata,
+            embedding: None,
+        }])
     }
 }
