@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{error::Error as StdError, time::Duration};
 
 use thiserror::Error;
 
@@ -28,10 +28,14 @@ pub enum WesichainError {
 
 #[derive(Debug, Error)]
 pub enum EmbeddingError {
+    #[error("Invalid embedding response: {0}")]
+    InvalidResponse(String),
+    #[error("Embedding rate limited")]
+    RateLimited,
+    #[error("Embedding request timed out")]
+    Timeout,
     #[error("Embedding provider failed: {0}")]
     Provider(String),
-    #[error("Invalid embedding input: {0}")]
-    InvalidInput(String),
     #[error("{0}")]
-    Custom(String),
+    Other(#[source] Box<dyn StdError + Send + Sync>),
 }

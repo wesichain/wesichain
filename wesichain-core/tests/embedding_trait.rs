@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use async_trait::async_trait;
 
 use wesichain_core::{Embedding, EmbeddingError};
@@ -6,18 +8,23 @@ struct TestEmbedding;
 
 #[async_trait]
 impl Embedding for TestEmbedding {
-    async fn embed_documents(&self, documents: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
-        Ok(vec![vec![0.0]; documents.len()])
+    async fn embed(&self, _text: &str) -> Result<Vec<f32>, EmbeddingError> {
+        Ok(vec![0.0])
     }
 
-    async fn embed_query(&self, _query: &str) -> Result<Vec<f32>, EmbeddingError> {
-        Ok(vec![0.0])
+    async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
+        Ok(vec![vec![0.0]; texts.len()])
+    }
+
+    fn dimension(&self) -> usize {
+        1
     }
 }
 
-#[tokio::test]
-async fn embedding_trait_is_object_safe() {
-    let embedding: Box<dyn Embedding> = Box::new(TestEmbedding);
-    let result = embedding.embed_query("hello").await.unwrap();
-    assert_eq!(result, vec![0.0]);
+fn assert_object_safe(_embedding: Arc<dyn Embedding>) {}
+
+#[test]
+fn embedding_trait_is_object_safe() {
+    let embedding = Arc::new(TestEmbedding);
+    assert_object_safe(embedding);
 }
