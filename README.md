@@ -145,6 +145,14 @@ async fn main() -> Result<(), WesichainError> {
 }
 ```
 
+### Graph Highlights
+
+- Additive updates via `StateSchema::merge`
+- Structured errors via `invoke_graph` + `GraphError`
+- Streaming graph events via `stream_invoke`
+- Interrupts via `with_interrupt_before` / `with_interrupt_after`
+- Checkpoints include step/node metadata for resume
+
 ## Status
 - v0 design locked: docs/plans/2026-02-01-wesichain-v0-design.md
 - Implementation: pending
