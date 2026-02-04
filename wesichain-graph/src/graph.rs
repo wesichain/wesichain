@@ -1,10 +1,11 @@
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 
 use petgraph::graph::Graph;
 
 use crate::{
     Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError,
-    GraphProgram, GraphState, NodeData, StateSchema, StateUpdate, END, START,
+    GraphProgram, GraphState, NodeData, Observer, StateSchema, StateUpdate, END, START,
 };
 use wesichain_core::{Runnable, WesichainError};
 
@@ -15,6 +16,7 @@ pub struct GraphBuilder<S: StateSchema> {
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
+    observer: Option<Arc<dyn Observer>>,
     default_config: ExecutionConfig,
     entry: Option<String>,
     interrupt_before: Vec<String>,
@@ -34,6 +36,7 @@ impl<S: StateSchema> GraphBuilder<S> {
             edges: HashMap::new(),
             conditional: HashMap::new(),
             checkpointer: None,
+            observer: None,
             default_config: ExecutionConfig::default(),
             entry: None,
             interrupt_before: Vec::new(),
@@ -76,6 +79,11 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn with_observer(mut self, observer: Arc<dyn Observer>) -> Self {
+        self.observer = Some(observer);
+        self
+    }
+
     pub fn with_default_config(mut self, config: ExecutionConfig) -> Self {
         self.default_config = config;
         self
@@ -105,6 +113,7 @@ impl<S: StateSchema> GraphBuilder<S> {
             edges: self.edges,
             conditional: self.conditional,
             checkpointer: self.checkpointer,
+            observer: self.observer,
             default_config: self.default_config,
             entry: self.entry.expect("entry"),
             interrupt_before: self.interrupt_before,
@@ -144,6 +153,7 @@ pub struct ExecutableGraph<S: StateSchema> {
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
+    observer: Option<Arc<dyn Observer>>,
     default_config: ExecutionConfig,
     entry: String,
     interrupt_before: Vec<String>,
@@ -206,6 +216,9 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 .ok_or_else(|| GraphError::InvalidEdge {
                     node: current.clone(),
                 })?;
+            if let Some(observer) = &self.observer {
+                observer.on_node_enter(&current);
+            }
             let update = node.invoke(state).await.map_err(|err| GraphError::NodeFailed {
                 node: current.clone(),
                 source: Box::new(err),
@@ -219,6 +232,9 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     current.clone(),
                 );
                 checkpointer.save(&checkpoint).await?;
+            }
+            if let Some(observer) = &self.observer {
+                observer.on_node_exit(&current);
             }
 
             if self.interrupt_after.contains(&current) {
