@@ -219,9 +219,14 @@ impl<S: StateSchema> ExecutableGraph<S> {
             if let Some(observer) = &self.observer {
                 observer.on_node_enter(&current);
             }
-            let update = node.invoke(state).await.map_err(|err| GraphError::NodeFailed {
-                node: current.clone(),
-                source: Box::new(err),
+            let update = node.invoke(state).await.map_err(|err| {
+                if let Some(observer) = &self.observer {
+                    observer.on_error(&current, &err.to_string());
+                }
+                GraphError::NodeFailed {
+                    node: current.clone(),
+                    source: Box::new(err),
+                }
             })?;
             state = GraphState::new(update.data);
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
@@ -231,7 +236,15 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     step_count as u64,
                     current.clone(),
                 );
-                checkpointer.save(&checkpoint).await?;
+                if let Err(err) = checkpointer.save(&checkpoint).await {
+                    if let Some(observer) = &self.observer {
+                        observer.on_error(&current, &err.to_string());
+                    }
+                    return Err(err);
+                }
+                if let Some(observer) = &self.observer {
+                    observer.on_checkpoint_saved(&current);
+                }
             }
             if let Some(observer) = &self.observer {
                 observer.on_node_exit(&current);
