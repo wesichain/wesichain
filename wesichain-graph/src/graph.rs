@@ -1,8 +1,10 @@
 use std::collections::{HashMap, VecDeque};
 
+use petgraph::graph::Graph;
+
 use crate::{
-    Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState,
-    StateSchema, StateUpdate,
+    Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError,
+    GraphProgram, GraphState, NodeData, StateSchema, StateUpdate, START,
 };
 use wesichain_core::{Runnable, WesichainError};
 
@@ -83,6 +85,34 @@ impl<S: StateSchema> GraphBuilder<S> {
             checkpointer: self.checkpointer,
             default_config: self.default_config,
             entry: self.entry.expect("entry"),
+        }
+    }
+
+    pub fn build_program(self) -> GraphProgram<S> {
+        let GraphBuilder { nodes, edges, .. } = self;
+        let mut graph = Graph::new();
+        let mut name_to_index = HashMap::new();
+
+        for (name, runnable) in nodes {
+            let index = graph.add_node(NodeData {
+                name: name.clone(),
+                runnable,
+            });
+            name_to_index.insert(name, index);
+        }
+
+        for (from, to) in edges.iter() {
+            if from == START {
+                continue;
+            }
+            let from_idx = name_to_index[from];
+            let to_idx = name_to_index[to];
+            graph.add_edge(from_idx, to_idx, EdgeKind::Default);
+        }
+
+        GraphProgram {
+            graph,
+            name_to_index,
         }
     }
 }
