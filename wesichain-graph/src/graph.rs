@@ -17,6 +17,8 @@ pub struct GraphBuilder<S: StateSchema> {
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
     default_config: ExecutionConfig,
     entry: Option<String>,
+    interrupt_before: Vec<String>,
+    interrupt_after: Vec<String>,
 }
 
 impl<S: StateSchema> Default for GraphBuilder<S> {
@@ -34,6 +36,8 @@ impl<S: StateSchema> GraphBuilder<S> {
             checkpointer: None,
             default_config: ExecutionConfig::default(),
             entry: None,
+            interrupt_before: Vec::new(),
+            interrupt_after: Vec::new(),
         }
     }
 
@@ -77,6 +81,24 @@ impl<S: StateSchema> GraphBuilder<S> {
         self
     }
 
+    pub fn with_interrupt_before<I, S2>(mut self, nodes: I) -> Self
+    where
+        I: IntoIterator<Item = S2>,
+        S2: Into<String>,
+    {
+        self.interrupt_before = nodes.into_iter().map(Into::into).collect();
+        self
+    }
+
+    pub fn with_interrupt_after<I, S2>(mut self, nodes: I) -> Self
+    where
+        I: IntoIterator<Item = S2>,
+        S2: Into<String>,
+    {
+        self.interrupt_after = nodes.into_iter().map(Into::into).collect();
+        self
+    }
+
     pub fn build(self) -> ExecutableGraph<S> {
         ExecutableGraph {
             nodes: self.nodes,
@@ -85,6 +107,8 @@ impl<S: StateSchema> GraphBuilder<S> {
             checkpointer: self.checkpointer,
             default_config: self.default_config,
             entry: self.entry.expect("entry"),
+            interrupt_before: self.interrupt_before,
+            interrupt_after: self.interrupt_after,
         }
     }
 
@@ -122,6 +146,8 @@ pub struct ExecutableGraph<S: StateSchema> {
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
     default_config: ExecutionConfig,
     entry: String,
+    interrupt_before: Vec<String>,
+    interrupt_after: Vec<String>,
 }
 
 impl<S: StateSchema> ExecutableGraph<S> {
@@ -170,6 +196,10 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 }
             }
 
+            if self.interrupt_before.contains(&current) {
+                return Err(GraphError::Interrupted);
+            }
+
             let node = self
                 .nodes
                 .get(&current)
@@ -184,6 +214,10 @@ impl<S: StateSchema> ExecutableGraph<S> {
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
                 let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
                 checkpointer.save(&checkpoint).await?;
+            }
+
+            if self.interrupt_after.contains(&current) {
+                return Err(GraphError::Interrupted);
             }
             if let Some(condition) = self.conditional.get(&current) {
                 current = condition(&state);
