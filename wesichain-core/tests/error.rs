@@ -1,6 +1,6 @@
-use std::time::Duration;
+use std::{error::Error, time::Duration};
 
-use wesichain_core::WesichainError;
+use wesichain_core::{EmbeddingError, WesichainError};
 
 #[test]
 fn error_display_for_max_retries() {
@@ -70,4 +70,37 @@ fn error_display_for_serde() {
 fn error_display_for_custom() {
     let err = WesichainError::Custom("something odd".to_string());
     assert_eq!(format!("{err}"), "something odd");
+}
+
+#[test]
+fn embedding_error_display_for_rate_limited() {
+    let err = EmbeddingError::RateLimited {
+        retry_after: Some(Duration::from_secs(2)),
+    };
+    assert_eq!(format!("{err}"), "Embedding rate limited (retry_after=2s)");
+}
+
+#[test]
+fn embedding_error_display_for_timeout() {
+    let err = EmbeddingError::Timeout(Duration::from_millis(750));
+    assert_eq!(format!("{err}"), "Embedding timeout after 750ms");
+}
+
+#[test]
+fn embedding_error_display_for_other() {
+    let err = EmbeddingError::Other("network".to_string().into());
+    assert_eq!(format!("{err}"), "Embedding error: network");
+    assert!(err.source().is_some());
+}
+
+#[test]
+fn embedding_error_display_for_invalid_response() {
+    let err = EmbeddingError::InvalidResponse("bad shape".to_string());
+    assert_eq!(format!("{err}"), "Embedding invalid response: bad shape");
+}
+
+#[test]
+fn embedding_error_display_for_provider() {
+    let err = EmbeddingError::Provider("overloaded".to_string());
+    assert_eq!(format!("{err}"), "Embedding provider error: overloaded");
 }
