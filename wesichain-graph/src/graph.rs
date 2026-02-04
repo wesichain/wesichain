@@ -212,7 +212,12 @@ impl<S: StateSchema> ExecutableGraph<S> {
             })?;
             state = GraphState::new(update.data);
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
-                let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
+                let checkpoint = Checkpoint::new(
+                    thread_id.clone(),
+                    state.clone(),
+                    step_count as u64,
+                    current.clone(),
+                );
                 checkpointer.save(&checkpoint).await?;
             }
 

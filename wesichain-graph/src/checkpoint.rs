@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::{GraphError, GraphState, StateSchema};
@@ -10,11 +11,20 @@ use crate::{GraphError, GraphState, StateSchema};
 pub struct Checkpoint<S: StateSchema> {
     pub thread_id: String,
     pub state: GraphState<S>,
+    pub step: u64,
+    pub node: String,
+    pub created_at: String,
 }
 
 impl<S: StateSchema> Checkpoint<S> {
-    pub fn new(thread_id: String, state: GraphState<S>) -> Self {
-        Self { thread_id, state }
+    pub fn new(thread_id: String, state: GraphState<S>, step: u64, node: String) -> Self {
+        Self {
+            thread_id,
+            state,
+            step,
+            node,
+            created_at: Utc::now().to_rfc3339(),
+        }
     }
 }
 
@@ -40,7 +50,7 @@ pub trait HistoryCheckpointer<S: StateSchema>: Send + Sync {
 
 #[derive(Default, Clone)]
 pub struct InMemoryCheckpointer<S: StateSchema> {
-    inner: Arc<RwLock<HashMap<String, Checkpoint<S>>>>,
+    inner: Arc<RwLock<HashMap<String, Vec<Checkpoint<S>>>>>,
 }
 
 #[async_trait::async_trait]
@@ -50,7 +60,10 @@ impl<S: StateSchema> Checkpointer<S> for InMemoryCheckpointer<S> {
             .inner
             .write()
             .map_err(|_| GraphError::Checkpoint("lock".into()))?;
-        guard.insert(checkpoint.thread_id.clone(), checkpoint.clone());
+        guard
+            .entry(checkpoint.thread_id.clone())
+            .or_default()
+            .push(checkpoint.clone());
         Ok(())
     }
 
@@ -59,6 +72,8 @@ impl<S: StateSchema> Checkpointer<S> for InMemoryCheckpointer<S> {
             .inner
             .read()
             .map_err(|_| GraphError::Checkpoint("lock".into()))?;
-        Ok(guard.get(thread_id).cloned())
+        Ok(guard
+            .get(thread_id)
+            .and_then(|history| history.last().cloned()))
     }
 }
