@@ -42,8 +42,7 @@ impl PdfLoader {
     }
 
     pub fn load(&self) -> Result<Vec<Document>, std::io::Error> {
-        let content = pdf_extract::extract_text(&self.path)
-            .map_err(|err| std::io::Error::new(std::io::ErrorKind::Other, err))?;
+        let content = pdf_extract::extract_text(&self.path).map_err(std::io::Error::other)?;
         let mut metadata = HashMap::new();
         metadata.insert(
             "source".to_string(),

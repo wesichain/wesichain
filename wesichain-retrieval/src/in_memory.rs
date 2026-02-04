@@ -33,10 +33,7 @@ impl VectorStore for InMemoryVectorStore {
             }
 
             let embedding = doc.embedding.take().ok_or_else(|| {
-                StoreError::Internal(Box::new(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    "missing embedding",
-                )))
+                StoreError::Internal(Box::new(std::io::Error::other("missing embedding")))
             })?;
             let dimension = embedding.len();
             match inner.dimension {
@@ -135,10 +132,10 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
 
 fn metadata_matches(filter: &MetadataFilter, metadata: &HashMap<String, Value>) -> bool {
     match filter {
-        MetadataFilter::Eq(key, value) => metadata.get(key).map_or(false, |entry| entry == value),
+        MetadataFilter::Eq(key, value) => metadata.get(key) == Some(value),
         MetadataFilter::In(key, values) => metadata
             .get(key)
-            .map_or(false, |entry| values.iter().any(|value| value == entry)),
+            .is_some_and(|entry| values.iter().any(|value| value == entry)),
         MetadataFilter::Range { key, min, max } => {
             let Some(value) = metadata.get(key) else {
                 return false;

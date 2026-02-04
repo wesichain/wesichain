@@ -2,7 +2,10 @@ use std::fs;
 
 use serde_json::Value;
 use tempfile::tempdir;
-use wesichain_retrieval::{PdfLoader, TextLoader};
+use wesichain_retrieval::TextLoader;
+
+#[cfg(not(feature = "pdf"))]
+use wesichain_retrieval::PdfLoader;
 
 #[test]
 fn text_loader_returns_document_with_metadata() {

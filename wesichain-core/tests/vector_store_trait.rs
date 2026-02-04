@@ -95,7 +95,7 @@ async fn vector_store_trait_delete_helpers_forward_ids_for_dyn_store() {
 
 #[test]
 fn vector_store_trait_store_error_internal_preserves_source() {
-    let source = std::io::Error::new(std::io::ErrorKind::Other, "disk");
+    let source = std::io::Error::other("disk");
     let err = StoreError::Internal(Box::new(source));
 
     assert_eq!(format!("{err}"), "Store error: disk");

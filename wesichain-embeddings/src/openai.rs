@@ -40,7 +40,7 @@ impl Embedding for OpenAiEmbedding {
 
         let embedding = response
             .data
-            .get(0)
+            .first()
             .map(|item| item.embedding.clone())
             .ok_or_else(|| {
                 EmbeddingProviderError::InvalidResponse("missing embedding".to_string())
