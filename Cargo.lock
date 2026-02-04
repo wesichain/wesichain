@@ -2222,7 +2222,9 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "wesichain-agent",
  "wesichain-core",
+ "wesichain-llm",
 ]
 
 [[package]]
