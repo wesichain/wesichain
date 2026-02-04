@@ -147,7 +147,8 @@ async fn main() -> Result<(), WesichainError> {
 
 ### Graph Highlights
 
-- Additive updates via `StateSchema::merge`
+- Additive updates via reducers (`StateSchema::merge`)
+- LangGraph-style wiring with `START` and `END` constants
 - Structured errors via `invoke_graph` + `GraphError`
 - Streaming graph events via `stream_invoke`
 - Interrupts via `with_interrupt_before` / `with_interrupt_after`
