@@ -87,6 +87,39 @@ Execution is a single sequential loop. For each node:
 
 Execution starts from the provided state unless a checkpointer + thread_id are configured and `load_latest(thread_id)` returns a prior checkpoint, in which case resume uses the latest checkpoint state.
 
+### Visual Overview
+The following diagram shows the core sequential execution loop, including interrupt checks, checkpointing, and next-node resolution.
+
+```mermaid
+flowchart TD
+    A[Start / Resume from initial state or checkpoint] --> B{Load latest checkpoint?}
+    B -->|Yes + thread_id| C[LoadLatest -> restore state + last node/step]
+    B -->|No| D[Use provided initial state]
+    C --> E[Build GraphContext<br>thread_id, step_count, recent_nodes]
+    D --> E
+    E --> F{Loop: while not at END and no interrupt}
+    F --> G{interrupt_before current node?}
+    G -->|Yes| H[Yield GraphInterrupt<br>current state + pending node]
+    G -->|No| I[on_node_enter + tracing::span!]
+    I --> J[Invoke node -> StateUpdate<S>]
+    J --> K[Apply update via reducers or override]
+    K --> L{Save checkpoint?}
+    L -->|Yes| M[Save Checkpoint<S><br>after node + update]
+    L -->|No| N[Resolve next node<br>conditional router -> default edge -> END]
+    M -->|Save failed| O[GraphError::Checkpoint -> halt]
+    M --> N
+    N --> P{interrupt_after current node?}
+    P -->|Yes| Q[Yield GraphInterrupt<br>after checkpoint]
+    P -->|No| R[Safety checks: max_steps, cycle_window]
+    R -->|Fail| S[GraphError::MaxStepsExceeded / CycleDetected]
+    R -->|Pass| F
+    H --> T[End execution]
+    Q --> T
+    S --> T
+    O --> T
+    F -->|Reach END| U[Return final GraphState<S>]
+```
+
 ## Checkpointing and Persistence
 **Summary**: Graph-level checkpoints are written after each node and are required for resume.
 Keep the `Checkpointer` trait and add a richer checkpoint payload:
