@@ -13,10 +13,7 @@ impl Embedding for TestEmbedding {
     }
 
     async fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>, EmbeddingError> {
-        Ok(texts
-            .iter()
-            .map(|text| vec![0.0; text.len()])
-            .collect())
+        Ok(texts.iter().map(|text| vec![0.0; text.len()]).collect())
     }
 
     fn dimension(&self) -> usize {

@@ -28,6 +28,9 @@ async fn main() {
     let results = retriever.retrieve("memory", 3, None).await.unwrap();
     println!("Retrieved {} docs", results.len());
     for result in results {
-        println!("score={:.3} content={}", result.score, result.document.content);
+        println!(
+            "score={:.3} content={}",
+            result.score, result.document.content
+        );
     }
 }

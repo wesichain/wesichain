@@ -1,7 +1,7 @@
+use crate::EmbeddingProviderError;
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use crate::EmbeddingProviderError;
 use wesichain_core::{Embedding, EmbeddingError};
 
 #[derive(Clone)]

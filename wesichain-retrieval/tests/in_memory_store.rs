@@ -118,7 +118,10 @@ async fn in_memory_store_filters_metadata_eq() {
     store.add(docs).await.unwrap();
 
     let filter = MetadataFilter::Eq("tag".to_string(), Value::String("alpha".to_string()));
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].document.id, "a");
 }
@@ -148,9 +151,15 @@ async fn in_memory_store_filters_metadata_in() {
 
     let filter = MetadataFilter::In(
         "group".to_string(),
-        vec![Value::String("a".to_string()), Value::String("b".to_string())],
+        vec![
+            Value::String("a".to_string()),
+            Value::String("b".to_string()),
+        ],
     );
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].document.id, "a");
 }
@@ -183,7 +192,10 @@ async fn in_memory_store_filters_metadata_range() {
         min: Some(Value::Number(1.into())),
         max: Some(Value::Number(10.into())),
     };
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].document.id, "low");
 }
@@ -206,7 +218,10 @@ async fn in_memory_store_filters_metadata_range_rejects_non_numeric_metadata() {
         min: Some(Value::String("a".to_string())),
         max: Some(Value::String("z".to_string())),
     };
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert!(results.is_empty());
 }
 
@@ -228,7 +243,10 @@ async fn in_memory_store_filters_metadata_range_rejects_non_numeric_bounds() {
         min: Some(Value::String("low".to_string())),
         max: None,
     };
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert!(results.is_empty());
 }
 
@@ -265,7 +283,10 @@ async fn in_memory_store_filters_metadata_all() {
             max: Some(Value::Number(10.into())),
         },
     ]);
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0].document.id, "match");
 }
@@ -309,9 +330,15 @@ async fn in_memory_store_filters_metadata_any() {
             max: Some(Value::Number(10.into())),
         },
     ]);
-    let results = store.search(&[1.0, 0.0, 0.0], 5, Some(&filter)).await.unwrap();
+    let results = store
+        .search(&[1.0, 0.0, 0.0], 5, Some(&filter))
+        .await
+        .unwrap();
     assert_eq!(results.len(), 2);
-    let ids: Vec<&str> = results.iter().map(|result| result.document.id.as_str()).collect();
+    let ids: Vec<&str> = results
+        .iter()
+        .map(|result| result.document.id.as_str())
+        .collect();
     assert!(ids.contains(&"alpha"));
     assert!(ids.contains(&"score"));
 }

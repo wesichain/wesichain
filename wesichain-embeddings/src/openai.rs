@@ -1,9 +1,9 @@
+use crate::EmbeddingProviderError;
 use async_openai::config::OpenAIConfig;
 use async_openai::types::CreateEmbeddingRequestArgs;
 use async_openai::Client;
 use async_trait::async_trait;
 use wesichain_core::{Embedding, EmbeddingError};
-use crate::EmbeddingProviderError;
 
 #[derive(Clone)]
 pub struct OpenAiEmbedding {

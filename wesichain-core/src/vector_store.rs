@@ -57,10 +57,7 @@ impl<T: VectorStore + ?Sized> VectorStore for std::sync::Arc<T> {
     }
 }
 
-pub async fn delete_strs_dyn(
-    store: &dyn VectorStore,
-    ids: &[&str],
-) -> Result<(), StoreError> {
+pub async fn delete_strs_dyn(store: &dyn VectorStore, ids: &[&str]) -> Result<(), StoreError> {
     let owned: Vec<String> = ids.iter().map(|id| (*id).to_string()).collect();
     store.delete(&owned).await
 }

@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use futures::stream::StreamExt;
 use wesichain_core::{
     Document, Embedding, EmbeddingError, HasMetadataFilter, HasQuery, HasRetrievedDocs,
-    MetadataFilter, Runnable, SearchResult, StreamEvent, StoreError, VectorStore,
-    WesichainError,
+    MetadataFilter, Runnable, SearchResult, StoreError, StreamEvent, VectorStore, WesichainError,
 };
 use wesichain_retrieval::Retriever;
 

@@ -4,8 +4,7 @@ use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
 use wesichain_core::{
-    Document, Embedding, HasMetadataFilter, HasQuery, HasRetrievedDocs, MetadataFilter,
-    VectorStore,
+    Document, Embedding, HasMetadataFilter, HasQuery, HasRetrievedDocs, MetadataFilter, VectorStore,
 };
 use wesichain_graph::{GraphBuilder, GraphState, RetrieverNode, StateSchema};
 use wesichain_retrieval::{HashEmbedder, InMemoryVectorStore};
@@ -50,7 +49,10 @@ async fn main() {
     store.add(docs).await.unwrap();
 
     let node = RetrieverNode::new(embedder, store, 3, None);
-    let graph = GraphBuilder::new().add_node("retrieve", node).set_entry("retrieve").build();
+    let graph = GraphBuilder::new()
+        .add_node("retrieve", node)
+        .set_entry("retrieve")
+        .build();
 
     let state = GraphState::new(DemoState {
         query: "Rust".to_string(),
@@ -59,5 +61,9 @@ async fn main() {
 
     let start = Instant::now();
     let out = graph.invoke(state).await.unwrap();
-    println!("Retrieved {} docs in {:?}", out.data.docs.len(), start.elapsed());
+    println!(
+        "Retrieved {} docs in {:?}",
+        out.data.docs.len(),
+        start.elapsed()
+    );
 }

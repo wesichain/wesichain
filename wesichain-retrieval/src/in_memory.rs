@@ -81,7 +81,9 @@ impl VectorStore for InMemoryVectorStore {
         let mut scored = Vec::new();
         for (idx, embedding) in inner.embeddings.iter().enumerate() {
             let Some(embedding) = embedding else { continue };
-            let Some(doc) = inner.docs[idx].as_ref() else { continue };
+            let Some(doc) = inner.docs[idx].as_ref() else {
+                continue;
+            };
             if let Some(filter) = filter {
                 if !metadata_matches(filter, &doc.metadata) {
                     continue;
