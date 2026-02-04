@@ -1,8 +1,10 @@
+#![allow(deprecated)]
+
 use async_trait::async_trait;
 use futures::stream::StreamExt;
 use std::sync::{Arc, Mutex};
 use wesichain_agent::{Tool, ToolCallingAgent, ToolRegistry};
-use wesichain_core::{Runnable, StreamEvent, Value, WesichainError};
+use wesichain_core::{Runnable, StreamEvent, ToolError, Value, WesichainError};
 use wesichain_llm::{LlmRequest, LlmResponse, Message, Role, ToolCall};
 
 struct MockLlm;
@@ -50,7 +52,7 @@ impl Tool for EchoTool {
         Value::from("schema")
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         Ok(input)
     }
 }

@@ -1,6 +1,7 @@
+#![allow(deprecated)]
+
 use wesichain_agent::{Tool, ToolRegistry};
-use wesichain_core::{Value, WesichainError};
-use wesichain_llm::ToolSpec;
+use wesichain_core::{ToolError, ToolSpec, Value};
 
 struct EchoTool;
 
@@ -22,7 +23,7 @@ impl Tool for EchoTool {
         Value::from("schema")
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         Ok(input)
     }
 }
@@ -41,7 +42,7 @@ impl Tool for AlphaTool {
         Value::from("alpha-schema")
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         Ok(input)
     }
 }
@@ -60,7 +61,7 @@ impl Tool for ZuluTool {
         Value::from("zulu-schema")
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         Ok(input)
     }
 }
@@ -103,11 +104,6 @@ async fn registry_reports_missing_tool() {
         .await
         .expect_err("expected missing tool error");
 
-    match error {
-        WesichainError::ToolCallFailed { tool_name, reason } => {
-            assert_eq!(tool_name, "missing");
-            assert_eq!(reason, "not found");
-        }
-        other => panic!("unexpected error: {other:?}"),
-    }
+    assert!(matches!(error, ToolError::ExecutionFailed(_)));
+    assert!(error.to_string().contains("not found"));
 }
