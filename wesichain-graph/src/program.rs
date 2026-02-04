@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use petgraph::graph::{Graph, NodeIndex};
+use petgraph::visit::EdgeRef;
 
 use crate::{GraphState, StateSchema, StateUpdate};
 use wesichain_core::Runnable;
@@ -16,6 +17,33 @@ pub enum EdgeKind {
 }
 
 pub struct GraphProgram<S: StateSchema> {
-    pub graph: Graph<NodeData<S>, EdgeKind>,
-    pub name_to_index: HashMap<String, NodeIndex>,
+    graph: Graph<NodeData<S>, EdgeKind>,
+    name_to_index: HashMap<String, NodeIndex>,
+}
+
+impl<S: StateSchema> GraphProgram<S> {
+    pub(crate) fn new(
+        graph: Graph<NodeData<S>, EdgeKind>,
+        name_to_index: HashMap<String, NodeIndex>,
+    ) -> Self {
+        Self {
+            graph,
+            name_to_index,
+        }
+    }
+
+    pub fn node_names(&self) -> Vec<String> {
+        self.name_to_index.keys().cloned().collect()
+    }
+
+    pub fn edge_names(&self) -> Vec<(String, String)> {
+        self.graph
+            .edge_references()
+            .filter_map(|edge| {
+                let from = self.graph.node_weight(edge.source())?;
+                let to = self.graph.node_weight(edge.target())?;
+                Some((from.name.clone(), to.name.clone()))
+            })
+            .collect()
+    }
 }

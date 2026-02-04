@@ -4,7 +4,7 @@ use petgraph::graph::Graph;
 
 use crate::{
     Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError,
-    GraphProgram, GraphState, NodeData, StateSchema, StateUpdate, START,
+    GraphProgram, GraphState, NodeData, StateSchema, StateUpdate, END, START,
 };
 use wesichain_core::{Runnable, WesichainError};
 
@@ -102,18 +102,16 @@ impl<S: StateSchema> GraphBuilder<S> {
         }
 
         for (from, to) in edges.iter() {
-            if from == START {
+            if from == START || to == END {
                 continue;
             }
-            let from_idx = name_to_index[from];
-            let to_idx = name_to_index[to];
-            graph.add_edge(from_idx, to_idx, EdgeKind::Default);
+            if let (Some(from_idx), Some(to_idx)) = (name_to_index.get(from), name_to_index.get(to))
+            {
+                graph.add_edge(*from_idx, *to_idx, EdgeKind::Default);
+            }
         }
 
-        GraphProgram {
-            graph,
-            name_to_index,
-        }
+        GraphProgram::new(graph, name_to_index)
     }
 }
 

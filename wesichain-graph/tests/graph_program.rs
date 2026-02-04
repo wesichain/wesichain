@@ -1,8 +1,7 @@
 use futures::StreamExt;
-use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
-use wesichain_graph::{GraphBuilder, GraphState, StateSchema, StateUpdate, START};
+use wesichain_graph::{GraphBuilder, GraphState, StateSchema, StateUpdate, END, START};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 struct DemoState {
@@ -39,21 +38,18 @@ fn graph_program_skips_start_edges() {
         .add_node("inc2", Inc)
         .add_edge(START, "inc")
         .add_edge("inc", "inc2")
+        .add_edge("inc2", END)
+        .add_edge("inc2", "missing")
         .set_entry("inc")
         .build_program();
 
-    assert!(program.name_to_index.contains_key("inc"));
-    assert!(program.name_to_index.contains_key("inc2"));
-    assert!(!program.name_to_index.contains_key(START));
-    assert_eq!(program.graph.node_count(), 2);
-    assert_eq!(program.graph.edge_count(), 1);
+    let mut nodes = program.node_names();
+    nodes.sort();
+    assert_eq!(nodes, vec!["inc".to_string(), "inc2".to_string()]);
+    assert!(!nodes.contains(&START.to_string()));
+    assert!(!nodes.contains(&END.to_string()));
 
-    let inc_index = program.name_to_index["inc"];
-    let inc2_index = program.name_to_index["inc2"];
-    let edges: Vec<_> = program
-        .graph
-        .edge_references()
-        .map(|edge| (edge.source(), edge.target()))
-        .collect();
-    assert_eq!(edges, vec![(inc_index, inc2_index)]);
+    let mut edges = program.edge_names();
+    edges.sort();
+    assert_eq!(edges, vec![("inc".to_string(), "inc2".to_string())]);
 }
