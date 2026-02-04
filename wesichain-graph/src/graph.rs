@@ -125,16 +125,21 @@ pub struct ExecutableGraph<S: StateSchema> {
 }
 
 impl<S: StateSchema> ExecutableGraph<S> {
-    pub async fn invoke(&self, state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
-        self.invoke_with_options(state, ExecutionOptions::default())
+    pub async fn invoke_graph(&self, state: GraphState<S>) -> Result<GraphState<S>, GraphError> {
+        self.invoke_graph_with_options(state, ExecutionOptions::default())
             .await
     }
 
-    pub async fn invoke_with_options(
+    pub async fn invoke_graph_with_options(
         &self,
         mut state: GraphState<S>,
         options: ExecutionOptions,
-    ) -> Result<GraphState<S>, WesichainError> {
+    ) -> Result<GraphState<S>, GraphError> {
+        if !self.nodes.contains_key(&self.entry) {
+            return Err(GraphError::MissingNode {
+                node: self.entry.clone(),
+            });
+        }
         let effective = self.default_config.merge(&options);
         let mut step_count = 0usize;
         let mut recent: VecDeque<String> = VecDeque::new();
@@ -143,13 +148,10 @@ impl<S: StateSchema> ExecutableGraph<S> {
         loop {
             if let Some(max) = effective.max_steps {
                 if step_count >= max {
-                    return Err(WesichainError::Custom(
-                        GraphError::MaxStepsExceeded {
-                            max,
-                            reached: step_count,
-                        }
-                        .to_string(),
-                    ));
+                    return Err(GraphError::MaxStepsExceeded {
+                        max,
+                        reached: step_count,
+                    });
                 }
             }
             step_count += 1;
@@ -161,35 +163,62 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 recent.push_back(current.clone());
                 let count = recent.iter().filter(|node| **node == current).count();
                 if count >= 2 {
-                    return Err(WesichainError::Custom(
-                        GraphError::CycleDetected {
-                            node: current.clone(),
-                            recent: recent.iter().cloned().collect(),
-                        }
-                        .to_string(),
-                    ));
+                    return Err(GraphError::CycleDetected {
+                        node: current.clone(),
+                        recent: recent.iter().cloned().collect(),
+                    });
                 }
             }
 
-            let node = self.nodes.get(&current).expect("node");
-            let update = node.invoke(state).await?;
+            let node = self
+                .nodes
+                .get(&current)
+                .ok_or_else(|| GraphError::InvalidEdge {
+                    node: current.clone(),
+                })?;
+            let update = node.invoke(state).await.map_err(|err| GraphError::NodeFailed {
+                node: current.clone(),
+                source: Box::new(err),
+            })?;
             state = GraphState::new(update.data);
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
                 let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
-                checkpointer
-                    .save(&checkpoint)
-                    .await
-                    .map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+                checkpointer.save(&checkpoint).await?;
             }
             if let Some(condition) = self.conditional.get(&current) {
                 current = condition(&state);
+                if !self.nodes.contains_key(&current) {
+                    return Err(GraphError::InvalidEdge { node: current });
+                }
                 continue;
             }
             match self.edges.get(&current) {
-                Some(next) => current = next.clone(),
+                Some(next) => {
+                    let next = next.clone();
+                    if !self.nodes.contains_key(&next) {
+                        return Err(GraphError::InvalidEdge { node: next });
+                    }
+                    current = next;
+                }
                 None => break,
             }
         }
         Ok(state)
+    }
+
+    pub async fn invoke(&self, state: GraphState<S>) -> Result<GraphState<S>, WesichainError> {
+        self.invoke_graph(state)
+            .await
+            .map_err(|err| WesichainError::Custom(err.to_string()))
+    }
+
+    pub async fn invoke_with_options(
+        &self,
+        state: GraphState<S>,
+        options: ExecutionOptions,
+    ) -> Result<GraphState<S>, WesichainError> {
+        self.invoke_graph_with_options(state, options)
+            .await
+            .map_err(|err| WesichainError::Custom(err.to_string()))
     }
 }
