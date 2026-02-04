@@ -3,6 +3,7 @@ mod config;
 mod error;
 mod file_checkpointer;
 mod graph;
+mod reducer;
 mod state;
 
 pub use checkpoint::{
@@ -12,4 +13,5 @@ pub use config::{ExecutionConfig, ExecutionOptions};
 pub use error::GraphError;
 pub use file_checkpointer::{CheckpointRecord, FileCheckpointer};
 pub use graph::{ExecutableGraph, GraphBuilder};
-pub use state::{GraphState, StateSchema, StateUpdate};
+pub use reducer::{AddCounter, AppendVec, MergeMap, Override};
+pub use state::{GraphState, StateReducer, StateSchema, StateUpdate};
