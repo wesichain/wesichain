@@ -66,4 +66,8 @@ async fn tool_node_executes_calls_and_appends_results() {
     assert_eq!(calls_log.lock().unwrap().len(), 1);
     assert_eq!(update.data.tool_results.len(), 1);
     assert_eq!(update.data.tool_results[0].role, Role::Tool);
+    assert_eq!(
+        update.data.tool_results[0].tool_call_id,
+        Some("1".to_string())
+    );
 }
