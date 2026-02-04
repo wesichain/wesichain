@@ -4,9 +4,10 @@ use thiserror::Error;
 pub enum GraphError {
     #[error("checkpoint failed: {0}")]
     Checkpoint(String),
-    #[error("node failed: {node}")]
+    #[error("node failed: {node}: {source}")]
     NodeFailed {
         node: String,
+        #[source]
         source: Box<dyn std::error::Error + Send + Sync>,
     },
     #[error("missing node: {node}")]
