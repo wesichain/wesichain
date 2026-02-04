@@ -8,6 +8,7 @@ mod observer;
 mod program;
 mod reducer;
 mod state;
+mod stream;
 
 pub use checkpoint::{
     Checkpoint, CheckpointMetadata, Checkpointer, HistoryCheckpointer, InMemoryCheckpointer,
@@ -21,6 +22,7 @@ pub use observer::Observer;
 pub use program::{EdgeKind, GraphProgram, NodeData};
 pub use reducer::{AddCounter, AppendVec, MergeMap, Override};
 pub use state::{GraphState, StateReducer, StateSchema, StateUpdate};
+pub use stream::GraphEvent;
 
 pub const START: &str = "__start";
 pub const END: &str = "__end";
