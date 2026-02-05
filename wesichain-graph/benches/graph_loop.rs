@@ -89,7 +89,7 @@ fn max_rss() -> i64 {
     unsafe {
         let mut usage: libc::rusage = std::mem::zeroed();
         libc::getrusage(libc::RUSAGE_SELF, &mut usage);
-        usage.ru_maxrss as i64
+        usage.ru_maxrss
     }
 }
 
