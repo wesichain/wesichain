@@ -43,5 +43,8 @@ async fn graph_interrupts_before_node() {
 
     let state = GraphState::new(DemoState { count: 0 });
     let result = graph.invoke_graph(state).await;
-    assert!(matches!(result, Err(wesichain_graph::GraphError::Interrupted)));
+    assert!(matches!(
+        result,
+        Err(wesichain_graph::GraphError::Interrupted)
+    ));
 }

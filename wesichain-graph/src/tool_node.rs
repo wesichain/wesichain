@@ -21,10 +21,7 @@ impl ToolNode {
         Self { tools }
     }
 
-    pub async fn invoke<S>(
-        &self,
-        input: GraphState<S>,
-    ) -> Result<StateUpdate<S>, WesichainError>
+    pub async fn invoke<S>(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError>
     where
         S: StateSchema + HasToolCalls,
     {
@@ -59,9 +56,9 @@ where
     }
 
     fn stream(&self, _input: GraphState<S>) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        stream::once(async move {
-            Err(WesichainError::Custom("stream not implemented".to_string()))
-        })
+        stream::once(
+            async move { Err(WesichainError::Custom("stream not implemented".to_string())) },
+        )
         .boxed()
     }
 }

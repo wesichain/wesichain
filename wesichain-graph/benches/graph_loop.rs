@@ -55,7 +55,9 @@ impl Runnable<GraphState<LoopState>, StateUpdate<LoopState>> for Done {
     }
 }
 
-fn build_graph(checkpointer: Option<FileCheckpointer>) -> wesichain_graph::ExecutableGraph<LoopState> {
+fn build_graph(
+    checkpointer: Option<FileCheckpointer>,
+) -> wesichain_graph::ExecutableGraph<LoopState> {
     let builder = GraphBuilder::new()
         .add_node("inc", Inc)
         .add_node("done", Done)

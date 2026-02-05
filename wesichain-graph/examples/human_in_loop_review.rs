@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
-use wesichain_graph::{Checkpointer, GraphBuilder, GraphError, GraphState, InMemoryCheckpointer, StateSchema, StateUpdate};
+use wesichain_graph::{
+    Checkpointer, GraphBuilder, GraphError, GraphState, InMemoryCheckpointer, StateSchema,
+    StateUpdate,
+};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 struct ReviewState {
@@ -70,14 +73,17 @@ async fn main() -> Result<(), GraphError> {
         .with_interrupt_before(["review"])
         .build();
 
-    let state = GraphState::new(ReviewState { value: 0, approved: false });
+    let state = GraphState::new(ReviewState {
+        value: 0,
+        approved: false,
+    });
     match graph.invoke_graph(state).await {
         Err(GraphError::Interrupted) => {
-            let checkpoint = checkpointer
-                .load("thread-42")
-                .await?
-                .expect("checkpoint");
-            println!("Paused at step {} (node: {})", checkpoint.step, checkpoint.node);
+            let checkpoint = checkpointer.load("thread-42").await?.expect("checkpoint");
+            println!(
+                "Paused at step {} (node: {})",
+                checkpoint.step, checkpoint.node
+            );
 
             let resume_graph = GraphBuilder::new()
                 .add_node("prepare", Prepare)

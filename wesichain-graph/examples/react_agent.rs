@@ -6,7 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wesichain_agent::Tool;
 use wesichain_core::{Runnable, StreamEvent, Value, WesichainError};
-use wesichain_graph::{ExecutionConfig, GraphBuilder, GraphError, GraphState, HasToolCalls, StateSchema, StateUpdate, ToolNode};
+use wesichain_graph::{
+    ExecutionConfig, GraphBuilder, GraphError, GraphState, HasToolCalls, StateSchema, StateUpdate,
+    ToolNode,
+};
 use wesichain_llm::{Message, ToolCall};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]

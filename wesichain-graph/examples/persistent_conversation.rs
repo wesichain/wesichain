@@ -4,7 +4,10 @@ use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
-use wesichain_graph::{Checkpointer, GraphBuilder, GraphError, GraphState, InMemoryCheckpointer, StateSchema, StateUpdate};
+use wesichain_graph::{
+    Checkpointer, GraphBuilder, GraphError, GraphState, InMemoryCheckpointer, StateSchema,
+    StateUpdate,
+};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 struct ConversationState {
@@ -16,7 +19,11 @@ impl StateSchema for ConversationState {
     fn merge(current: &Self, update: Self) -> Self {
         let mut messages = current.messages.clone();
         messages.extend(update.messages);
-        let turn = if update.turn == 0 { current.turn } else { update.turn };
+        let turn = if update.turn == 0 {
+            current.turn
+        } else {
+            update.turn
+        };
         Self { messages, turn }
     }
 }
@@ -30,12 +37,7 @@ impl Runnable<GraphState<ConversationState>, StateUpdate<ConversationState>> for
         input: GraphState<ConversationState>,
     ) -> Result<StateUpdate<ConversationState>, WesichainError> {
         let next_turn = input.data.turn + 1;
-        let last = input
-            .data
-            .messages
-            .last()
-            .map(String::as_str)
-            .unwrap_or("");
+        let last = input.data.messages.last().map(String::as_str).unwrap_or("");
         let reply = format!("Turn {next_turn}: got '{last}'");
         Ok(StateUpdate::new(ConversationState {
             messages: vec![reply],
@@ -68,10 +70,7 @@ async fn main() -> Result<(), GraphError> {
     let out = graph.invoke_graph(state).await?;
     println!("After first turn: {}", out.data.messages.last().unwrap());
 
-    let checkpoint = checkpointer
-        .load("thread-1")
-        .await?
-        .expect("checkpoint");
+    let checkpoint = checkpointer.load("thread-1").await?.expect("checkpoint");
     println!("Resuming from step {}", checkpoint.step);
 
     let resumed = graph.invoke_graph(checkpoint.state).await?;

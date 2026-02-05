@@ -30,7 +30,11 @@ impl StateSchema for RagState {
             current.answer.clone()
         };
 
-        Self { query, docs, answer }
+        Self {
+            query,
+            docs,
+            answer,
+        }
     }
 }
 

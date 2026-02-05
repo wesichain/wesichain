@@ -39,17 +39,11 @@ struct CollectingObserver {
 #[async_trait::async_trait]
 impl Observer for CollectingObserver {
     async fn on_node_start(&self, node_id: &str, _input: &serde_json::Value) {
-        self.events
-            .lock()
-            .unwrap()
-            .push(format!("start:{node_id}"));
+        self.events.lock().unwrap().push(format!("start:{node_id}"));
     }
 
     async fn on_node_end(&self, node_id: &str, _output: &serde_json::Value, _duration_ms: u128) {
-        self.events
-            .lock()
-            .unwrap()
-            .push(format!("end:{node_id}"));
+        self.events.lock().unwrap().push(format!("end:{node_id}"));
     }
 
     async fn on_error(&self, _node_id: &str, _error: &GraphError) {}

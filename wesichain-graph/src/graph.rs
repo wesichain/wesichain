@@ -198,7 +198,10 @@ impl<S: StateSchema> ExecutableGraph<S> {
             .await
     }
 
-    pub fn stream_invoke(&self, state: GraphState<S>) -> BoxStream<'_, Result<GraphEvent, GraphError>> {
+    pub fn stream_invoke(
+        &self,
+        state: GraphState<S>,
+    ) -> BoxStream<'_, Result<GraphEvent, GraphError>> {
         if !self.nodes.contains_key(&self.entry) {
             return stream::iter(vec![Ok(GraphEvent::Error(GraphError::MissingNode {
                 node: self.entry.clone(),
@@ -254,7 +257,11 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     ctx.recent.pop_front();
                 }
                 ctx.recent.push_back(ctx.current.clone());
-                let count = ctx.recent.iter().filter(|node| **node == ctx.current).count();
+                let count = ctx
+                    .recent
+                    .iter()
+                    .filter(|node| **node == ctx.current)
+                    .count();
                 if count >= 2 {
                     ctx.done = true;
                     return Some((
@@ -285,8 +292,9 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 }
             };
 
-            ctx.pending
-                .push_back(GraphEvent::NodeEnter { node: ctx.current.clone() });
+            ctx.pending.push_back(GraphEvent::NodeEnter {
+                node: ctx.current.clone(),
+            });
 
             let context = GraphContext {
                 remaining_steps: ctx
@@ -324,12 +332,14 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     let event = ctx.pending.pop_front();
                     return event.map(|event| (Ok(event), ctx));
                 }
-                ctx.pending
-                    .push_back(GraphEvent::CheckpointSaved { node: ctx.current.clone() });
+                ctx.pending.push_back(GraphEvent::CheckpointSaved {
+                    node: ctx.current.clone(),
+                });
             }
 
-            ctx.pending
-                .push_back(GraphEvent::NodeExit { node: ctx.current.clone() });
+            ctx.pending.push_back(GraphEvent::NodeExit {
+                node: ctx.current.clone(),
+            });
 
             if self.interrupt_after.contains(&ctx.current) {
                 ctx.done = true;
