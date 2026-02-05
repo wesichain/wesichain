@@ -91,3 +91,73 @@ pub struct ErrorDetail {
     pub error_type: Option<String>,
     pub code: Option<String>,
 }
+
+use secrecy::{ExposeSecret, Secret};
+
+/// Builder for OpenAiCompatibleClient
+pub struct OpenAiCompatibleBuilder {
+    base_url: Option<Url>,
+    api_key: Option<Secret<String>>,
+    default_model: Option<String>,
+    timeout: Duration,
+}
+
+impl Default for OpenAiCompatibleBuilder {
+    fn default() -> Self {
+        Self {
+            base_url: None,
+            api_key: None,
+            default_model: None,
+            timeout: Duration::from_secs(60),
+        }
+    }
+}
+
+impl OpenAiCompatibleBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn base_url(mut self, url: impl AsRef<str>) -> Result<Self, wesichain_core::WesichainError> {
+        let url = Url::parse(url.as_ref())
+            .map_err(|e| wesichain_core::WesichainError::InvalidConfig(format!("Invalid base URL: {}", e)))?;
+        self.base_url = Some(url);
+        Ok(self)
+    }
+
+    pub fn api_key(mut self, key: impl Into<String>) -> Self {
+        self.api_key = Some(Secret::new(key.into()));
+        self
+    }
+
+    pub fn default_model(mut self, model: impl Into<String>) -> Self {
+        self.default_model = Some(model.into());
+        self
+    }
+
+    pub fn timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    pub fn build(self) -> Result<OpenAiCompatibleClient, wesichain_core::WesichainError> {
+        let base_url = self.base_url
+            .ok_or_else(|| wesichain_core::WesichainError::InvalidConfig("base_url is required".to_string()))?;
+
+        let api_key = self.api_key
+            .ok_or_else(|| wesichain_core::WesichainError::InvalidConfig("api_key is required".to_string()))?;
+
+        let http = reqwest::Client::builder()
+            .timeout(self.timeout)
+            .build()
+            .map_err(|e| wesichain_core::WesichainError::LlmProvider(format!("Failed to create HTTP client: {}", e)))?;
+
+        Ok(OpenAiCompatibleClient {
+            http,
+            base_url,
+            api_key,
+            default_model: self.default_model.unwrap_or_default(),
+            timeout: self.timeout,
+        })
+    }
+}
