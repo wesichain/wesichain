@@ -1,8 +1,24 @@
 mod ollama;
 mod types;
 
+// OpenAI-compatible client (always available)
+pub mod openai_compatible;
+
+// Provider-specific clients (feature-gated)
+pub mod providers;
+
 pub use ollama::{ollama_stream_events, OllamaClient};
 pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
+
+// Re-export generic client
+pub use openai_compatible::{OpenAiCompatibleClient, OpenAiCompatibleBuilder, ChatCompletionRequest};
+
+// Re-export provider clients
+#[cfg(feature = "openai")]
+pub use providers::openai::OpenAiClient;
+
+#[cfg(feature = "deepseek")]
+pub use providers::deepseek::DeepSeekClient;
 
 use wesichain_core::Runnable;
 

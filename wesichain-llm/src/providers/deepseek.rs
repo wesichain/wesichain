@@ -47,4 +47,3 @@ impl Runnable<LlmRequest, LlmResponse> for DeepSeekClient {
     }
 }
 
-impl crate::Llm for DeepSeekClient {}

@@ -47,4 +47,3 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiClient {
     }
 }
 
-impl crate::Llm for OpenAiClient {}
