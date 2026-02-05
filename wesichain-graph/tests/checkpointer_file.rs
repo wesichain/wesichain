@@ -19,10 +19,14 @@ async fn file_checkpointer_appends_and_loads_latest() {
     let first = Checkpoint::new(
         "thread/1".to_string(),
         GraphState::new(DemoState { count: 1 }),
+        1,
+        "inc".to_string(),
     );
     let second = Checkpoint::new(
         "thread/1".to_string(),
         GraphState::new(DemoState { count: 2 }),
+        2,
+        "inc".to_string(),
     );
 
     checkpointer.save(&first).await.unwrap();
@@ -43,10 +47,14 @@ async fn file_checkpointer_lists_metadata() {
     let first = Checkpoint::new(
         "thread-2".to_string(),
         GraphState::new(DemoState { count: 1 }),
+        1,
+        "inc".to_string(),
     );
     let second = Checkpoint::new(
         "thread-2".to_string(),
         GraphState::new(DemoState { count: 2 }),
+        2,
+        "inc".to_string(),
     );
 
     checkpointer.save(&first).await.unwrap();

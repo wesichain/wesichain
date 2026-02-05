@@ -1,5 +1,6 @@
 mod ollama;
-mod types;
+#[cfg(feature = "openai")]
+mod openai;
 
 // OpenAI-compatible client (always available)
 pub mod openai_compatible;
@@ -8,7 +9,7 @@ pub mod openai_compatible;
 pub mod providers;
 
 pub use ollama::{ollama_stream_events, OllamaClient};
-pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
+pub use wesichain_core::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
 
 // Re-export generic client
 pub use openai_compatible::{

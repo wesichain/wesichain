@@ -10,6 +10,7 @@ description.workspace = true
 
 [dependencies]
 async-trait = "0.1"
+async-openai = { version = "0.21", optional = true }
 bytes = "1"
 futures = "0.3"
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"] }
@@ -23,7 +24,7 @@ wesichain-core = { path = "../wesichain-core" }
 
 [features]
 default = ["ollama"]
-openai = []
+openai = ["async-openai"]
 deepseek = []
 ollama = []
 all-providers = ["openai", "deepseek", "ollama"]

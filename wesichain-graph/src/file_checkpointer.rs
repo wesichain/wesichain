@@ -4,7 +4,6 @@ use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -86,7 +85,7 @@ impl<S: StateSchema> Checkpointer<S> for FileCheckpointer {
         let seq = self.next_seq::<S>(&checkpoint.thread_id)?;
         let record = CheckpointRecord {
             seq,
-            created_at: Utc::now().to_rfc3339(),
+            created_at: checkpoint.created_at.clone(),
             checkpoint: checkpoint.clone(),
         };
         let mut file = OpenOptions::new()

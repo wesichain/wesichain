@@ -10,9 +10,9 @@ use url::Url;
 #[derive(Serialize, Debug, Clone)]
 pub struct ChatCompletionRequest {
     pub model: String,
-    pub messages: Vec<crate::types::Message>,
+    pub messages: Vec<wesichain_core::Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<crate::types::ToolSpec>>,
+    pub tools: Option<Vec<wesichain_core::ToolSpec>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -43,7 +43,7 @@ pub struct ResponseMessage {
     pub role: String,
     pub content: Option<String>,
     #[serde(default)]
-    pub tool_calls: Option<Vec<crate::types::ToolCall>>,
+    pub tool_calls: Option<Vec<wesichain_core::ToolCall>>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
