@@ -1,8 +1,7 @@
-use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
-use wesichain_graph::{GraphBuilder, GraphState, Observer, StateSchema, StateUpdate};
+use wesichain_graph::{GraphBuilder, GraphError, GraphState, Observer, StateSchema, StateUpdate};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize, PartialEq)]
 struct DemoState {
@@ -37,20 +36,23 @@ struct CollectingObserver {
     events: Arc<Mutex<Vec<String>>>,
 }
 
+#[async_trait::async_trait]
 impl Observer for CollectingObserver {
-    fn on_node_enter(&self, node: &str) {
+    async fn on_node_start(&self, node_id: &str, _input: &serde_json::Value) {
         self.events
             .lock()
             .unwrap()
-            .push(format!("enter:{node}"));
+            .push(format!("start:{node_id}"));
     }
 
-    fn on_node_exit(&self, node: &str) {
+    async fn on_node_end(&self, node_id: &str, _output: &serde_json::Value, _duration_ms: u128) {
         self.events
             .lock()
             .unwrap()
-            .push(format!("exit:{node}"));
+            .push(format!("end:{node_id}"));
     }
+
+    async fn on_error(&self, _node_id: &str, _error: &GraphError) {}
 }
 
 #[tokio::test]
@@ -65,5 +67,5 @@ async fn observer_receives_node_events() {
 
     let state = GraphState::new(DemoState { count: 0 });
     graph.invoke_graph(state).await.unwrap();
-    assert_eq!(events.lock().unwrap().as_slice(), ["enter:inc", "exit:inc"]);
+    assert_eq!(events.lock().unwrap().as_slice(), ["start:inc", "end:inc"]);
 }

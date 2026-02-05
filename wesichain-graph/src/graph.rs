@@ -1,19 +1,50 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+use std::time::Instant;
 
 use futures::stream::{self, BoxStream, StreamExt};
 use petgraph::graph::Graph;
 
 use crate::{
-    Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError,
-    GraphEvent, GraphProgram, GraphState, NodeData, Observer, StateSchema, StateUpdate, END, START,
+    Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError, GraphEvent,
+    GraphProgram, GraphState, NodeData, Observer, StateSchema, StateUpdate, END, START,
 };
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
 
+pub struct GraphContext {
+    pub remaining_steps: Option<usize>,
+    pub observer: Option<Arc<dyn Observer>>,
+    pub node_id: String,
+}
+
+#[async_trait::async_trait]
+pub trait GraphNode<S: StateSchema>: Send + Sync {
+    async fn invoke_with_context(
+        &self,
+        input: GraphState<S>,
+        context: &GraphContext,
+    ) -> Result<StateUpdate<S>, WesichainError>;
+}
+
+#[async_trait::async_trait]
+impl<S, R> GraphNode<S> for R
+where
+    S: StateSchema,
+    R: Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync,
+{
+    async fn invoke_with_context(
+        &self,
+        input: GraphState<S>,
+        _context: &GraphContext,
+    ) -> Result<StateUpdate<S>, WesichainError> {
+        self.invoke(input).await
+    }
+}
+
 pub struct GraphBuilder<S: StateSchema> {
-    nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    nodes: HashMap<String, Box<dyn GraphNode<S>>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
@@ -47,7 +78,7 @@ impl<S: StateSchema> GraphBuilder<S> {
 
     pub fn add_node<R>(mut self, name: &str, node: R) -> Self
     where
-        R: Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync + 'static,
+        R: GraphNode<S> + 'static,
     {
         self.nodes.insert(name.to_string(), Box::new(node));
         self
@@ -150,7 +181,7 @@ impl<S: StateSchema> GraphBuilder<S> {
 }
 
 pub struct ExecutableGraph<S: StateSchema> {
-    nodes: HashMap<String, Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>>,
+    nodes: HashMap<String, Box<dyn GraphNode<S>>>,
     edges: HashMap<String, String>,
     conditional: HashMap<String, Condition<S>>,
     checkpointer: Option<(Box<dyn Checkpointer<S>>, String)>,
@@ -257,7 +288,15 @@ impl<S: StateSchema> ExecutableGraph<S> {
             ctx.pending
                 .push_back(GraphEvent::NodeEnter { node: ctx.current.clone() });
 
-            let update = match node.invoke(ctx.state.clone()).await {
+            let context = GraphContext {
+                remaining_steps: ctx
+                    .effective
+                    .max_steps
+                    .map(|max| max.saturating_sub(ctx.step_count.saturating_sub(1))),
+                observer: None,
+                node_id: ctx.current.clone(),
+            };
+            let update = match node.invoke_with_context(ctx.state.clone(), &context).await {
                 Ok(update) => update,
                 Err(err) => {
                     ctx.done = true;
@@ -344,6 +383,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
             });
         }
         let effective = self.default_config.merge(&options);
+        let observer = options.observer.clone().or_else(|| self.observer.clone());
         let mut step_count = 0usize;
         let mut recent: VecDeque<String> = VecDeque::new();
         let mut current = self.entry.clone();
@@ -351,10 +391,14 @@ impl<S: StateSchema> ExecutableGraph<S> {
         loop {
             if let Some(max) = effective.max_steps {
                 if step_count >= max {
-                    return Err(GraphError::MaxStepsExceeded {
+                    let error = GraphError::MaxStepsExceeded {
                         max,
                         reached: step_count,
-                    });
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(error);
                 }
             }
             step_count += 1;
@@ -366,36 +410,88 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 recent.push_back(current.clone());
                 let count = recent.iter().filter(|node| **node == current).count();
                 if count >= 2 {
-                    return Err(GraphError::CycleDetected {
+                    let error = GraphError::CycleDetected {
                         node: current.clone(),
                         recent: recent.iter().cloned().collect(),
-                    });
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(error);
                 }
             }
 
             if self.interrupt_before.contains(&current) {
-                return Err(GraphError::Interrupted);
+                let error = GraphError::Interrupted;
+                if let Some(obs) = &observer {
+                    obs.on_error(&current, &error).await;
+                }
+                return Err(error);
             }
 
-            let node = self
-                .nodes
-                .get(&current)
-                .ok_or_else(|| GraphError::InvalidEdge {
-                    node: current.clone(),
-                })?;
-            if let Some(observer) = &self.observer {
-                observer.on_node_enter(&current);
+            let node = match self.nodes.get(&current) {
+                Some(node) => node,
+                None => {
+                    let error = GraphError::InvalidEdge {
+                        node: current.clone(),
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(error);
+                }
+            };
+            if let Some(obs) = &observer {
+                let input_value = match serde_json::to_value(&state.data) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        let error = GraphError::NodeFailed {
+                            node: current.clone(),
+                            source: Box::new(err),
+                        };
+                        obs.on_error(&current, &error).await;
+                        return Err(error);
+                    }
+                };
+                obs.on_node_start(&current, &input_value).await;
             }
-            let update = node.invoke(state).await.map_err(|err| {
-                if let Some(observer) = &self.observer {
-                    observer.on_error(&current, &err.to_string());
+            let context = GraphContext {
+                remaining_steps: effective
+                    .max_steps
+                    .map(|max| max.saturating_sub(step_count.saturating_sub(1))),
+                observer: observer.clone(),
+                node_id: current.clone(),
+            };
+            let start = Instant::now();
+            let update = match node.invoke_with_context(state, &context).await {
+                Ok(update) => update,
+                Err(err) => {
+                    let error = GraphError::NodeFailed {
+                        node: current.clone(),
+                        source: Box::new(err),
+                    };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(error);
                 }
-                GraphError::NodeFailed {
-                    node: current.clone(),
-                    source: Box::new(err),
-                }
-            })?;
+            };
+            let duration_ms = start.elapsed().as_millis();
             state = GraphState::new(update.data);
+            if let Some(obs) = &observer {
+                let output_value = match serde_json::to_value(&state.data) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        let error = GraphError::NodeFailed {
+                            node: current.clone(),
+                            source: Box::new(err),
+                        };
+                        obs.on_error(&current, &error).await;
+                        return Err(error);
+                    }
+                };
+                obs.on_node_end(&current, &output_value, duration_ms).await;
+            }
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
                 let checkpoint = Checkpoint::new(
                     thread_id.clone(),
@@ -404,34 +500,44 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     current.clone(),
                 );
                 if let Err(err) = checkpointer.save(&checkpoint).await {
-                    if let Some(observer) = &self.observer {
-                        observer.on_error(&current, &err.to_string());
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &err).await;
                     }
                     return Err(err);
                 }
-                if let Some(observer) = &self.observer {
-                    observer.on_checkpoint_saved(&current);
+                if let Some(obs) = &observer {
+                    obs.on_checkpoint_saved(&current).await;
                 }
-            }
-            if let Some(observer) = &self.observer {
-                observer.on_node_exit(&current);
             }
 
             if self.interrupt_after.contains(&current) {
-                return Err(GraphError::Interrupted);
+                let error = GraphError::Interrupted;
+                if let Some(obs) = &observer {
+                    obs.on_error(&current, &error).await;
+                }
+                return Err(error);
             }
             if let Some(condition) = self.conditional.get(&current) {
-                current = condition(&state);
-                if !self.nodes.contains_key(&current) {
-                    return Err(GraphError::InvalidEdge { node: current });
+                let next = condition(&state);
+                if !self.nodes.contains_key(&next) {
+                    let error = GraphError::InvalidEdge { node: next.clone() };
+                    if let Some(obs) = &observer {
+                        obs.on_error(&current, &error).await;
+                    }
+                    return Err(error);
                 }
+                current = next;
                 continue;
             }
             match self.edges.get(&current) {
                 Some(next) => {
                     let next = next.clone();
                     if !self.nodes.contains_key(&next) {
-                        return Err(GraphError::InvalidEdge { node: next });
+                        let error = GraphError::InvalidEdge { node: next.clone() };
+                        if let Some(obs) = &observer {
+                            obs.on_error(&current, &error).await;
+                        }
+                        return Err(error);
                     }
                     current = next;
                 }

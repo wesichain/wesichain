@@ -6,6 +6,9 @@ members = [
   "wesichain-llm",
   "wesichain-agent",
   "wesichain-graph",
+  "wesichain-embeddings",
+  "wesichain-retrieval",
+  "wesichain-langsmith",
 ]
 resolver = "2"
 

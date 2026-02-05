@@ -9,6 +9,7 @@ fn llm_request_serializes_with_tools() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![ToolSpec {
             name: "calculator".to_string(),
@@ -26,6 +27,7 @@ fn llm_request_serializes_with_tools() {
         role: Role::Tool,
         content: "ok".to_string(),
         tool_call_id: Some("call-1".to_string()),
+        tool_calls: Vec::new(),
     };
     let tool_value = serde_json::to_value(tool_msg).expect("serialize tool msg");
     assert_eq!(tool_value["tool_call_id"], "call-1");

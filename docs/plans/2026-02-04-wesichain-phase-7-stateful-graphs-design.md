@@ -77,7 +77,7 @@ Conditional routing takes precedence over default edges. If a router returns an 
 Execution is a single sequential loop. For each node:
 
 1. Check `interrupt_before` and yield `GraphInterrupt` if matched.
-2. Notify observer `on_node_enter` and start a tracing span.
+2. Notify observer `on_node_start` and start a tracing span.
 3. Invoke node to get `StateUpdate<S>`.
 4. Apply update via reducers or override.
 5. Save checkpoint if configured.
@@ -100,7 +100,7 @@ flowchart TD
     E --> F{Loop: while not at END and no interrupt}
     F --> G{interrupt_before current node?}
     G -->|Yes| H[Yield GraphInterrupt<br>current state + pending node]
-    G -->|No| I[on_node_enter + tracing::span!]
+    G -->|No| I[on_node_start + tracing::span!]
     I --> J[Invoke node -> StateUpdate<S>]
     J --> K[Apply update via reducers or override]
     K --> L{Save checkpoint?}
@@ -173,7 +173,7 @@ Interrupts return `GraphInterrupt` containing the current state snapshot, node, 
 **Summary**: Observers and tracing provide visibility; streaming yields ordered graph events.
 Provide an `Observer` trait with callbacks:
 
-- `on_node_enter`, `on_node_exit`, `on_error`, `on_checkpoint_saved`.
+- `on_node_start`, `on_node_end`, `on_error`, `on_tool_call`, `on_tool_result`, `on_checkpoint_saved`.
 
 Integrate `tracing` spans per node and per step. Streaming yields `GraphEvent` values for node transitions, tokens, tool calls/results, checkpoint saves, and interrupts. Streaming must preserve event ordering and terminate on errors.
 

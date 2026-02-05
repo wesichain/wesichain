@@ -672,9 +672,17 @@ struct CollectingObserver {
     events: Arc<Mutex<Vec<String>>>,
 }
 
+#[async_trait::async_trait]
 impl Observer for CollectingObserver {
-    fn on_node_enter(&self, node: &str) { self.events.lock().unwrap().push(format!("enter:{node}")); }
-    fn on_node_exit(&self, node: &str) { self.events.lock().unwrap().push(format!("exit:{node}")); }
+    async fn on_node_start(&self, node_id: &str, _input: &serde_json::Value) {
+        self.events.lock().unwrap().push(format!("start:{node_id}"));
+    }
+
+    async fn on_node_end(&self, node_id: &str, _output: &serde_json::Value, _duration_ms: u128) {
+        self.events.lock().unwrap().push(format!("end:{node_id}"));
+    }
+
+    async fn on_error(&self, _node_id: &str, _error: &GraphError) {}
 }
 
 #[tokio::test]
@@ -689,7 +697,7 @@ async fn observer_receives_node_events() {
 
     let state = GraphState::new(DemoState { count: 0 });
     graph.invoke_graph(state).await.unwrap();
-    assert_eq!(events.lock().unwrap().as_slice(), ["enter:inc", "exit:inc"]);
+    assert_eq!(events.lock().unwrap().as_slice(), ["start:inc", "end:inc"]);
 }
 ```
 
@@ -702,11 +710,14 @@ Expected: FAIL (no Observer trait or hook).
 
 ```rust
 // wesichain-graph/src/observer.rs
-pub trait Observer: Send + Sync {
-    fn on_node_enter(&self, _node: &str) {}
-    fn on_node_exit(&self, _node: &str) {}
-    fn on_error(&self, _node: &str, _error: &str) {}
-    fn on_checkpoint_saved(&self, _node: &str) {}
+#[async_trait::async_trait]
+pub trait Observer: Send + Sync + 'static {
+    async fn on_node_start(&self, node_id: &str, input: &serde_json::Value);
+    async fn on_node_end(&self, node_id: &str, output: &serde_json::Value, duration_ms: u128);
+    async fn on_error(&self, node_id: &str, error: &GraphError);
+    async fn on_tool_call(&self, _node_id: &str, _tool_name: &str, _args: &serde_json::Value) {}
+    async fn on_tool_result(&self, _node_id: &str, _tool_name: &str, _result: &serde_json::Value) {}
+    async fn on_checkpoint_saved(&self, _node_id: &str) {}
 }
 ```
 
@@ -720,9 +731,15 @@ pub fn with_observer(mut self, observer: Arc<dyn Observer>) -> Self {
 }
 
 // in invoke_graph loop
-if let Some(observer) = &self.observer { observer.on_node_enter(&current); }
+if let Some(observer) = &self.observer {
+    let input_value = serde_json::to_value(&state.data)?;
+    observer.on_node_start(&current, &input_value).await;
+}
 // after node
-if let Some(observer) = &self.observer { observer.on_node_exit(&current); }
+if let Some(observer) = &self.observer {
+    let output_value = serde_json::to_value(&state.data)?;
+    observer.on_node_end(&current, &output_value, duration_ms).await;
+}
 ```
 
 ```rust
