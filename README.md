@@ -145,6 +145,15 @@ async fn main() -> Result<(), WesichainError> {
 }
 ```
 
+### Graph Highlights
+
+- Additive updates via reducers (`StateSchema::merge`)
+- LangGraph-style wiring with `START` and `END` constants
+- Structured errors via `invoke_graph` + `GraphError`
+- Streaming graph events via `stream_invoke`
+- Interrupts via `with_interrupt_before` / `with_interrupt_after`
+- Checkpoints include step/node metadata for resume
+
 ## LangSmith Observability
 
 ```toml
@@ -197,7 +206,7 @@ wesichain-llm = { path = "wesichain-llm", features = ["openai"] }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
 ```rust
@@ -297,6 +306,7 @@ async fn main() -> Result<(), WesichainError> {
     Ok(())
 }
 ```
+>>>>>>> origin/main
 
 ## Status
 - v0 design locked: docs/plans/2026-02-01-wesichain-v0-design.md

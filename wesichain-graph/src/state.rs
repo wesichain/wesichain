@@ -3,7 +3,18 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 pub trait StateSchema:
     Serialize + DeserializeOwned + Clone + Default + Send + Sync + 'static
 {
+    fn merge(_current: &Self, update: Self) -> Self {
+        update
+    }
 }
+
+pub trait StateReducer: StateSchema {
+    fn merge(current: &Self, update: Self) -> Self {
+        <Self as StateSchema>::merge(current, update)
+    }
+}
+
+impl<T: StateSchema> StateReducer for T {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(bound = "S: StateSchema")]
@@ -16,9 +27,14 @@ impl<S: StateSchema> GraphState<S> {
         Self { data }
     }
 
-    pub fn apply(mut self, update: StateUpdate<S>) -> Self {
-        self.data = update.data;
-        self
+    pub fn apply_update(self, update: StateUpdate<S>) -> Self {
+        Self {
+            data: S::merge(&self.data, update.data),
+        }
+    }
+
+    pub fn apply(self, update: StateUpdate<S>) -> Self {
+        self.apply_update(update)
     }
 }
 

@@ -3585,13 +3585,18 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "chrono",
+ "criterion",
  "futures",
+ "libc",
+ "petgraph",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror 1.0.69",
  "tokio",
+ "wesichain-agent",
  "wesichain-core",
+ "wesichain-llm",
  "wesichain-prompt",
  "wesichain-retrieval",
 ]
