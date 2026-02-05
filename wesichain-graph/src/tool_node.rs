@@ -45,13 +45,12 @@ where
                     tool_name: call.name.clone(),
                     reason: "not found".to_string(),
                 })?;
-            let output = tool
-                .invoke(call.args.clone())
-                .await
-                .map_err(|err| WesichainError::ToolCallFailed {
+            let output = tool.invoke(call.args.clone()).await.map_err(|err| {
+                WesichainError::ToolCallFailed {
                     tool_name: call.name.clone(),
                     reason: err.to_string(),
-                })?;
+                }
+            })?;
             next.push_tool_result(Message {
                 role: Role::Tool,
                 content: output.to_string(),
