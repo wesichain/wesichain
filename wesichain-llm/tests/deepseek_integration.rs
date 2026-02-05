@@ -16,6 +16,7 @@ async fn test_deepseek_simple_completion() {
             role: Role::User,
             content: "Say 'Hello from DeepSeek'".to_string(),
             tool_call_id: None,
+            tool_calls: vec![],
         }],
         tools: vec![],
     };

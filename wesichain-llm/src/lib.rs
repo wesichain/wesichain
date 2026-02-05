@@ -1,6 +1,4 @@
 mod ollama;
-#[cfg(feature = "openai")]
-mod openai;
 
 // OpenAI-compatible client (always available)
 pub mod openai_compatible;

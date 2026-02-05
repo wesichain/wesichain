@@ -16,6 +16,7 @@ async fn test_openai_simple_completion() {
             role: Role::User,
             content: "Say 'Hello from Wesichain'".to_string(),
             tool_call_id: None,
+            tool_calls: vec![],
         }],
         tools: vec![],
     };
