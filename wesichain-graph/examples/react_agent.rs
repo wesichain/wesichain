@@ -5,7 +5,7 @@ use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wesichain_agent::Tool;
-use wesichain_core::{Runnable, StreamEvent, Value, WesichainError};
+use wesichain_core::{Runnable, StreamEvent, ToolError, Value, WesichainError};
 use wesichain_graph::{
     ExecutionConfig, GraphBuilder, GraphError, GraphState, HasToolCalls, StateSchema, StateUpdate,
     ToolNode,
@@ -139,14 +139,14 @@ impl Tool for EchoTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         Ok(input)
     }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), GraphError> {
-    let tool_node = ToolNode::new(vec![Arc::new(EchoTool::default())]);
+    let tool_node = ToolNode::new(vec![Arc::new(EchoTool)]);
     let graph = GraphBuilder::new()
         .add_node("agent", Agent)
         .add_node("tools", tool_node)

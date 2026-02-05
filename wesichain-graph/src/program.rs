@@ -3,12 +3,12 @@ use std::collections::HashMap;
 use petgraph::graph::{Graph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
-use crate::{GraphState, StateSchema, StateUpdate};
-use wesichain_core::Runnable;
+use crate::graph::GraphNode;
+use crate::StateSchema;
 
 pub struct NodeData<S: StateSchema> {
     pub name: String,
-    pub runnable: Box<dyn Runnable<GraphState<S>, StateUpdate<S>> + Send + Sync>,
+    pub runnable: Box<dyn GraphNode<S>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

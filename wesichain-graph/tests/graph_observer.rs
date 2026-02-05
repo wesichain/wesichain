@@ -1,3 +1,4 @@
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};

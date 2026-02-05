@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 pub struct AppendVec;
 impl AppendVec {
-    pub fn merge<T: Clone>(current: &Vec<T>, mut update: Vec<T>) -> Vec<T> {
-        let mut out = current.clone();
+    pub fn merge<T: Clone>(current: &[T], mut update: Vec<T>) -> Vec<T> {
+        let mut out = current.to_vec();
         out.append(&mut update);
         out
     }

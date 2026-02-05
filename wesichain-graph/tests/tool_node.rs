@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use wesichain_agent::Tool;
-use wesichain_core::{Value, WesichainError};
+use wesichain_core::{ToolError, Value};
 use wesichain_graph::{GraphState, HasToolCalls, StateSchema, ToolNode};
 use wesichain_llm::{Message, Role, ToolCall};
 
@@ -42,7 +42,7 @@ impl Tool for MockTool {
         serde_json::json!({"type": "object"})
     }
 
-    async fn call(&self, input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, input: Value) -> Result<Value, ToolError> {
         self.calls.lock().unwrap().push(input.clone());
         Ok(input)
     }
