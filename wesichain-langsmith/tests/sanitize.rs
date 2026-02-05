@@ -14,5 +14,5 @@ fn redaction_applies_before_truncation() {
 #[test]
 fn non_object_inputs_are_wrapped() {
     let wrapped = ensure_object(json!("hello"));
-    assert!(wrapped.is_object());
+    assert_eq!(wrapped, json!({"value": "hello"}));
 }

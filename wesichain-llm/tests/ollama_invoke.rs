@@ -27,6 +27,7 @@ async fn ollama_invoke_maps_response() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
     };
@@ -55,6 +56,7 @@ async fn ollama_invoke_surfaces_http_errors() {
             role: Role::User,
             content: "hi".to_string(),
             tool_call_id: None,
+            tool_calls: Vec::new(),
         }],
         tools: vec![],
     };

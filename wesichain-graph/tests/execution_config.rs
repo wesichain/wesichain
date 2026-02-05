@@ -12,6 +12,7 @@ fn execution_config_defaults_and_merge() {
         cycle_detection: Some(false),
         cycle_window: Some(3),
         run_config: None,
+        observer: None,
     };
     let merged = defaults.merge(&overrides);
     assert_eq!(merged.max_steps, Some(5));

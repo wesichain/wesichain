@@ -78,10 +78,7 @@ impl LangSmithClient {
                         continue;
                     }
                     let body = response.text().await.unwrap_or_default();
-                    return Err(LangSmithError::Http {
-                        status,
-                        body,
-                    });
+                    return Err(LangSmithError::Http { status, body });
                 }
                 Err(err) => {
                     if (err.is_timeout() || err.is_connect()) && attempt < 3 {

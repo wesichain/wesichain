@@ -22,10 +22,10 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
 wesichain-core = { path = "../wesichain-core" }
+wesichain-graph = { path = "../wesichain-graph" }
 
 [dev-dependencies]
 futures = "0.3"
 wiremock = "0.6"
-wesichain-graph = { path = "../wesichain-graph" }
 wesichain-agent = { path = "../wesichain-agent" }
 wesichain-llm = { path = "../wesichain-llm" }

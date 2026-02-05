@@ -1,7 +1,31 @@
 use chrono::{DateTime, Utc};
+use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
+pub trait LangSmithInputs: Serialize {
+    fn langsmith_inputs(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+}
+
+pub trait LangSmithOutputs: Serialize {
+    fn langsmith_outputs(&self) -> Value {
+        serde_json::to_value(self).unwrap_or(Value::Null)
+    }
+}
+
+impl LangSmithInputs for Value {
+    fn langsmith_inputs(&self) -> Value {
+        self.clone()
+    }
+}
+
+impl LangSmithOutputs for Value {
+    fn langsmith_outputs(&self) -> Value {
+        self.clone()
+    }
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RunType {
     Chain,

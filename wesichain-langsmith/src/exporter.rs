@@ -202,12 +202,8 @@ impl ExporterInner {
                         resolved_outputs = None;
                     }
                 }
-                let payload = build_update_payload(
-                    end_time,
-                    resolved_outputs,
-                    resolved_error,
-                    duration_ms,
-                );
+                let payload =
+                    build_update_payload(end_time, resolved_outputs, resolved_error, duration_ms);
                 self.client.update_run(run_id, &payload).await
             }
         }

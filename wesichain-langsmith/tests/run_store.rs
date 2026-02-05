@@ -14,3 +14,17 @@ fn first_terminal_event_is_authoritative() {
     assert_eq!(second.status, RunStatus::Failed);
     assert_eq!(second.error.as_deref(), Some("boom"));
 }
+
+#[test]
+fn error_allows_outputs_later() {
+    let store = RunContextStore::default();
+    let run_id = Uuid::new_v4();
+
+    store.record_start(run_id, None);
+    let failed = store.apply_update(run_id, Some("oops".to_string()));
+    let later = store.apply_update(run_id, None);
+
+    assert_eq!(failed.status, RunStatus::Failed);
+    assert_eq!(later.status, RunStatus::Failed);
+    assert_eq!(later.error.as_deref(), Some("oops"));
+}
