@@ -25,9 +25,12 @@ impl ExecutionConfig {
     }
 }
 
+use wesichain_core::callbacks::RunConfig;
+
 #[derive(Clone, Debug, Default)]
 pub struct ExecutionOptions {
     pub max_steps: Option<usize>,
     pub cycle_detection: Option<bool>,
     pub cycle_window: Option<usize>,
+    pub run_config: Option<RunConfig>,
 }

@@ -4,6 +4,9 @@ use crate::{
     Checkpoint, Checkpointer, ExecutionConfig, ExecutionOptions, GraphError, GraphState,
     StateSchema, StateUpdate,
 };
+use wesichain_core::callbacks::{
+    ensure_object, CallbackManager, RunContext, RunType, ToTraceInput, ToTraceOutput,
+};
 use wesichain_core::{Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
@@ -108,6 +111,21 @@ impl<S: StateSchema> ExecutableGraph<S> {
         options: ExecutionOptions,
     ) -> Result<GraphState<S>, WesichainError> {
         let effective = self.default_config.merge(&options);
+        let mut callbacks: Option<(CallbackManager, RunContext)> = None;
+        if let Some(run_config) = options.run_config {
+            if let Some(manager) = run_config.callbacks {
+                if !manager.is_noop() {
+                    let name = run_config
+                        .name_override
+                        .unwrap_or_else(|| "graph_execution".to_string());
+                    // Use `graph` for the root run; switch to `chain` if LangSmith UI lacks graph support.
+                    let root = RunContext::root(RunType::Graph, name, run_config.tags, run_config.metadata);
+                    let inputs = ensure_object(state.to_trace_input());
+                    manager.on_start(&root, &inputs).await;
+                    callbacks = Some((manager, root));
+                }
+            }
+        }
         let mut step_count = 0usize;
         let mut recent: VecDeque<String> = VecDeque::new();
         let mut current = self.entry.clone();
@@ -115,13 +133,19 @@ impl<S: StateSchema> ExecutableGraph<S> {
         loop {
             if let Some(max) = effective.max_steps {
                 if step_count >= max {
-                    return Err(WesichainError::Custom(
+                    let err = WesichainError::Custom(
                         GraphError::MaxStepsExceeded {
                             max,
                             reached: step_count,
                         }
                         .to_string(),
-                    ));
+                    );
+                    if let Some((manager, root)) = &callbacks {
+                        let error = ensure_object(err.to_string().to_trace_output());
+                        let duration_ms = root.start_instant.elapsed().as_millis();
+                        manager.on_error(root, &error, duration_ms).await;
+                    }
+                    return Err(err);
                 }
             }
             step_count += 1;
@@ -133,25 +157,67 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 recent.push_back(current.clone());
                 let count = recent.iter().filter(|node| **node == current).count();
                 if count >= 2 {
-                    return Err(WesichainError::Custom(
+                    let err = WesichainError::Custom(
                         GraphError::CycleDetected {
                             node: current.clone(),
                             recent: recent.iter().cloned().collect(),
                         }
                         .to_string(),
-                    ));
+                    );
+                    if let Some((manager, root)) = &callbacks {
+                        let error = ensure_object(err.to_string().to_trace_output());
+                        let duration_ms = root.start_instant.elapsed().as_millis();
+                        manager.on_error(root, &error, duration_ms).await;
+                    }
+                    return Err(err);
                 }
             }
 
             let node = self.nodes.get(&current).expect("node");
-            let update = node.invoke(state).await?;
+            let (manager, root) = match &callbacks {
+                Some((manager, root)) => (Some(manager), Some(root)),
+                None => (None, None),
+            };
+            let node_ctx = root.map(|root| root.child(RunType::Chain, current.clone()));
+            if let (Some(manager), Some(node_ctx)) = (manager, &node_ctx) {
+                let inputs = ensure_object(state.to_trace_input());
+                manager.on_start(node_ctx, &inputs).await;
+            }
+
+            let update = match node.invoke(state).await {
+                Ok(update) => {
+                    if let (Some(manager), Some(node_ctx)) = (manager, &node_ctx) {
+                        let outputs = ensure_object(update.to_trace_output());
+                        let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                        manager.on_end(node_ctx, &outputs, duration_ms).await;
+                    }
+                    update
+                }
+                Err(err) => {
+                    let error_value = ensure_object(err.to_string().to_trace_output());
+                    if let (Some(manager), Some(node_ctx)) = (manager, &node_ctx) {
+                        let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                        manager.on_error(node_ctx, &error_value, duration_ms).await;
+                    }
+                    if let (Some(manager), Some(root)) = (manager, root) {
+                        let duration_ms = root.start_instant.elapsed().as_millis();
+                        manager.on_error(root, &error_value, duration_ms).await;
+                    }
+                    return Err(err);
+                }
+            };
             state = GraphState::new(update.data);
             if let Some((checkpointer, thread_id)) = &self.checkpointer {
                 let checkpoint = Checkpoint::new(thread_id.clone(), state.clone());
-                checkpointer
-                    .save(&checkpoint)
-                    .await
-                    .map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+                if let Err(err) = checkpointer.save(&checkpoint).await {
+                    let error = WesichainError::CheckpointFailed(err.to_string());
+                    if let Some((manager, root)) = &callbacks {
+                        let error_value = ensure_object(error.to_string().to_trace_output());
+                        let duration_ms = root.start_instant.elapsed().as_millis();
+                        manager.on_error(root, &error_value, duration_ms).await;
+                    }
+                    return Err(error);
+                }
             }
             if let Some(condition) = self.conditional.get(&current) {
                 current = condition(&state);
@@ -161,6 +227,11 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 Some(next) => current = next.clone(),
                 None => break,
             }
+        }
+        if let Some((manager, root)) = &callbacks {
+            let outputs = ensure_object(state.to_trace_output());
+            let duration_ms = root.start_instant.elapsed().as_millis();
+            manager.on_end(root, &outputs, duration_ms).await;
         }
         Ok(state)
     }
