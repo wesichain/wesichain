@@ -215,3 +215,46 @@ impl OpenAiCompatibleClient {
         }
     }
 }
+
+use wesichain_core::{Runnable, StreamEvent};
+use futures::stream::BoxStream;
+
+#[async_trait::async_trait]
+impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
+    async fn invoke(&self,
+        input: LlmRequest
+    ) -> Result<LlmResponse, WesichainError> {
+        let model = if input.model.is_empty() {
+            self.default_model.clone()
+        } else {
+            input.model
+        };
+
+        let request = ChatCompletionRequest {
+            model,
+            messages: input.messages,
+            tools: if input.tools.is_empty() { None } else { Some(input.tools) },
+            temperature: None,
+            max_tokens: None,
+            stream: false,
+        };
+
+        let response = self.chat_completion(request).await?;
+
+        let choice = response.choices.into_iter().next()
+            .ok_or_else(|| WesichainError::LlmProvider("No choices in response".to_string()))?;
+
+        Ok(LlmResponse {
+            content: choice.message.content.unwrap_or_default(),
+            tool_calls: choice.message.tool_calls.unwrap_or_default(),
+        })
+    }
+
+    fn stream(&self,
+        _input: LlmRequest
+    ) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+        // Placeholder - will implement in Task 6
+        use futures::stream;
+        stream::empty().boxed()
+    }
+}
