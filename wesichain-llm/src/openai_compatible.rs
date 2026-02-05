@@ -161,3 +161,57 @@ impl OpenAiCompatibleBuilder {
         })
     }
 }
+
+use wesichain_core::{WesichainError};
+use crate::{LlmRequest, LlmResponse};
+
+/// Generic client for OpenAI-compatible APIs
+#[derive(Clone)]
+pub struct OpenAiCompatibleClient {
+    http: reqwest::Client,
+    base_url: Url,
+    api_key: Secret<String>,
+    default_model: String,
+    timeout: Duration,
+}
+
+impl OpenAiCompatibleClient {
+    pub fn builder() -> OpenAiCompatibleBuilder {
+        OpenAiCompatibleBuilder::new()
+    }
+
+    /// Set or update the default model
+    pub fn set_default_model(&mut self, model: impl Into<String>) {
+        self.default_model = model.into();
+    }
+
+    /// Make a non-streaming chat completion request
+    async fn chat_completion(&self,
+        request: ChatCompletionRequest
+    ) -> Result<ChatCompletionResponse, WesichainError> {
+        let url = self.base_url.join("/v1/chat/completions")
+            .map_err(|e| WesichainError::LlmProvider(format!("Invalid URL: {}", e)))?;
+
+        let response = self.http
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| WesichainError::LlmProvider(format!("Request failed: {}", e)))?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            response.json::<ChatCompletionResponse>().await
+                .map_err(|e| WesichainError::LlmProvider(format!("Failed to parse response: {}", e)))
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            let error_msg = serde_json::from_str::<OpenAiError>(&error_text)
+                .map(|e| e.error.message)
+                .unwrap_or_else(|_| format!("HTTP {}: {}", status, error_text));
+
+            Err(WesichainError::LlmProvider(error_msg))
+        }
+    }
+}
