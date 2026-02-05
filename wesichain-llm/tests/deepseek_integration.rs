@@ -1,8 +1,8 @@
 //! Integration tests for DeepSeek provider
 //! Run with: cargo test --features deepseek -- --ignored
 
-use wesichain_llm::{DeepSeekClient, LlmRequest, Message, Role};
 use wesichain_core::Runnable;
+use wesichain_llm::{DeepSeekClient, LlmRequest, Message, Role};
 
 #[tokio::test]
 #[ignore = "Requires DEEPSEEK_API_KEY environment variable"]
@@ -12,13 +12,11 @@ async fn test_deepseek_simple_completion() {
 
     let request = LlmRequest {
         model: "deepseek-chat".to_string(),
-        messages: vec![
-            Message {
-                role: Role::User,
-                content: "Say 'Hello from DeepSeek'".to_string(),
-                tool_call_id: None,
-            }
-        ],
+        messages: vec![Message {
+            role: Role::User,
+            content: "Say 'Hello from DeepSeek'".to_string(),
+            tool_call_id: None,
+        }],
         tools: vec![],
     };
 

@@ -1,8 +1,8 @@
 //! Integration tests for OpenAI provider
 //! Run with: cargo test --features openai -- --ignored
 
-use wesichain_llm::{OpenAiClient, LlmRequest, Message, Role};
 use wesichain_core::Runnable;
+use wesichain_llm::{LlmRequest, Message, OpenAiClient, Role};
 
 #[tokio::test]
 #[ignore = "Requires OPENAI_API_KEY environment variable"]
@@ -12,13 +12,11 @@ async fn test_openai_simple_completion() {
 
     let request = LlmRequest {
         model: "gpt-4o-mini".to_string(),
-        messages: vec![
-            Message {
-                role: Role::User,
-                content: "Say 'Hello from Wesichain'".to_string(),
-                tool_call_id: None,
-            }
-        ],
+        messages: vec![Message {
+            role: Role::User,
+            content: "Say 'Hello from Wesichain'".to_string(),
+            tool_call_id: None,
+        }],
         tools: vec![],
     };
 

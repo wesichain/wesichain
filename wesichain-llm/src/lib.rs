@@ -11,7 +11,9 @@ pub use ollama::{ollama_stream_events, OllamaClient};
 pub use types::{LlmRequest, LlmResponse, Message, Role, ToolCall, ToolSpec};
 
 // Re-export generic client
-pub use openai_compatible::{OpenAiCompatibleClient, OpenAiCompatibleBuilder, ChatCompletionRequest};
+pub use openai_compatible::{
+    ChatCompletionRequest, OpenAiCompatibleBuilder, OpenAiCompatibleClient,
+};
 
 // Re-export provider clients
 #[cfg(feature = "openai")]

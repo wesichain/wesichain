@@ -1,10 +1,10 @@
 //! OpenAI LLM client
 
+use crate::openai_compatible::OpenAiCompatibleClient;
+use crate::{LlmRequest, LlmResponse};
+use futures::stream::BoxStream;
 use std::time::Duration;
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
-use futures::stream::BoxStream;
-use crate::{LlmRequest, LlmResponse};
-use crate::openai_compatible::OpenAiCompatibleClient;
 
 /// OpenAI LLM client
 #[derive(Clone)]
@@ -21,7 +21,7 @@ impl OpenAiClient {
                 .default_model("gpt-4o-mini")
                 .timeout(Duration::from_secs(60))
                 .build()
-                .expect("Valid config")
+                .expect("Valid config"),
         )
     }
 
@@ -34,16 +34,11 @@ impl OpenAiClient {
 
 #[async_trait::async_trait]
 impl Runnable<LlmRequest, LlmResponse> for OpenAiClient {
-    async fn invoke(&self,
-        input: LlmRequest
-    ) -> Result<LlmResponse, WesichainError> {
+    async fn invoke(&self, input: LlmRequest) -> Result<LlmResponse, WesichainError> {
         self.0.invoke(input).await
     }
 
-    fn stream(&self,
-        input: LlmRequest
-    ) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+    fn stream(&self, input: LlmRequest) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
         self.0.stream(input)
     }
 }
-

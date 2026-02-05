@@ -46,7 +46,10 @@ fn test_chat_completion_response_deserialization() {
     assert_eq!(response.id, "chat-123");
     assert_eq!(response.model, "gpt-4");
     assert_eq!(response.choices.len(), 1);
-    assert_eq!(response.choices[0].message.content, Some("Hello!".to_string()));
+    assert_eq!(
+        response.choices[0].message.content,
+        Some("Hello!".to_string())
+    );
     assert_eq!(response.usage.unwrap().total_tokens, 15);
 }
 
@@ -83,6 +86,9 @@ fn test_error_response_deserialization() {
 
     let error: OpenAiError = serde_json::from_str(json).unwrap();
     assert_eq!(error.error.message, "Invalid API key");
-    assert_eq!(error.error.error_type, Some("authentication_error".to_string()));
+    assert_eq!(
+        error.error.error_type,
+        Some("authentication_error".to_string())
+    );
     assert_eq!(error.error.code, Some("invalid_api_key".to_string()));
 }

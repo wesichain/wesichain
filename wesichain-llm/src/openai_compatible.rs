@@ -118,9 +118,13 @@ impl OpenAiCompatibleBuilder {
         Self::default()
     }
 
-    pub fn base_url(mut self, url: impl AsRef<str>) -> Result<Self, wesichain_core::WesichainError> {
-        let url = Url::parse(url.as_ref())
-            .map_err(|e| wesichain_core::WesichainError::InvalidConfig(format!("Invalid base URL: {}", e)))?;
+    pub fn base_url(
+        mut self,
+        url: impl AsRef<str>,
+    ) -> Result<Self, wesichain_core::WesichainError> {
+        let url = Url::parse(url.as_ref()).map_err(|e| {
+            wesichain_core::WesichainError::InvalidConfig(format!("Invalid base URL: {}", e))
+        })?;
         self.base_url = Some(url);
         Ok(self)
     }
@@ -141,16 +145,23 @@ impl OpenAiCompatibleBuilder {
     }
 
     pub fn build(self) -> Result<OpenAiCompatibleClient, wesichain_core::WesichainError> {
-        let base_url = self.base_url
-            .ok_or_else(|| wesichain_core::WesichainError::InvalidConfig("base_url is required".to_string()))?;
+        let base_url = self.base_url.ok_or_else(|| {
+            wesichain_core::WesichainError::InvalidConfig("base_url is required".to_string())
+        })?;
 
-        let api_key = self.api_key
-            .ok_or_else(|| wesichain_core::WesichainError::InvalidConfig("api_key is required".to_string()))?;
+        let api_key = self.api_key.ok_or_else(|| {
+            wesichain_core::WesichainError::InvalidConfig("api_key is required".to_string())
+        })?;
 
         let http = reqwest::Client::builder()
             .timeout(self.timeout)
             .build()
-            .map_err(|e| wesichain_core::WesichainError::LlmProvider(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| {
+                wesichain_core::WesichainError::LlmProvider(format!(
+                    "Failed to create HTTP client: {}",
+                    e
+                ))
+            })?;
 
         Ok(OpenAiCompatibleClient {
             http,
@@ -162,20 +173,15 @@ impl OpenAiCompatibleBuilder {
     }
 }
 
-use wesichain_core::{WesichainError};
 use crate::{LlmRequest, LlmResponse};
+use wesichain_core::WesichainError;
 
 use bytes::BytesMut;
 use futures::{stream, StreamExt};
 
 /// Parse a server-sent event line
 fn parse_sse_line(line: &str) -> Option<&str> {
-    let line = line.trim();
-    if line.starts_with("data: ") {
-        Some(&line[6..])
-    } else {
-        None
-    }
+    line.trim().strip_prefix("data: ")
 }
 
 /// Parse SSE stream into StreamEvents
@@ -200,7 +206,9 @@ fn parse_sse_stream(
                         if let Some(data) = parse_sse_line(&line_str) {
                             if data == "[DONE]" {
                                 events.push(Ok(StreamEvent::FinalAnswer(String::new())));
-                            } else if let Ok(chunk) = serde_json::from_str::<ChatCompletionChunk>(data) {
+                            } else if let Ok(chunk) =
+                                serde_json::from_str::<ChatCompletionChunk>(data)
+                            {
                                 for choice in chunk.choices {
                                     if let Some(content) = choice.delta.content {
                                         events.push(Ok(StreamEvent::ContentChunk(content)));
@@ -212,9 +220,10 @@ fn parse_sse_stream(
 
                     stream::iter(events)
                 }
-                Err(e) => {
-                    stream::iter(vec![Err(WesichainError::LlmProvider(format!("Stream error: {}", e)))])
-                }
+                Err(e) => stream::iter(vec![Err(WesichainError::LlmProvider(format!(
+                    "Stream error: {}",
+                    e
+                )))]),
             }
         })
         .boxed()
@@ -227,6 +236,7 @@ pub struct OpenAiCompatibleClient {
     base_url: Url,
     api_key: Secret<String>,
     default_model: String,
+    #[allow(dead_code)]
     timeout: Duration,
 }
 
@@ -241,15 +251,22 @@ impl OpenAiCompatibleClient {
     }
 
     /// Make a non-streaming chat completion request
-    async fn chat_completion(&self,
-        request: ChatCompletionRequest
+    async fn chat_completion(
+        &self,
+        request: ChatCompletionRequest,
     ) -> Result<ChatCompletionResponse, WesichainError> {
-        let url = self.base_url.join("/v1/chat/completions")
+        let url = self
+            .base_url
+            .join("/v1/chat/completions")
             .map_err(|e| WesichainError::LlmProvider(format!("Invalid URL: {}", e)))?;
 
-        let response = self.http
+        let response = self
+            .http
             .post(url)
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .json(&request)
             .send()
             .await
@@ -258,8 +275,12 @@ impl OpenAiCompatibleClient {
         let status = response.status();
 
         if status.is_success() {
-            response.json::<ChatCompletionResponse>().await
-                .map_err(|e| WesichainError::LlmProvider(format!("Failed to parse response: {}", e)))
+            response
+                .json::<ChatCompletionResponse>()
+                .await
+                .map_err(|e| {
+                    WesichainError::LlmProvider(format!("Failed to parse response: {}", e))
+                })
         } else {
             let error_text = response.text().await.unwrap_or_default();
             let error_msg = serde_json::from_str::<OpenAiError>(&error_text)
@@ -273,9 +294,11 @@ impl OpenAiCompatibleClient {
     /// Make a streaming chat completion request
     async fn chat_completion_stream(
         &self,
-        request: ChatCompletionRequest
+        request: ChatCompletionRequest,
     ) -> Result<BoxStream<'static, Result<StreamEvent, WesichainError>>, WesichainError> {
-        let url = self.base_url.join("/v1/chat/completions")
+        let url = self
+            .base_url
+            .join("/v1/chat/completions")
             .map_err(|e| WesichainError::LlmProvider(format!("Invalid URL: {}", e)))?;
 
         let request = ChatCompletionRequest {
@@ -283,9 +306,13 @@ impl OpenAiCompatibleClient {
             ..request
         };
 
-        let response = self.http
+        let response = self
+            .http
             .post(url)
-            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.api_key.expose_secret()),
+            )
             .json(&request)
             .send()
             .await
@@ -306,14 +333,12 @@ impl OpenAiCompatibleClient {
     }
 }
 
-use wesichain_core::{Runnable, StreamEvent};
 use futures::stream::BoxStream;
+use wesichain_core::{Runnable, StreamEvent};
 
 #[async_trait::async_trait]
 impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
-    async fn invoke(&self,
-        input: LlmRequest
-    ) -> Result<LlmResponse, WesichainError> {
+    async fn invoke(&self, input: LlmRequest) -> Result<LlmResponse, WesichainError> {
         let model = if input.model.is_empty() {
             self.default_model.clone()
         } else {
@@ -323,7 +348,11 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
         let request = ChatCompletionRequest {
             model,
             messages: input.messages,
-            tools: if input.tools.is_empty() { None } else { Some(input.tools) },
+            tools: if input.tools.is_empty() {
+                None
+            } else {
+                Some(input.tools)
+            },
             temperature: None,
             max_tokens: None,
             stream: false,
@@ -331,7 +360,10 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
 
         let response = self.chat_completion(request).await?;
 
-        let choice = response.choices.into_iter().next()
+        let choice = response
+            .choices
+            .into_iter()
+            .next()
             .ok_or_else(|| WesichainError::LlmProvider("No choices in response".to_string()))?;
 
         Ok(LlmResponse {
@@ -340,9 +372,7 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
         })
     }
 
-    fn stream(&self,
-        input: LlmRequest
-    ) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+    fn stream(&self, input: LlmRequest) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
         let model = if input.model.is_empty() {
             self.default_model.clone()
         } else {
@@ -352,20 +382,22 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
         let request = ChatCompletionRequest {
             model,
             messages: input.messages,
-            tools: if input.tools.is_empty() { None } else { Some(input.tools) },
+            tools: if input.tools.is_empty() {
+                None
+            } else {
+                Some(input.tools)
+            },
             temperature: None,
             max_tokens: None,
             stream: true,
         };
 
         let client = self.clone();
-        stream::once(async move {
-            client.chat_completion_stream(request).await
-        })
-        .flat_map(|result| match result {
-            Ok(stream) => stream,
-            Err(e) => stream::iter(vec![Err(e)]).boxed(),
-        })
-        .boxed()
+        stream::once(async move { client.chat_completion_stream(request).await })
+            .flat_map(|result| match result {
+                Ok(stream) => stream,
+                Err(e) => stream::iter(vec![Err(e)]).boxed(),
+            })
+            .boxed()
     }
 }
