@@ -107,7 +107,11 @@ async fn graph_invocation_posts_and_patches_runs() {
 
     let root = post_bodies
         .iter()
-        .find(|body| body.get("parent_run_id").map(|v| v.is_null()).unwrap_or(false))
+        .find(|body| {
+            body.get("parent_run_id")
+                .map(|v| v.is_null())
+                .unwrap_or(false)
+        })
         .expect("root run");
     let root_id = root
         .get("id")
@@ -131,7 +135,10 @@ async fn graph_invocation_posts_and_patches_runs() {
         .collect();
     assert!(!child_posts.is_empty());
     for child in child_posts {
-        assert_eq!(child.get("trace_id").and_then(|v| v.as_str()), Some(trace_id));
+        assert_eq!(
+            child.get("trace_id").and_then(|v| v.as_str()),
+            Some(trace_id)
+        );
         assert!(child.get("inputs").map(|v| v.is_object()).unwrap_or(false));
         let child_order = child
             .get("dotted_order")

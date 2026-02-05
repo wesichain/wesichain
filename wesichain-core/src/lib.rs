@@ -1,5 +1,5 @@
-mod chain;
 pub mod callbacks;
+mod chain;
 mod document;
 mod embedding;
 mod error;

@@ -1,9 +1,11 @@
+#![allow(deprecated)]
+
 use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
 use wesichain_agent::{Tool, ToolCallingAgent, ToolRegistry};
 use wesichain_core::callbacks::{CallbackHandler, CallbackManager, RunConfig, RunContext, RunType};
-use wesichain_core::{Runnable, Value, WesichainError};
+use wesichain_core::{Runnable, ToolError, Value, WesichainError};
 use wesichain_llm::{LlmRequest, LlmResponse, Role, ToolCall};
 
 struct RecordingHandler {
@@ -74,7 +76,7 @@ impl Tool for MockTool {
         Value::Null
     }
 
-    async fn call(&self, _input: Value) -> Result<Value, WesichainError> {
+    async fn invoke(&self, _input: Value) -> Result<Value, ToolError> {
         Ok(Value::String("ok".to_string()))
     }
 }

@@ -13,8 +13,7 @@ use tokio::sync::{Mutex, Notify};
 use uuid::Uuid;
 
 use crate::{
-    LangSmithClient, LangSmithConfig, LangSmithError, RunContextStore, RunEvent, RunStatus,
-    RunType,
+    LangSmithClient, LangSmithConfig, LangSmithError, RunContextStore, RunEvent, RunStatus, RunType,
 };
 
 #[derive(Clone, Debug, Default)]
@@ -168,8 +167,7 @@ impl ExporterInner {
                 session_name,
             } => {
                 self.store.record_start(run_id, parent_run_id);
-                let dotted_order =
-                    self.assign_dotted_order(run_id, parent_run_id, start_time);
+                let dotted_order = self.assign_dotted_order(run_id, parent_run_id, start_time);
                 let payload = build_start_payload(
                     run_id,
                     parent_run_id,
@@ -232,6 +230,7 @@ impl ExporterInner {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_start_payload(
     run_id: Uuid,
     parent_run_id: Option<Uuid>,

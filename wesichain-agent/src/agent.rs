@@ -158,14 +158,12 @@ where
                             }
                         }
                     }
-                    None => self
-                        .tools
-                        .call(&call.name, args)
-                        .await
-                        .map_err(|err| WesichainError::ToolCallFailed {
+                    None => self.tools.call(&call.name, args).await.map_err(|err| {
+                        WesichainError::ToolCallFailed {
                             tool_name: call.name.clone(),
                             reason: err.to_string(),
-                        })?,
+                        }
+                    })?,
                 };
                 messages.push(Message {
                     role: Role::Tool,
@@ -176,10 +174,7 @@ where
             }
         }
 
-        let err = WesichainError::Custom(format!(
-            "max steps exceeded: {}",
-            self.max_steps
-        ));
+        let err = WesichainError::Custom(format!("max steps exceeded: {}", self.max_steps));
         if let Some((manager, root)) = &callbacks {
             let error = ensure_object(err.to_string().to_trace_output());
             let duration_ms = root.start_instant.elapsed().as_millis();

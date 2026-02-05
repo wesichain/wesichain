@@ -29,7 +29,12 @@ async fn sampling_short_circuits_before_enqueue() {
         redact_regex: None,
     };
     let handler = LangSmithCallbackHandler::with_sampler(config, Arc::new(NeverSampler));
-    let ctx = RunContext::root(RunType::Chain, "node".to_string(), vec![], Default::default());
+    let ctx = RunContext::root(
+        RunType::Chain,
+        "node".to_string(),
+        vec![],
+        Default::default(),
+    );
     handler.on_start(&ctx, &json!({"x": 1})).await;
     let stats = handler.flush(Duration::from_millis(50)).await.unwrap();
     assert_eq!(stats.runs_flushed, 0);

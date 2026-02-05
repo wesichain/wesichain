@@ -3560,6 +3560,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -3608,6 +3609,7 @@ dependencies = [
  "async-trait",
  "chrono",
  "dashmap",
+ "futures",
  "regex",
  "reqwest",
  "secrecy",
@@ -3617,8 +3619,10 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
+ "wesichain-agent",
  "wesichain-core",
  "wesichain-graph",
+ "wesichain-llm",
  "wiremock",
 ]
 

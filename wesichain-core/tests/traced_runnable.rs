@@ -48,7 +48,12 @@ async fn traced_runnable_emits_start_and_end() {
         events: events.clone(),
     });
     let manager = CallbackManager::new(vec![handler]);
-    let root = RunContext::root(RunType::Chain, "root".to_string(), vec![], Default::default());
+    let root = RunContext::root(
+        RunType::Chain,
+        "root".to_string(),
+        vec![],
+        Default::default(),
+    );
 
     let traced = TracedRunnable::new(
         OkRunnable,

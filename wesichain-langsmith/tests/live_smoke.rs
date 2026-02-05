@@ -79,9 +79,6 @@ async fn live_langsmith_smoke_test() {
         .await
         .expect("graph invoke");
 
-    let stats = handler
-        .flush(Duration::from_secs(10))
-        .await
-        .expect("flush");
+    let stats = handler.flush(Duration::from_secs(10)).await.expect("flush");
     assert!(stats.events_flushed > 0);
 }

@@ -168,9 +168,6 @@ where
 pub fn ensure_object(value: Value) -> Value {
     match value {
         Value::Object(_) => value,
-        other => Value::Object(serde_json::Map::from_iter([(
-            "value".to_string(),
-            other,
-        )])),
+        other => Value::Object(serde_json::Map::from_iter([("value".to_string(), other)])),
     }
 }
