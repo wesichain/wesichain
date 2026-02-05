@@ -22,4 +22,10 @@ wesichain-core = { path = "../wesichain-core" }
 chrono = { version = "0.4", features = ["clock"] }
 
 [dev-dependencies]
+criterion = "0.5"
+libc = "0.2"
 tempfile = "3"
+
+[[bench]]
+name = "graph_loop"
+harness = false

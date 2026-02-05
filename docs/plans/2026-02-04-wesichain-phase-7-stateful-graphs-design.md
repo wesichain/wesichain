@@ -222,6 +222,7 @@ README updates should highlight START/END, reducers, and checkpoint resume.
 - 10-step agent loop with checkpointing enabled vs disabled (time per step, RSS delta).
 - 100 concurrent thread IDs load test to validate file checkpointer contention.
 - Align benchmark harness with Phase 6 to avoid new infra.
+- Benchmark harness location: `wesichain-graph/benches/graph_loop.rs`.
 
 ## Dependencies
 - petgraph (internal representation)
