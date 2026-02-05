@@ -1,6 +1,8 @@
 //! Integration tests for DeepSeek provider
 //! Run with: cargo test --features deepseek -- --ignored
 
+#![cfg(feature = "deepseek")]
+
 use wesichain_core::Runnable;
 use wesichain_llm::{DeepSeekClient, LlmRequest, Message, Role};
 

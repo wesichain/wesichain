@@ -1,6 +1,8 @@
 //! Integration tests for OpenAI provider
 //! Run with: cargo test --features openai -- --ignored
 
+#![cfg(feature = "openai")]
+
 use wesichain_core::Runnable;
 use wesichain_llm::{LlmRequest, Message, OpenAiClient, Role};
 
