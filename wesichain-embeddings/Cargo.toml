@@ -23,8 +23,8 @@ wesichain-core = { path = "../wesichain-core" }
 
 async-openai = { version = "0.23", optional = true }
 reqwest = { version = "0.12", optional = true }
-candle-core = { version = "0.4", optional = true }
-candle-nn = { version = "0.4", optional = true }
+candle-core = { version = "0.8", optional = true }
+candle-nn = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
