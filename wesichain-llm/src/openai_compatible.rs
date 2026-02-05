@@ -165,6 +165,61 @@ impl OpenAiCompatibleBuilder {
 use wesichain_core::{WesichainError};
 use crate::{LlmRequest, LlmResponse};
 
+use bytes::BytesMut;
+use futures::{stream, StreamExt};
+
+/// Parse a server-sent event line
+fn parse_sse_line(line: &str) -> Option<&str> {
+    let line = line.trim();
+    if line.starts_with("data: ") {
+        Some(&line[6..])
+    } else {
+        None
+    }
+}
+
+/// Parse SSE stream into StreamEvents
+fn parse_sse_stream(
+    response: reqwest::Response,
+) -> BoxStream<'static, Result<StreamEvent, WesichainError>> {
+    let stream = response.bytes_stream();
+    let mut buffer = BytesMut::new();
+
+    stream
+        .flat_map(move |chunk| {
+            match chunk {
+                Ok(bytes) => {
+                    buffer.extend_from_slice(&bytes);
+                    let mut events = Vec::new();
+
+                    // Process complete lines in buffer
+                    while let Some(pos) = buffer.iter().position(|&b| b == b'\n') {
+                        let line = buffer.split_to(pos + 1);
+                        let line_str = String::from_utf8_lossy(&line);
+
+                        if let Some(data) = parse_sse_line(&line_str) {
+                            if data == "[DONE]" {
+                                events.push(Ok(StreamEvent::FinalAnswer(String::new())));
+                            } else if let Ok(chunk) = serde_json::from_str::<ChatCompletionChunk>(data) {
+                                for choice in chunk.choices {
+                                    if let Some(content) = choice.delta.content {
+                                        events.push(Ok(StreamEvent::ContentChunk(content)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    stream::iter(events)
+                }
+                Err(e) => {
+                    stream::iter(vec![Err(WesichainError::LlmProvider(format!("Stream error: {}", e)))])
+                }
+            }
+        })
+        .boxed()
+}
+
 /// Generic client for OpenAI-compatible APIs
 #[derive(Clone)]
 pub struct OpenAiCompatibleClient {
@@ -214,6 +269,41 @@ impl OpenAiCompatibleClient {
             Err(WesichainError::LlmProvider(error_msg))
         }
     }
+
+    /// Make a streaming chat completion request
+    async fn chat_completion_stream(
+        &self,
+        request: ChatCompletionRequest
+    ) -> Result<BoxStream<'static, Result<StreamEvent, WesichainError>>, WesichainError> {
+        let url = self.base_url.join("/v1/chat/completions")
+            .map_err(|e| WesichainError::LlmProvider(format!("Invalid URL: {}", e)))?;
+
+        let request = ChatCompletionRequest {
+            stream: true,
+            ..request
+        };
+
+        let response = self.http
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.api_key.expose_secret()))
+            .json(&request)
+            .send()
+            .await
+            .map_err(|e| WesichainError::LlmProvider(format!("Request failed: {}", e)))?;
+
+        let status = response.status();
+
+        if status.is_success() {
+            Ok(parse_sse_stream(response))
+        } else {
+            let error_text = response.text().await.unwrap_or_default();
+            let error_msg = serde_json::from_str::<OpenAiError>(&error_text)
+                .map(|e| e.error.message)
+                .unwrap_or_else(|_| format!("HTTP {}: {}", status, error_text));
+
+            Err(WesichainError::LlmProvider(error_msg))
+        }
+    }
 }
 
 use wesichain_core::{Runnable, StreamEvent};
@@ -251,10 +341,31 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
     }
 
     fn stream(&self,
-        _input: LlmRequest
+        input: LlmRequest
     ) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        // Placeholder - will implement in Task 6
-        use futures::stream;
-        stream::empty().boxed()
+        let model = if input.model.is_empty() {
+            self.default_model.clone()
+        } else {
+            input.model
+        };
+
+        let request = ChatCompletionRequest {
+            model,
+            messages: input.messages,
+            tools: if input.tools.is_empty() { None } else { Some(input.tools) },
+            temperature: None,
+            max_tokens: None,
+            stream: true,
+        };
+
+        let client = self.clone();
+        stream::once(async move {
+            client.chat_completion_stream(request).await
+        })
+        .flat_map(|result| match result {
+            Ok(stream) => stream,
+            Err(e) => stream::iter(vec![Err(e)]).boxed(),
+        })
+        .boxed()
     }
 }
