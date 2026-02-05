@@ -28,10 +28,14 @@ fn run_event_variants_capture_metadata() {
     let start = RunEvent::Start {
         run_id,
         parent_run_id: None,
+        trace_id: run_id,
         name: "node".to_string(),
         run_type: RunType::Chain,
         start_time: Utc::now(),
         inputs: json!({"value": 1}),
+        tags: Vec::new(),
+        metadata: json!({}),
+        session_name: "test".to_string(),
     };
 
     let update = RunEvent::Update {

@@ -46,6 +46,7 @@ async fn graph_enforces_max_steps() {
         max_steps: Some(2),
         cycle_detection: Some(false),
         cycle_window: None,
+        run_config: None,
         observer: None,
     };
     let err = graph.invoke_with_options(state, options).await.unwrap_err();
@@ -65,6 +66,7 @@ async fn graph_detects_cycle_in_recent_window() {
         max_steps: Some(10),
         cycle_detection: Some(true),
         cycle_window: Some(2),
+        run_config: None,
         observer: None,
     };
     let err = graph.invoke_with_options(state, options).await.unwrap_err();
@@ -90,6 +92,7 @@ async fn graph_options_override_defaults() {
         max_steps: Some(5),
         cycle_detection: Some(false),
         cycle_window: None,
+        run_config: None,
         observer: None,
     };
     let out = graph.invoke_with_options(state, options).await.unwrap();

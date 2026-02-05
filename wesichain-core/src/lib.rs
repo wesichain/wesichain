@@ -1,3 +1,4 @@
+pub mod callbacks;
 mod chain;
 mod document;
 mod embedding;
@@ -12,6 +13,10 @@ mod tool;
 mod value;
 mod vector_store;
 
+pub use callbacks::{
+    ensure_object, CallbackHandler, CallbackManager, RunConfig, RunContext, RunType, ToTraceInput,
+    ToTraceOutput,
+};
 pub use chain::{Chain, RunnableExt};
 pub use document::Document;
 pub use embedding::{embed_batch_ref_dyn, embed_batch_strs_dyn, Embedding};

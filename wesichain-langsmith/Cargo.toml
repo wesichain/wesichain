@@ -6,7 +6,7 @@ license.workspace = true
 rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
-description = "LangSmith observability for Wesichain graphs"
+description = "LangSmith observability for Wesichain"
 
 [dependencies]
 async-trait = "0.1"
@@ -25,4 +25,7 @@ wesichain-core = { path = "../wesichain-core" }
 wesichain-graph = { path = "../wesichain-graph" }
 
 [dev-dependencies]
+futures = "0.3"
 wiremock = "0.6"
+wesichain-agent = { path = "../wesichain-agent" }
+wesichain-llm = { path = "../wesichain-llm" }

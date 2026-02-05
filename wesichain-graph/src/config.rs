@@ -25,11 +25,17 @@ impl ExecutionConfig {
     }
 }
 
+use std::sync::Arc;
+use wesichain_core::callbacks::RunConfig;
+
+use crate::Observer;
+
 #[derive(Clone, Default)]
 pub struct ExecutionOptions {
     pub max_steps: Option<usize>,
     pub cycle_detection: Option<bool>,
     pub cycle_window: Option<usize>,
+    pub run_config: Option<RunConfig>,
     pub observer: Option<Arc<dyn Observer>>,
 }
 
@@ -39,10 +45,8 @@ impl std::fmt::Debug for ExecutionOptions {
             .field("max_steps", &self.max_steps)
             .field("cycle_detection", &self.cycle_detection)
             .field("cycle_window", &self.cycle_window)
+            .field("run_config", &self.run_config.is_some())
             .field("observer", &self.observer.is_some())
             .finish()
     }
 }
-use std::sync::Arc;
-
-use crate::Observer;

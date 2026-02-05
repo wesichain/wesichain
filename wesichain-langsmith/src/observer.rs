@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use dashmap::DashMap;
 use regex::Regex;
-use serde_json::Value;
+use serde_json::{json, Value};
 use uuid::Uuid;
 use wesichain_graph::{GraphError, Observer};
 
@@ -22,6 +22,7 @@ pub struct LangSmithObserver {
     exporter: LangSmithExporter,
     sampler: Arc<dyn Sampler>,
     redact_regex: Option<Regex>,
+    session_name: String,
     node_runs: DashMap<String, NodeRunContext>,
     tool_runs: DashMap<String, VecDeque<Uuid>>,
 }
@@ -29,6 +30,7 @@ pub struct LangSmithObserver {
 #[derive(Clone, Debug)]
 struct NodeRunContext {
     run_id: Uuid,
+    trace_id: Uuid,
     sampled: bool,
 }
 
@@ -56,12 +58,13 @@ impl LangSmithObserver {
             exporter,
             sampler,
             redact_regex: config.redact_regex.clone(),
+            session_name: config.project_name.clone(),
             node_runs: DashMap::new(),
             tool_runs: DashMap::new(),
         }
     }
 
-    pub fn dropped_events(&self) -> u64 {
+    pub fn dropped_events(&self) -> usize {
         self.exporter.dropped_events()
     }
 
@@ -96,8 +99,13 @@ impl LangSmithObserver {
 
     fn record_node_run(&self, node_id: &str) -> NodeRunContext {
         let run_id = Uuid::new_v4();
-        let sampled = self.sampler.should_sample(run_id);
-        let context = NodeRunContext { run_id, sampled };
+        let trace_id = run_id;
+        let sampled = self.sampler.should_sample(trace_id);
+        let context = NodeRunContext {
+            run_id,
+            trace_id,
+            sampled,
+        };
         self.node_runs.insert(node_id.to_string(), context.clone());
         context
     }
@@ -126,10 +134,14 @@ impl Observer for LangSmithObserver {
             .enqueue(RunEvent::Start {
                 run_id: context.run_id,
                 parent_run_id: None,
+                trace_id: context.trace_id,
                 name: node_id.to_string(),
                 run_type: RunType::Chain,
                 start_time: Utc::now(),
                 inputs,
+                tags: Vec::new(),
+                metadata: json!({}),
+                session_name: self.session_name.clone(),
             })
             .await;
     }
@@ -197,10 +209,14 @@ impl Observer for LangSmithObserver {
             .enqueue(RunEvent::Start {
                 run_id,
                 parent_run_id: Some(context.run_id),
+                trace_id: context.trace_id,
                 name: tool_name.to_string(),
                 run_type: RunType::Tool,
                 start_time: Utc::now(),
                 inputs,
+                tags: Vec::new(),
+                metadata: json!({}),
+                session_name: self.session_name.clone(),
             })
             .await;
     }

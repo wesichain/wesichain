@@ -30,33 +30,39 @@ async fn drops_oldest_when_queue_full() {
         redact_regex: None,
     };
     let exporter = LangSmithExporter::new(config, Arc::new(RunContextStore::default()));
-
     exporter
         .enqueue(RunEvent::Start {
             run_id: Uuid::new_v4(),
             parent_run_id: None,
+            trace_id: Uuid::new_v4(),
             name: "a".to_string(),
             run_type: RunType::Chain,
             start_time: Utc::now(),
             inputs: json!({}),
+            tags: vec![],
+            metadata: json!({}),
+            session_name: "test".to_string(),
         })
         .await;
     exporter
         .enqueue(RunEvent::Start {
             run_id: Uuid::new_v4(),
             parent_run_id: None,
+            trace_id: Uuid::new_v4(),
             name: "b".to_string(),
             run_type: RunType::Chain,
             start_time: Utc::now(),
             inputs: json!({}),
+            tags: vec![],
+            metadata: json!({}),
+            session_name: "test".to_string(),
         })
         .await;
-
     assert_eq!(exporter.dropped_events(), 1);
 }
 
 #[tokio::test]
-async fn flushes_on_batch_size() {
+async fn flush_drains_queue() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/runs"))
@@ -80,31 +86,31 @@ async fn flushes_on_batch_size() {
         .enqueue(RunEvent::Start {
             run_id: Uuid::new_v4(),
             parent_run_id: None,
+            trace_id: Uuid::new_v4(),
             name: "a".to_string(),
             run_type: RunType::Chain,
             start_time: Utc::now(),
             inputs: json!({}),
+            tags: vec![],
+            metadata: json!({}),
+            session_name: "test".to_string(),
         })
         .await;
     exporter
         .enqueue(RunEvent::Start {
             run_id: Uuid::new_v4(),
             parent_run_id: None,
+            trace_id: Uuid::new_v4(),
             name: "b".to_string(),
             run_type: RunType::Chain,
             start_time: Utc::now(),
             inputs: json!({}),
+            tags: vec![],
+            metadata: json!({}),
+            session_name: "test".to_string(),
         })
         .await;
 
-    tokio::time::timeout(Duration::from_secs(2), async {
-        loop {
-            if exporter.pending_len().await == 0 {
-                break;
-            }
-            tokio::time::sleep(Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("batch flush did not drain queue");
+    let stats = exporter.flush(Duration::from_secs(2)).await.unwrap();
+    assert!(stats.events_flushed >= 2);
 }

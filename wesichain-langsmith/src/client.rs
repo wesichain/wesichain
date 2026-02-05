@@ -53,7 +53,6 @@ impl LangSmithClient {
     ) -> Result<(), LangSmithError> {
         let mut attempt = 0;
         let mut backoff = Duration::from_millis(200);
-
         loop {
             attempt += 1;
             let mut request = self
@@ -64,21 +63,20 @@ impl LangSmithClient {
             if let Some(key) = &idempotency_key {
                 request = request.header("x-idempotency-key", key);
             }
-
             match request.send().await {
                 Ok(response) => {
-                    if response.status().is_success() {
+                    let status = response.status();
+                    if status.is_success() {
                         return Ok(());
                     }
-                    if allow_not_found && response.status() == StatusCode::NOT_FOUND {
+                    if allow_not_found && status == StatusCode::NOT_FOUND {
                         return Ok(());
                     }
-                    if should_retry(response.status()) && attempt < 3 {
-                        backoff = next_delay(response.status(), response.headers(), backoff);
+                    if should_retry(status) && attempt < 3 {
+                        backoff = next_delay(status, response.headers(), backoff);
                         sleep(backoff).await;
                         continue;
                     }
-                    let status = response.status();
                     let body = response.text().await.unwrap_or_default();
                     return Err(LangSmithError::Http { status, body });
                 }
