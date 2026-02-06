@@ -486,7 +486,7 @@ dependencies = [
  "thiserror 1.0.69",
  "ug",
  "yoke 0.7.5",
- "zip",
+ "zip 1.1.4",
 ]
 
 [[package]]
@@ -2726,6 +2726,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "quick-xml"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
 name = "quinn"
 version = "0.11.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4354,6 +4363,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "wesichain-agent",
+ "wesichain-checkpoint-sqlite",
  "wesichain-core",
  "wesichain-llm",
  "wesichain-prompt",
@@ -4434,6 +4444,7 @@ dependencies = [
  "async-trait",
  "criterion",
  "pdf-extract",
+ "quick-xml",
  "serde",
  "serde_json",
  "tempfile",
@@ -4442,6 +4453,7 @@ dependencies = [
  "uuid",
  "wesichain-core",
  "wesichain-embeddings",
+ "zip 0.6.6",
 ]
 
 [[package]]
@@ -4946,6 +4958,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.114",
+]
+
+[[package]]
+name = "zip"
+version = "0.6.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "760394e246e4c28189f19d488c058bf16f564016aefac5d32bb1f3b51d5e9261"
+dependencies = [
+ "byteorder",
+ "crc32fast",
+ "crossbeam-utils",
+ "flate2",
 ]
 
 [[package]]

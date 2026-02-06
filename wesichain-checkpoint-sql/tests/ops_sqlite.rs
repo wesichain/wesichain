@@ -5,6 +5,7 @@ use wesichain_checkpoint_sql::ops::{
 };
 
 #[test]
+#[allow(clippy::let_underscore_future)]
 fn ops_api_accepts_postgres_pool_type() {
     fn assert_backend_agnostic<DB>(pool: &sqlx::Pool<DB>)
     where
