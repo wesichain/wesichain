@@ -122,7 +122,7 @@ fn parse_docx_text(bytes: &[u8]) -> Result<String, std::io::Error> {
 
 fn extract_docx_plain_text(xml: &str) -> Result<String, std::io::Error> {
     let mut reader = Reader::from_str(xml);
-    reader.config_mut().trim_text(true);
+    reader.config_mut().trim_text(false);
 
     let mut blocks = Vec::new();
     let mut paragraph = String::new();
@@ -156,7 +156,7 @@ fn extract_docx_plain_text(xml: &str) -> Result<String, std::io::Error> {
                     let value = text
                         .decode()
                         .map_err(|error| invalid_docx(format!("text decode error: {error}")))?;
-                    paragraph.push_str(&value);
+                    append_docx_text_segment(&mut paragraph, &value);
                 }
             }
             Ok(Event::CData(text)) => {
@@ -164,7 +164,7 @@ fn extract_docx_plain_text(xml: &str) -> Result<String, std::io::Error> {
                     let value = text
                         .decode()
                         .map_err(|error| invalid_docx(format!("cdata decode error: {error}")))?;
-                    paragraph.push_str(&value);
+                    append_docx_text_segment(&mut paragraph, &value);
                 }
             }
             Ok(Event::End(element)) => match local_name(element.name().as_ref()) {
@@ -215,6 +215,14 @@ fn extract_docx_plain_text(xml: &str) -> Result<String, std::io::Error> {
 
 fn normalize_whitespace(value: &str) -> String {
     value.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn append_docx_text_segment(paragraph: &mut String, value: &str) {
+    if value.trim().is_empty() {
+        return;
+    }
+
+    paragraph.push_str(value);
 }
 
 fn format_table_rows(rows: &[Vec<String>]) -> String {
