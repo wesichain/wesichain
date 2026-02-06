@@ -14,7 +14,7 @@ pub struct StoredCheckpoint {
 }
 
 pub async fn save_checkpoint<S>(
-    pool: &sqlx::SqlitePool,
+    pool: &sqlx::AnyPool,
     thread_id: &str,
     node: &str,
     step: i64,
@@ -30,7 +30,7 @@ where
         .await
         .map_err(CheckpointSqlError::Connection)?;
 
-    let seq: i64 = sqlx::query_scalar(
+    let seq: i64 = sqlx::query_scalar::<sqlx::Any, i64>(
         "SELECT COALESCE(MAX(seq), 0) + 1 FROM checkpoints WHERE thread_id = ?",
     )
     .bind(thread_id)
@@ -38,7 +38,7 @@ where
     .await
     .map_err(CheckpointSqlError::Query)?;
 
-    sqlx::query(
+    sqlx::query::<sqlx::Any>(
         "INSERT INTO checkpoints (thread_id, seq, created_at, node, step, state_json) VALUES (?, ?, ?, ?, ?, ?)",
     )
     .bind(thread_id)
@@ -57,10 +57,10 @@ where
 }
 
 pub async fn load_latest_checkpoint(
-    pool: &sqlx::SqlitePool,
+    pool: &sqlx::AnyPool,
     thread_id: &str,
 ) -> Result<Option<StoredCheckpoint>, CheckpointSqlError> {
-    let row = sqlx::query(
+    let row = sqlx::query::<sqlx::Any>(
         "SELECT thread_id, seq, created_at, node, step, state_json FROM checkpoints WHERE thread_id = ? ORDER BY seq DESC LIMIT 1",
     )
     .bind(thread_id)
@@ -87,7 +87,7 @@ pub async fn load_latest_checkpoint(
 }
 
 pub async fn load_checkpoint(
-    pool: &sqlx::SqlitePool,
+    pool: &sqlx::AnyPool,
     thread_id: &str,
 ) -> Result<Option<Value>, CheckpointSqlError> {
     Ok(load_latest_checkpoint(pool, thread_id)

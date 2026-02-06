@@ -1,15 +1,37 @@
-use sqlx::sqlite::SqlitePoolOptions;
 use sqlx::Row;
 use wesichain_checkpoint_sql::migrations::run_migrations;
 use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint};
 
-#[tokio::test]
-async fn ops_sqlite_migration_bootstrap_creates_tables() {
-    let pool = SqlitePoolOptions::new()
+#[test]
+fn ops_api_accepts_postgres_pool_type() {
+    fn assert_backend_agnostic(pool: &sqlx::AnyPool) {
+        let _ = run_migrations(pool);
+        let _ = save_checkpoint(
+            pool,
+            "thread-a",
+            "n1",
+            1,
+            "2026-02-06T00:00:00Z",
+            &serde_json::json!({"count": 1}),
+        );
+        let _ = load_latest_checkpoint(pool, "thread-a");
+    }
+
+    let _ = assert_backend_agnostic;
+}
+
+async fn sqlite_any_pool() -> sqlx::AnyPool {
+    sqlx::any::install_default_drivers();
+    sqlx::any::AnyPoolOptions::new()
         .max_connections(1)
         .connect("sqlite::memory:")
         .await
-        .expect("sqlite in-memory pool should connect");
+        .expect("sqlite in-memory pool should connect")
+}
+
+#[tokio::test]
+async fn ops_sqlite_migration_bootstrap_creates_tables() {
+    let pool = sqlite_any_pool().await;
 
     run_migrations(&pool)
         .await
@@ -27,11 +49,7 @@ async fn ops_sqlite_migration_bootstrap_creates_tables() {
 
 #[tokio::test]
 async fn ops_sqlite_save_assigns_seq_per_thread() {
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .expect("sqlite in-memory pool should connect");
+    let pool = sqlite_any_pool().await;
 
     run_migrations(&pool)
         .await
@@ -85,11 +103,7 @@ async fn ops_sqlite_save_assigns_seq_per_thread() {
 
 #[tokio::test]
 async fn ops_sqlite_load_returns_latest_checkpoint_only() {
-    let pool = SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .expect("sqlite in-memory pool should connect");
+    let pool = sqlite_any_pool().await;
 
     run_migrations(&pool)
         .await
