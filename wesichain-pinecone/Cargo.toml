@@ -1,0 +1,23 @@
+[package]
+name = "wesichain-pinecone"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Pinecone vector store integration for Wesichain"
+
+[dependencies]
+async-trait = "0.1"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+wesichain-core = { path = "../wesichain-core" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wiremock = "0.6"

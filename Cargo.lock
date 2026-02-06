@@ -3987,6 +3987,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "wesichain-pinecone"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "uuid",
+ "wesichain-core",
+ "wiremock",
+]
+
+[[package]]
 name = "wesichain-prompt"
 version = "0.1.0"
 dependencies = [

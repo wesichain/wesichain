@@ -9,6 +9,7 @@ members = [
   "wesichain-embeddings",
   "wesichain-retrieval",
   "wesichain-langsmith",
+  "wesichain-pinecone",
 ]
 resolver = "2"
 
