@@ -14,6 +14,8 @@ Pinecone vector store integration for Wesichain with LangChain-like ergonomics a
   - `similarity_search_with_score`
   - `delete`
 
+Internal sparse-vector payload support (`sparse_values`) is scaffolded for future hybrid retrieval APIs.
+
 Maximum recommended batch size per Pinecone upsert is 1000 vectors.
 `add_documents` automatically chunks larger input batches.
 

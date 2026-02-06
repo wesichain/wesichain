@@ -202,6 +202,7 @@ where
             vectors.push(PineconeVector {
                 id,
                 values: embedding,
+                sparse_values: None,
                 metadata: Some(metadata),
             });
         }
