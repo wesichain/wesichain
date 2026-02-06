@@ -11,10 +11,11 @@ struct DemoState {
 
 impl StateSchema for DemoState {}
 
-fn postgres_database_url() -> Option<String> {
+fn postgres_database_url() -> String {
     std::env::var("DATABASE_URL")
         .ok()
         .filter(|value| !value.trim().is_empty())
+        .expect("set DATABASE_URL to run postgres integration tests")
 }
 
 fn unique_thread_id(prefix: &str) -> String {
@@ -34,10 +35,9 @@ fn checkpointer_builder_accepts_pool_configuration() {
 }
 
 #[tokio::test]
+#[ignore = "requires DATABASE_URL"]
 async fn checkpointer_builder_defaults_projections_disabled() {
-    let Some(database_url) = postgres_database_url() else {
-        return;
-    };
+    let database_url = postgres_database_url();
 
     let checkpointer = PostgresCheckpointer::builder(database_url)
         .max_connections(5)
@@ -49,10 +49,9 @@ async fn checkpointer_builder_defaults_projections_disabled() {
 }
 
 #[tokio::test]
+#[ignore = "requires DATABASE_URL"]
 async fn checkpointer_trait_round_trip_save_and_load() {
-    let Some(database_url) = postgres_database_url() else {
-        return;
-    };
+    let database_url = postgres_database_url();
 
     let checkpointer = PostgresCheckpointer::builder(database_url)
         .max_connections(5)
