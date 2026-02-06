@@ -42,9 +42,7 @@ async fn dimension_check_does_not_fail_build_when_mismatch() {
     assert!(result.is_ok());
 
     let requests = server.received_requests().await.unwrap();
-    assert!(
-        requests
-            .iter()
-            .any(|req| req.url.path() == "/describe_index_stats")
-    );
+    assert!(requests
+        .iter()
+        .any(|req| req.url.path() == "/describe_index_stats"));
 }

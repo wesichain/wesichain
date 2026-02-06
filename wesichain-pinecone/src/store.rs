@@ -121,8 +121,11 @@ where
 
         let mut output = Vec::with_capacity(response.matches.len());
         for m in response.matches {
-            let metadata = m.metadata.unwrap_or_else(|| Value::Object(serde_json::Map::new()));
-            let doc = match_to_document(&m.id, &metadata, &self.text_key).map_err(StoreError::from)?;
+            let metadata = m
+                .metadata
+                .unwrap_or_else(|| Value::Object(serde_json::Map::new()));
+            let doc =
+                match_to_document(&m.id, &metadata, &self.text_key).map_err(StoreError::from)?;
             output.push((doc, m.score));
         }
 
@@ -255,7 +258,9 @@ where
             .map(to_pinecone_filter_json)
             .transpose()
             .map_err(StoreError::from)?;
-        let matches = self.query_with_embedding(query_embedding, k, filter_json).await?;
+        let matches = self
+            .query_with_embedding(query_embedding, k, filter_json)
+            .await?;
         Ok(matches.into_iter().map(|(doc, _)| doc).collect())
     }
 
@@ -265,12 +270,8 @@ where
         k: usize,
         filter: Option<MetadataFilter>,
     ) -> Result<Vec<Document>, StoreError> {
-        self.similarity_search_by_filter(
-            query,
-            k,
-            filter.map(PineconeFilter::Typed),
-        )
-        .await
+        self.similarity_search_by_filter(query, k, filter.map(PineconeFilter::Typed))
+            .await
     }
 
     pub async fn similarity_search_raw_filter(
@@ -300,7 +301,8 @@ where
             .map(to_pinecone_filter_json)
             .transpose()
             .map_err(StoreError::from)?;
-        self.query_with_embedding(query_embedding, k, filter_json).await
+        self.query_with_embedding(query_embedding, k, filter_json)
+            .await
     }
 
     pub async fn similarity_search_with_score(
@@ -309,12 +311,8 @@ where
         k: usize,
         filter: Option<MetadataFilter>,
     ) -> Result<Vec<(Document, f32)>, StoreError> {
-        self.similarity_search_with_score_by_filter(
-            query,
-            k,
-            filter.map(PineconeFilter::Typed),
-        )
-        .await
+        self.similarity_search_with_score_by_filter(query, k, filter.map(PineconeFilter::Typed))
+            .await
     }
 
     pub async fn similarity_search_with_score_raw_filter(

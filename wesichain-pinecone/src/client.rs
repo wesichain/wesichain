@@ -47,7 +47,8 @@ impl PineconeHttpClient {
         Req: Serialize,
         Resp: DeserializeOwned,
     {
-        self.post_typed_with_context(path, payload, None, None).await
+        self.post_typed_with_context(path, payload, None, None)
+            .await
     }
 
     pub async fn post_typed_with_context<Req, Resp>(

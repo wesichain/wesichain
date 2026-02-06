@@ -16,10 +16,7 @@ async fn upsert_sends_api_key_header() {
 
     let client = PineconeHttpClient::new(server.uri(), "test-key".to_string()).unwrap();
     let payload = json!({"vectors": [], "namespace": "prod"});
-    client
-        .post_json("/vectors/upsert", &payload)
-        .await
-        .unwrap();
+    client.post_json("/vectors/upsert", &payload).await.unwrap();
 }
 
 #[tokio::test]
