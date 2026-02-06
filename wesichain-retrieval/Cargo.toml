@@ -35,3 +35,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 [[bench]]
 name = "in_memory"
 harness = false
+
+[[bench]]
+name = "recursive_splitter"
+harness = false
