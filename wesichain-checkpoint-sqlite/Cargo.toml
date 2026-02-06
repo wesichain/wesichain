@@ -1,0 +1,18 @@
+[package]
+name = "wesichain-checkpoint-sqlite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "SQLite checkpoint backend for Wesichain"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "sqlite"] }
+thiserror = "1"
+tokio = { version = "1", features = ["sync"] }
+wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql" }
+wesichain-graph = { path = "../wesichain-graph" }
