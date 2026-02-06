@@ -1,6 +1,8 @@
 use sqlx::Row;
-use wesichain_checkpoint_sql::migrations::run_migrations;
-use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint};
+use wesichain_checkpoint_sql::migrations::{run_migrations, run_migrations_in_transaction};
+use wesichain_checkpoint_sql::ops::{
+    load_latest_checkpoint, save_checkpoint, save_checkpoint_in_transaction,
+};
 
 #[test]
 fn ops_api_accepts_postgres_pool_type() {
@@ -12,6 +14,7 @@ fn ops_api_accepts_postgres_pool_type() {
         for<'q> String: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
         for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
         for<'c> &'c sqlx::Pool<DB>: sqlx::Executor<'c, Database = DB>,
+        for<'c> &'c mut DB::Connection: sqlx::Executor<'c, Database = DB>,
         for<'r> String: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
         for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
         for<'r> Option<String>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
@@ -59,6 +62,42 @@ async fn ops_sqlite_migration_bootstrap_creates_tables() {
     .expect("table count query should run");
 
     assert_eq!(table_count, 4);
+}
+
+#[tokio::test]
+async fn ops_sqlite_migrations_can_run_in_transaction_context() {
+    let pool = sqlite_pool().await;
+
+    let mut tx = pool
+        .begin()
+        .await
+        .expect("transaction should begin for migrations");
+
+    run_migrations_in_transaction(&mut tx)
+        .await
+        .expect("migrations should run inside transaction");
+
+    let table_count_in_tx: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('checkpoints', 'sessions', 'messages', 'graph_triples')",
+    )
+    .fetch_one(tx.as_mut())
+    .await
+    .expect("table count query should run in transaction");
+
+    assert_eq!(table_count_in_tx, 4);
+
+    tx.rollback()
+        .await
+        .expect("rollback should succeed after migrations");
+
+    let table_count_after_rollback: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name IN ('checkpoints', 'sessions', 'messages', 'graph_triples')",
+    )
+    .fetch_one(&pool)
+    .await
+    .expect("table count query should run after rollback");
+
+    assert_eq!(table_count_after_rollback, 0);
 }
 
 #[tokio::test]
@@ -114,6 +153,63 @@ async fn ops_sqlite_save_assigns_seq_per_thread() {
             .map(|row| row.get("seq"))
             .collect();
     assert_eq!(seqs, vec![1, 2]);
+}
+
+#[tokio::test]
+async fn ops_sqlite_save_helper_runs_inside_transaction() {
+    let pool = sqlite_pool().await;
+
+    run_migrations(&pool)
+        .await
+        .expect("migrations should bootstrap schema");
+
+    let mut tx = pool
+        .begin()
+        .await
+        .expect("transaction should begin for checkpoint inserts");
+
+    let first = save_checkpoint_in_transaction(
+        &mut tx,
+        "thread-a",
+        "n1",
+        1,
+        "2026-02-06T00:00:00Z",
+        &serde_json::json!({"count": 1}),
+    )
+    .await
+    .expect("first checkpoint should save in transaction");
+
+    let second = save_checkpoint_in_transaction(
+        &mut tx,
+        "thread-a",
+        "n2",
+        2,
+        "2026-02-06T00:00:01Z",
+        &serde_json::json!({"count": 2}),
+    )
+    .await
+    .expect("second checkpoint should save in transaction");
+
+    assert_eq!(first, 1);
+    assert_eq!(second, 2);
+
+    let row_count_in_tx: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM checkpoints")
+        .fetch_one(tx.as_mut())
+        .await
+        .expect("count query should run in transaction");
+
+    assert_eq!(row_count_in_tx, 2);
+
+    tx.rollback()
+        .await
+        .expect("rollback should succeed after checkpoint inserts");
+
+    let row_count_after_rollback: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM checkpoints")
+        .fetch_one(&pool)
+        .await
+        .expect("count query should run after rollback");
+
+    assert_eq!(row_count_after_rollback, 0);
 }
 
 #[tokio::test]
