@@ -6,10 +6,10 @@ mod loader;
 mod retriever;
 mod splitter;
 
-pub use error::RetrievalError;
+pub use error::{IngestionError, RetrievalError};
 pub use hash_embedder::HashEmbedder;
 pub use in_memory::InMemoryVectorStore;
 pub use indexer::Indexer;
-pub use loader::{PdfLoader, TextLoader};
+pub use loader::{load_file_async, load_files_async, PdfLoader, TextLoader};
 pub use retriever::Retriever;
 pub use splitter::TextSplitter;
