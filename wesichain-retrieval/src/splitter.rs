@@ -36,14 +36,21 @@ impl RecursiveCharacterTextSplitter {
             return Vec::new();
         }
 
-        if self.chunk_overlap > 0 {
-            return split_with_overlap(text, self.chunk_size, self.chunk_overlap);
-        }
-
-        self.split_recursive(text, 0)
+        let recursive_chunks = self.split_recursive(text, 0);
+        let merged_chunks = merge_chunks(recursive_chunks, self.chunk_size)
             .into_iter()
             .filter(|chunk| !chunk.is_empty())
-            .collect()
+            .collect::<Vec<_>>();
+
+        if self.chunk_overlap > 0 {
+            return split_with_overlap(
+                &merged_chunks.concat(),
+                self.chunk_size,
+                self.chunk_overlap,
+            );
+        }
+
+        merged_chunks
     }
 
     pub fn split_documents(&self, documents: &[Document]) -> Vec<Document> {
@@ -85,7 +92,7 @@ impl RecursiveCharacterTextSplitter {
             return self.split_recursive(text, separator_index + 1);
         }
 
-        text.split(separator)
+        text.split_inclusive(separator)
             .filter(|part| !part.is_empty())
             .flat_map(|part| self.split_recursive(part, separator_index + 1))
             .collect()
@@ -173,6 +180,44 @@ fn split_by_chars(text: &str, chunk_size: usize) -> Vec<String> {
     }
 
     chunks
+}
+
+fn merge_chunks(chunks: Vec<String>, chunk_size: usize) -> Vec<String> {
+    let mut merged = Vec::new();
+    let mut current = String::new();
+    let mut current_len = 0usize;
+
+    for chunk in chunks {
+        if chunk.is_empty() {
+            continue;
+        }
+
+        let chunk_len = chunk.chars().count();
+        if current_len + chunk_len <= chunk_size {
+            current.push_str(&chunk);
+            current_len += chunk_len;
+            continue;
+        }
+
+        if !current.is_empty() {
+            merged.push(std::mem::take(&mut current));
+            current_len = 0;
+        }
+
+        if chunk_len <= chunk_size {
+            current = chunk;
+            current_len = chunk_len;
+            continue;
+        }
+
+        merged.extend(split_by_chars(&chunk, chunk_size));
+    }
+
+    if !current.is_empty() {
+        merged.push(current);
+    }
+
+    merged
 }
 
 fn split_with_overlap(text: &str, chunk_size: usize, overlap: usize) -> Vec<String> {

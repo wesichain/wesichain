@@ -12,9 +12,11 @@ fn recursive_splitter_respects_separator_priority() {
         .build()
         .unwrap();
 
-    let chunks = splitter.split_text("aa aa\n\nbb bb\n\ncc cc");
+    let text = "aa aa\n\nbb bb\n\ncc cc";
+    let chunks = splitter.split_text(text);
 
-    assert_eq!(chunks, vec!["aa aa", "bb bb", "cc cc"]);
+    assert_eq!(chunks, vec!["aa aa\n\n", "bb bb\n\n", "cc cc"]);
+    assert_eq!(chunks.concat(), text);
 }
 
 #[test]
