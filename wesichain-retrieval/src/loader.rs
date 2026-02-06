@@ -116,9 +116,6 @@ impl PdfLoader {
 
     pub fn load(&self) -> Result<Vec<Document>, std::io::Error> {
         let _ = &self.path;
-        Err(std::io::Error::new(
-            std::io::ErrorKind::Other,
-            "pdf feature disabled",
-        ))
+        Err(std::io::Error::other("pdf feature disabled"))
     }
 }
