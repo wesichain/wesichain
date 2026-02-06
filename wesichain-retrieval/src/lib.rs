@@ -12,4 +12,4 @@ pub use in_memory::InMemoryVectorStore;
 pub use indexer::Indexer;
 pub use loader::{load_file_async, load_files_async, PdfLoader, TextLoader};
 pub use retriever::Retriever;
-pub use splitter::TextSplitter;
+pub use splitter::{RecursiveCharacterTextSplitter, SplitterConfigError, TextSplitter};
