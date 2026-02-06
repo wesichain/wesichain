@@ -27,6 +27,7 @@ wesichain-retrieval = { path = "../wesichain-retrieval" }
 criterion = "0.5"
 libc = "0.2"
 tempfile = "3"
+wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite" }
 
 [[bench]]
 name = "graph_loop"
