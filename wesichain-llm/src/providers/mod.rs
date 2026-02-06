@@ -5,3 +5,6 @@ pub mod openai;
 
 #[cfg(feature = "deepseek")]
 pub mod deepseek;
+
+#[cfg(feature = "google")]
+pub mod google;

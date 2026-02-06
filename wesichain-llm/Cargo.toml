@@ -26,8 +26,9 @@ wesichain-core = { path = "../wesichain-core" }
 default = ["ollama"]
 openai = ["async-openai"]
 deepseek = []
+google = []
 ollama = []
-all-providers = ["openai", "deepseek", "ollama"]
+all-providers = ["openai", "deepseek", "google", "ollama"]
 
 [dev-dependencies]
 httpmock = "0.7"

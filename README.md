@@ -196,6 +196,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Google Gemini + Embeddings
+
+```toml
+[dependencies]
+wesichain-core = { path = "wesichain-core" }
+wesichain-llm = { path = "wesichain-llm", features = ["google"] }
+wesichain-embeddings = { path = "wesichain-embeddings", features = ["google"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+```rust
+use wesichain_core::{Embedding, Runnable};
+use wesichain_llm::{GoogleClient, LlmRequest, Message, Role};
+use wesichain_embeddings::GoogleEmbedding;
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let api_key = std::env::var("GOOGLE_API_KEY")?;
+
+    let llm = GoogleClient::new(api_key.clone(), "gemini-1.5-flash");
+    let embedding = GoogleEmbedding::new(api_key, "text-embedding-004", 768);
+
+    let response = llm
+        .invoke(LlmRequest {
+            model: "".to_string(),
+            messages: vec![Message {
+                role: Role::User,
+                content: "One sentence about Rust async.".to_string(),
+                tool_call_id: None,
+                tool_calls: vec![],
+            }],
+            tools: vec![],
+        })
+        .await?;
+
+    let vector = embedding.embed(&response.content).await?;
+    println!("LLM: {}", response.content);
+    println!("Embedding dimension: {}", vector.len());
+
+    Ok(())
+}
+```
+
 ## ReAct Graph Agent (Tool Calling)
 
 ```toml

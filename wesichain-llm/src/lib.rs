@@ -21,6 +21,9 @@ pub use providers::openai::OpenAiClient;
 #[cfg(feature = "deepseek")]
 pub use providers::deepseek::DeepSeekClient;
 
+#[cfg(feature = "google")]
+pub use providers::google::GoogleClient;
+
 use wesichain_core::Runnable;
 
 pub trait Llm: Runnable<LlmRequest, LlmResponse> {}
