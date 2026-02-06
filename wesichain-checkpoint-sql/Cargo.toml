@@ -15,3 +15,6 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-r
 thiserror = "1"
 tokio = { version = "1", features = ["sync"] }
 wesichain-graph = { path = "../wesichain-graph" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt"] }

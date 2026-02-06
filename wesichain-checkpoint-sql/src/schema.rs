@@ -2,6 +2,7 @@ pub const CHECKPOINTS_TABLE: &str = "checkpoints";
 pub const SESSIONS_TABLE: &str = "sessions";
 pub const MESSAGES_TABLE: &str = "messages";
 pub const GRAPH_TRIPLES_TABLE: &str = "graph_triples";
+pub const SCHEMA_VERSION: u32 = 1;
 
 pub const CREATE_CHECKPOINTS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS checkpoints (\
     thread_id TEXT NOT NULL,\
@@ -36,3 +37,10 @@ pub const CREATE_GRAPH_TRIPLES_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS gra
     object TEXT NOT NULL,\
     score REAL\
 )";
+
+pub const MIGRATION_STATEMENTS_SQL: [&str; 4] = [
+    CREATE_CHECKPOINTS_TABLE_SQL,
+    CREATE_SESSIONS_TABLE_SQL,
+    CREATE_MESSAGES_TABLE_SQL,
+    CREATE_GRAPH_TRIPLES_TABLE_SQL,
+];
