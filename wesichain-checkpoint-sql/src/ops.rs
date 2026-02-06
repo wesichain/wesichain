@@ -4,6 +4,23 @@ use serde_json::Value;
 use sqlx::Row;
 use sqlx::{ColumnIndex, Database, Pool, QueryBuilder};
 
+const SAVE_RETRY_LIMIT: usize = 8;
+
+fn should_retry_sequence_write(error: &sqlx::Error) -> bool {
+    if let Some(db_error) = error.as_database_error() {
+        if db_error.is_unique_violation() {
+            return true;
+        }
+
+        let message = db_error.message().to_ascii_lowercase();
+        return message.contains("database is locked")
+            || message.contains("deadlock")
+            || message.contains("serialization");
+    }
+
+    false
+}
+
 pub async fn next_checkpoint_seq_in_transaction<DB>(
     tx: &mut sqlx::Transaction<'_, DB>,
     thread_id: &str,
@@ -138,11 +155,38 @@ where
     usize: ColumnIndex<DB::Row>,
     S: Serialize + ?Sized,
 {
-    let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
-    let seq = save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await?;
-    tx.commit().await.map_err(CheckpointSqlError::Query)?;
+    let mut last_error: Option<CheckpointSqlError> = None;
 
-    Ok(seq)
+    for _attempt in 0..SAVE_RETRY_LIMIT {
+        let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
+        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await {
+            Ok(seq) => {
+                if let Err(commit_error) = tx.commit().await {
+                    if should_retry_sequence_write(&commit_error) {
+                        last_error = Some(CheckpointSqlError::Query(commit_error));
+                        continue;
+                    }
+                    return Err(CheckpointSqlError::Query(commit_error));
+                }
+                return Ok(seq);
+            }
+            Err(CheckpointSqlError::Query(query_error)) => {
+                let should_retry = should_retry_sequence_write(&query_error);
+                let _ = tx.rollback().await;
+                if should_retry {
+                    last_error = Some(CheckpointSqlError::Query(query_error));
+                    continue;
+                }
+                return Err(CheckpointSqlError::Query(query_error));
+            }
+            Err(other) => {
+                let _ = tx.rollback().await;
+                return Err(other);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or(CheckpointSqlError::NotImplemented))
 }
 
 pub async fn load_latest_checkpoint<DB>(
