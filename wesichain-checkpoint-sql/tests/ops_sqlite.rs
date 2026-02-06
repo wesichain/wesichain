@@ -4,7 +4,21 @@ use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint};
 
 #[test]
 fn ops_api_accepts_postgres_pool_type() {
-    fn assert_backend_agnostic(pool: &sqlx::AnyPool) {
+    fn assert_backend_agnostic<DB>(pool: &sqlx::Pool<DB>)
+    where
+        DB: sqlx::Database,
+        for<'q> &'q str: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+        for<'q> i64: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+        for<'q> String: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+        for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
+        for<'c> &'c sqlx::Pool<DB>: sqlx::Executor<'c, Database = DB>,
+        for<'r> String: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+        for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+        for<'r> Option<String>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+        for<'r> Option<i64>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+        &'static str: sqlx::ColumnIndex<DB::Row>,
+        usize: sqlx::ColumnIndex<DB::Row>,
+    {
         let _ = run_migrations(pool);
         let _ = save_checkpoint(
             pool,
@@ -17,12 +31,12 @@ fn ops_api_accepts_postgres_pool_type() {
         let _ = load_latest_checkpoint(pool, "thread-a");
     }
 
-    let _ = assert_backend_agnostic;
+    let _ = assert_backend_agnostic::<sqlx::Postgres> as fn(&sqlx::Pool<sqlx::Postgres>);
+    let _ = assert_backend_agnostic::<sqlx::Sqlite> as fn(&sqlx::Pool<sqlx::Sqlite>);
 }
 
-async fn sqlite_any_pool() -> sqlx::AnyPool {
-    sqlx::any::install_default_drivers();
-    sqlx::any::AnyPoolOptions::new()
+async fn sqlite_pool() -> sqlx::SqlitePool {
+    sqlx::sqlite::SqlitePoolOptions::new()
         .max_connections(1)
         .connect("sqlite::memory:")
         .await
@@ -31,7 +45,7 @@ async fn sqlite_any_pool() -> sqlx::AnyPool {
 
 #[tokio::test]
 async fn ops_sqlite_migration_bootstrap_creates_tables() {
-    let pool = sqlite_any_pool().await;
+    let pool = sqlite_pool().await;
 
     run_migrations(&pool)
         .await
@@ -49,7 +63,7 @@ async fn ops_sqlite_migration_bootstrap_creates_tables() {
 
 #[tokio::test]
 async fn ops_sqlite_save_assigns_seq_per_thread() {
-    let pool = sqlite_any_pool().await;
+    let pool = sqlite_pool().await;
 
     run_migrations(&pool)
         .await
@@ -90,20 +104,21 @@ async fn ops_sqlite_save_assigns_seq_per_thread() {
     assert_eq!(second, 2);
     assert_eq!(other_thread, 1);
 
-    let seqs: Vec<i64> = sqlx::query("SELECT seq FROM checkpoints WHERE thread_id = ? ORDER BY seq")
-        .bind("thread-a")
-        .fetch_all(&pool)
-        .await
-        .expect("seq query should run")
-        .into_iter()
-        .map(|row| row.get("seq"))
-        .collect();
+    let seqs: Vec<i64> =
+        sqlx::query("SELECT seq FROM checkpoints WHERE thread_id = ? ORDER BY seq")
+            .bind("thread-a")
+            .fetch_all(&pool)
+            .await
+            .expect("seq query should run")
+            .into_iter()
+            .map(|row| row.get("seq"))
+            .collect();
     assert_eq!(seqs, vec![1, 2]);
 }
 
 #[tokio::test]
 async fn ops_sqlite_load_returns_latest_checkpoint_only() {
-    let pool = sqlite_any_pool().await;
+    let pool = sqlite_pool().await;
 
     run_migrations(&pool)
         .await

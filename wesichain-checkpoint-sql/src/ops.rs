@@ -2,6 +2,7 @@ use crate::error::CheckpointSqlError;
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::Row;
+use sqlx::{ColumnIndex, Database, Pool, QueryBuilder};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct StoredCheckpoint {
@@ -13,8 +14,8 @@ pub struct StoredCheckpoint {
     pub state_json: Value,
 }
 
-pub async fn save_checkpoint<S>(
-    pool: &sqlx::AnyPool,
+pub async fn save_checkpoint<DB, S>(
+    pool: &Pool<DB>,
     thread_id: &str,
     node: &str,
     step: i64,
@@ -22,51 +23,96 @@ pub async fn save_checkpoint<S>(
     state: &S,
 ) -> Result<i64, CheckpointSqlError>
 where
+    DB: Database,
+    for<'q> &'q str: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> i64: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> String: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
+    for<'c> &'c Pool<DB>: sqlx::Executor<'c, Database = DB>,
+    for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    usize: ColumnIndex<DB::Row>,
     S: Serialize + ?Sized,
 {
     let state_json = serde_json::to_string(state).map_err(CheckpointSqlError::Serialization)?;
-    let mut tx = pool
-        .begin()
+
+    let seq_sql = {
+        let mut query = QueryBuilder::<DB>::new(
+            "SELECT COALESCE(MAX(seq), 0) + 1 FROM checkpoints WHERE thread_id = ",
+        );
+        query.push_bind(thread_id);
+        query.sql().to_owned()
+    };
+
+    let seq: i64 = sqlx::query_scalar::<DB, i64>(&seq_sql)
+        .bind(thread_id)
+        .fetch_one(pool)
         .await
-        .map_err(CheckpointSqlError::Connection)?;
+        .map_err(CheckpointSqlError::Query)?;
 
-    let seq: i64 = sqlx::query_scalar::<sqlx::Any, i64>(
-        "SELECT COALESCE(MAX(seq), 0) + 1 FROM checkpoints WHERE thread_id = ?",
-    )
-    .bind(thread_id)
-    .fetch_one(&mut *tx)
-    .await
-    .map_err(CheckpointSqlError::Query)?;
+    let insert_sql = {
+        let mut query = QueryBuilder::<DB>::new(
+            "INSERT INTO checkpoints (thread_id, seq, created_at, node, step, state_json) VALUES (",
+        );
+        query
+            .push_bind(thread_id)
+            .push(", ")
+            .push_bind(seq)
+            .push(", ")
+            .push_bind(created_at)
+            .push(", ")
+            .push_bind(node)
+            .push(", ")
+            .push_bind(step)
+            .push(", ")
+            .push_bind(state_json.clone())
+            .push(")");
+        query.sql().to_owned()
+    };
 
-    sqlx::query::<sqlx::Any>(
-        "INSERT INTO checkpoints (thread_id, seq, created_at, node, step, state_json) VALUES (?, ?, ?, ?, ?, ?)",
-    )
-    .bind(thread_id)
-    .bind(seq)
-    .bind(created_at)
-    .bind(node)
-    .bind(step)
-    .bind(state_json)
-    .execute(&mut *tx)
-    .await
-    .map_err(CheckpointSqlError::Query)?;
-
-    tx.commit().await.map_err(CheckpointSqlError::Query)?;
+    sqlx::query::<DB>(&insert_sql)
+        .bind(thread_id)
+        .bind(seq)
+        .bind(created_at)
+        .bind(node)
+        .bind(step)
+        .bind(state_json)
+        .execute(pool)
+        .await
+        .map_err(CheckpointSqlError::Query)?;
 
     Ok(seq)
 }
 
-pub async fn load_latest_checkpoint(
-    pool: &sqlx::AnyPool,
+pub async fn load_latest_checkpoint<DB>(
+    pool: &Pool<DB>,
     thread_id: &str,
-) -> Result<Option<StoredCheckpoint>, CheckpointSqlError> {
-    let row = sqlx::query::<sqlx::Any>(
-        "SELECT thread_id, seq, created_at, node, step, state_json FROM checkpoints WHERE thread_id = ? ORDER BY seq DESC LIMIT 1",
-    )
-    .bind(thread_id)
-    .fetch_optional(pool)
-    .await
-    .map_err(CheckpointSqlError::Query)?;
+) -> Result<Option<StoredCheckpoint>, CheckpointSqlError>
+where
+    DB: Database,
+    for<'q> &'q str: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
+    for<'c> &'c Pool<DB>: sqlx::Executor<'c, Database = DB>,
+    &'static str: ColumnIndex<DB::Row>,
+    for<'r> String: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> Option<String>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> Option<i64>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+{
+    let select_sql = {
+        let mut query = QueryBuilder::<DB>::new(
+            "SELECT thread_id, seq, created_at, node, step, state_json FROM checkpoints WHERE thread_id = ",
+        );
+        query
+            .push_bind(thread_id)
+            .push(" ORDER BY seq DESC LIMIT 1");
+        query.sql().to_owned()
+    };
+
+    let row = sqlx::query::<DB>(&select_sql)
+        .bind(thread_id)
+        .fetch_optional(pool)
+        .await
+        .map_err(CheckpointSqlError::Query)?;
 
     let Some(row) = row else {
         return Ok(None);
@@ -86,10 +132,21 @@ pub async fn load_latest_checkpoint(
     }))
 }
 
-pub async fn load_checkpoint(
-    pool: &sqlx::AnyPool,
+pub async fn load_checkpoint<DB>(
+    pool: &Pool<DB>,
     thread_id: &str,
-) -> Result<Option<Value>, CheckpointSqlError> {
+) -> Result<Option<Value>, CheckpointSqlError>
+where
+    DB: Database,
+    for<'q> &'q str: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
+    for<'c> &'c Pool<DB>: sqlx::Executor<'c, Database = DB>,
+    &'static str: ColumnIndex<DB::Row>,
+    for<'r> String: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> Option<String>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    for<'r> Option<i64>: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+{
     Ok(load_latest_checkpoint(pool, thread_id)
         .await?
         .map(|checkpoint| checkpoint.state_json))
