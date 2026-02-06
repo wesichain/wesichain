@@ -18,6 +18,7 @@ pub struct PineconeVectorStore<E> {
     pub(crate) text_key: String,
     pub(crate) index_name: Option<String>,
     pub(crate) validate_dimension: bool,
+    pub(crate) max_batch_size: usize,
 }
 
 impl<E> PineconeVectorStore<E> {
@@ -32,6 +33,7 @@ impl<E> PineconeVectorStore<E> {
         text_key: String,
         index_name: Option<String>,
         validate_dimension: bool,
+        max_batch_size: usize,
     ) -> Self {
         Self {
             embedder,
@@ -40,6 +42,7 @@ impl<E> PineconeVectorStore<E> {
             text_key,
             index_name,
             validate_dimension,
+            max_batch_size,
         }
     }
 
@@ -203,21 +206,33 @@ where
             });
         }
 
-        let request = UpsertRequest {
-            vectors,
-            namespace: self.namespace.clone(),
-        };
+        let total_chunks = vectors.len().div_ceil(self.max_batch_size);
+        for (chunk_index, chunk) in vectors.chunks(self.max_batch_size).enumerate() {
+            let chunk_span = tracing::info_span!(
+                "pinecone_upsert_chunk",
+                namespace = ?self.namespace,
+                chunk_index = chunk_index + 1,
+                total_chunks = total_chunks,
+                batch_size = chunk.len(),
+            );
+            let _chunk_guard = chunk_span.enter();
 
-        let _: Value = self
-            .client
-            .post_typed_with_context(
-                "/vectors/upsert",
-                &request,
-                self.namespace.as_deref(),
-                Some(request.vectors.len()),
-            )
-            .await
-            .map_err(StoreError::from)?;
+            let request = UpsertRequest {
+                vectors: chunk.to_vec(),
+                namespace: self.namespace.clone(),
+            };
+
+            let _: Value = self
+                .client
+                .post_typed_with_context(
+                    "/vectors/upsert",
+                    &request,
+                    self.namespace.as_deref(),
+                    Some(request.vectors.len()),
+                )
+                .await
+                .map_err(StoreError::from)?;
+        }
 
         Ok(())
     }

@@ -7,11 +7,15 @@ Pinecone vector store integration for Wesichain with LangChain-like ergonomics a
 - External embedding provider injection (`E: Embedding`)
 - Data-plane operations: upsert, query, delete
 - Typed metadata filters with raw JSON fallback
+- Automatic upsert chunking for large ingest batches
 - LangChain-style methods:
   - `add_documents`
   - `similarity_search`
   - `similarity_search_with_score`
   - `delete`
+
+Maximum recommended batch size per Pinecone upsert is 1000 vectors.
+`add_documents` automatically chunks larger input batches.
 
 ## Environment Variables
 
@@ -71,11 +75,19 @@ println!("{}", results.len());
 | Python (LangChain) | Rust (Wesichain) | Notes |
 |---|---|---|
 | `PineconeVectorStore(index_name=..., embedding=...)` | `PineconeVectorStore::builder(embedder).base_url(...).api_key(...).build().await?` | Uses full Pinecone index URL |
+| `PineconeVectorStore.from_documents(docs, embedding, ...)` | `PineconeVectorStore::from_documents(docs, embedder, ...).await?` | One-shot builder + ingest |
 | `add_documents(docs)` | `add_documents(docs, None).await?` | Optional explicit IDs supported |
 | `similarity_search(query, k=5, filter=...)` | `similarity_search(query, 5, Some(filter)).await?` | Typed `MetadataFilter` |
 | `similarity_search_with_score(...)` | `similarity_search_with_score(...).await?` | Returns `Vec<(Document, f32)>` |
 | `delete(ids=[...])` | `delete(&ids).await?` | Also supports `delete_vec(ids)` |
 | `GoogleGenerativeAIEmbeddings(model="models/embedding-001")` | `wesichain_embeddings::GoogleEmbedding::new("<api-key>", "models/embedding-001")?` | External embedder injection preserved |
+
+## Common Errors and Fixes
+
+- `401` / `403`: missing or invalid `PINECONE_API_KEY`.
+- `404`: wrong `PINECONE_BASE_URL` (use the index host URL from Pinecone console).
+- `429`: rate limited; check `Retry-After` in the returned error and reduce ingest/query pressure.
+- `Dimension mismatch` warning: embedder vector dimension does not match index dimension. Update embedder model or use a matching index.
 
 ## Tracing
 

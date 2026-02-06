@@ -50,3 +50,33 @@ async fn add_documents_embeds_and_upserts() {
 
     store.add_documents(vec![doc], None).await.unwrap();
 }
+
+#[tokio::test]
+async fn add_documents_chunks_large_batches() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/vectors/upsert"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({})))
+        .expect(3)
+        .mount(&server)
+        .await;
+
+    let store = PineconeVectorStore::builder(FixedEmbedding)
+        .base_url(server.uri())
+        .api_key("key")
+        .max_batch_size(2)
+        .build()
+        .await
+        .unwrap();
+
+    let docs: Vec<Document> = (0..5)
+        .map(|i| Document {
+            id: format!("doc-{i}"),
+            content: format!("hello-{i}"),
+            metadata: HashMap::new(),
+            embedding: None,
+        })
+        .collect();
+
+    store.add_documents(docs, None).await.unwrap();
+}

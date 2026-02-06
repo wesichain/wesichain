@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
-use wesichain_core::{Document, Embedding, EmbeddingError};
+use serde_json::json;
+use wesichain_core::{Document, Embedding, EmbeddingError, MetadataFilter};
 use wesichain_pinecone::PineconeVectorStore;
 
 #[derive(Clone)]
@@ -42,16 +43,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let docs = vec![Document {
         id: "demo-doc-1".to_string(),
         content: "Wesichain integrates with Pinecone for vector retrieval".to_string(),
-        metadata: HashMap::new(),
+        metadata: HashMap::from([("source".to_string(), json!("guide"))]),
         embedding: None,
     }];
 
     store.add_documents(docs, None).await?;
 
+    let filter = MetadataFilter::Eq("source".to_string(), json!("guide"));
     let results = store
-        .similarity_search("How does Wesichain use Pinecone?", 3, None)
+        .similarity_search("How does Wesichain use Pinecone?", 3, Some(filter))
         .await?;
-    println!("Retrieved {} docs", results.len());
+    println!("Retrieved {} filtered docs", results.len());
+
+    let scored_results = store
+        .similarity_search_with_score("How does Wesichain use Pinecone?", 10, None)
+        .await?;
+    let high_confidence = scored_results
+        .into_iter()
+        .filter(|(_, score)| *score > 0.75)
+        .count();
+    println!("Retrieved {} high confidence docs", high_confidence);
 
     Ok(())
 }

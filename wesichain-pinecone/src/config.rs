@@ -11,6 +11,7 @@ pub struct PineconeStoreBuilder<E> {
     text_key: String,
     index_name: Option<String>,
     validate_dimension: bool,
+    max_batch_size: usize,
 }
 
 impl<E> PineconeStoreBuilder<E> {
@@ -23,6 +24,7 @@ impl<E> PineconeStoreBuilder<E> {
             text_key: "text".to_string(),
             index_name: None,
             validate_dimension: false,
+            max_batch_size: 1000,
         }
     }
 
@@ -56,6 +58,11 @@ impl<E> PineconeStoreBuilder<E> {
         self
     }
 
+    pub fn max_batch_size(mut self, value: usize) -> Self {
+        self.max_batch_size = value;
+        self
+    }
+
     pub fn base_url_from_env(mut self, var_name: &str) -> Self {
         if let Ok(value) = std::env::var(var_name) {
             self.base_url = Some(value);
@@ -82,6 +89,12 @@ impl<E> PineconeStoreBuilder<E> {
             .ok_or_else(|| PineconeStoreError::Config("api_key is required".to_string()))?;
 
         let client = PineconeHttpClient::new(base_url, api_key)?;
+        if self.max_batch_size == 0 {
+            return Err(PineconeStoreError::Config(
+                "max_batch_size must be greater than 0".to_string(),
+            ));
+        }
+
         let store = PineconeVectorStore::new(
             self.embedder,
             client,
@@ -89,6 +102,7 @@ impl<E> PineconeStoreBuilder<E> {
             self.text_key,
             self.index_name,
             self.validate_dimension,
+            self.max_batch_size,
         );
         store.validate_dimension_on_init().await;
         Ok(store)
