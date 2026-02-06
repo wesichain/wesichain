@@ -25,4 +25,10 @@ pub enum IngestionError {
         #[source]
         source: std::io::Error,
     },
+    #[error("parse failed for '{path}': {source}")]
+    Parse {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
 }

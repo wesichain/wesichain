@@ -21,6 +21,8 @@ thiserror = "1"
 tokio = { version = "1", features = ["fs", "sync"] }
 wesichain-core = { path = "../wesichain-core" }
 wesichain-embeddings = { path = "../wesichain-embeddings" }
+quick-xml = "0.38"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 pdf-extract = { version = "0.7", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
