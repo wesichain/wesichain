@@ -1,4 +1,5 @@
 use crate::error::CheckpointSqlError;
+use crate::projection::{apply_projection_rows_in_transaction, map_state_to_projection_rows};
 use serde::Serialize;
 use serde_json::Value;
 use sqlx::Row;
@@ -161,6 +162,75 @@ where
         let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
         match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await {
             Ok(seq) => {
+                if let Err(commit_error) = tx.commit().await {
+                    if should_retry_sequence_write(&commit_error) {
+                        last_error = Some(CheckpointSqlError::Query(commit_error));
+                        continue;
+                    }
+                    return Err(CheckpointSqlError::Query(commit_error));
+                }
+                return Ok(seq);
+            }
+            Err(CheckpointSqlError::Query(query_error)) => {
+                let should_retry = should_retry_sequence_write(&query_error);
+                let _ = tx.rollback().await;
+                if should_retry {
+                    last_error = Some(CheckpointSqlError::Query(query_error));
+                    continue;
+                }
+                return Err(CheckpointSqlError::Query(query_error));
+            }
+            Err(other) => {
+                let _ = tx.rollback().await;
+                return Err(other);
+            }
+        }
+    }
+
+    Err(last_error.unwrap_or(CheckpointSqlError::NotImplemented))
+}
+
+pub async fn save_checkpoint_with_projections<DB, S>(
+    pool: &Pool<DB>,
+    thread_id: &str,
+    node: &str,
+    step: i64,
+    created_at: &str,
+    state: &S,
+    enable_projections: bool,
+) -> Result<i64, CheckpointSqlError>
+where
+    DB: Database,
+    for<'q> &'q str: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> i64: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> String: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> Option<String>: sqlx::Encode<'q, DB> + sqlx::Type<DB>,
+    for<'q> DB::Arguments<'q>: sqlx::IntoArguments<'q, DB>,
+    for<'c> &'c Pool<DB>: sqlx::Executor<'c, Database = DB>,
+    for<'c> &'c mut DB::Connection: sqlx::Executor<'c, Database = DB>,
+    for<'r> i64: sqlx::Decode<'r, DB> + sqlx::Type<DB>,
+    usize: ColumnIndex<DB::Row>,
+    S: Serialize + ?Sized,
+{
+    let mut last_error: Option<CheckpointSqlError> = None;
+
+    for _attempt in 0..SAVE_RETRY_LIMIT {
+        let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
+        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await {
+            Ok(seq) => {
+                if enable_projections {
+                    let state_json = serde_json::to_value(state)
+                        .map_err(CheckpointSqlError::Serialization)?;
+                    let projection_rows =
+                        map_state_to_projection_rows(&state_json, seq, created_at)?;
+                    if let Err(error) =
+                        apply_projection_rows_in_transaction(&mut tx, thread_id, &projection_rows).await
+                    {
+                        let _ = tx.rollback().await;
+                        return Err(error);
+                    }
+                }
+
                 if let Err(commit_error) = tx.commit().await {
                     if should_retry_sequence_write(&commit_error) {
                         last_error = Some(CheckpointSqlError::Query(commit_error));

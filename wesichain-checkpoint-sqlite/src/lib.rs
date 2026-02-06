@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use wesichain_checkpoint_sql::error::CheckpointSqlError;
 use wesichain_checkpoint_sql::migrations::run_migrations;
-use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint};
+use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint_with_projections};
 use wesichain_graph::{Checkpoint, Checkpointer, GraphError, GraphState, StateSchema};
 
 #[derive(Debug, Clone)]
@@ -83,13 +83,14 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
             let step = i64::try_from(checkpoint.step)
                 .map_err(|_| graph_checkpoint_error("checkpoint step does not fit into i64"))?;
 
-            save_checkpoint(
+            save_checkpoint_with_projections(
                 &self.pool,
                 &checkpoint.thread_id,
                 &checkpoint.node,
                 step,
                 &checkpoint.created_at,
                 &checkpoint.state,
+                self.enable_projections,
             )
             .await
             .map_err(map_sql_error)?;
