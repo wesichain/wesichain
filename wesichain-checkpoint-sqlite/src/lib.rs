@@ -118,9 +118,15 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
                 return Ok(None);
             };
 
-            let step_i64 = stored.step.unwrap_or_default();
+            let step_i64 = stored
+                .step
+                .ok_or_else(|| graph_checkpoint_error("checkpoint step is missing"))?;
             let step = u64::try_from(step_i64)
                 .map_err(|_| graph_checkpoint_error("checkpoint step is negative"))?;
+
+            let node = stored
+                .node
+                .ok_or_else(|| graph_checkpoint_error("checkpoint node is missing"))?;
 
             let state: GraphState<S> =
                 serde_json::from_value(stored.state_json).map_err(|error| {
@@ -133,7 +139,7 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
                 thread_id: stored.thread_id,
                 state,
                 step,
-                node: stored.node.unwrap_or_default(),
+                node,
                 created_at: stored.created_at,
             }))
         })
