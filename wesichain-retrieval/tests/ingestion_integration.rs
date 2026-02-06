@@ -12,7 +12,8 @@ fn docx_fixture_path(name: &str) -> PathBuf {
 }
 
 #[tokio::test]
-async fn ingestion_integration_load_and_split_recursive_ingests_txt_and_docx_with_expected_metadata() {
+async fn ingestion_integration_load_and_split_recursive_ingests_txt_and_docx_with_expected_metadata(
+) {
     let dir = tempdir().expect("temp dir");
     let txt_path = dir.path().join("notes.txt");
     fs::write(

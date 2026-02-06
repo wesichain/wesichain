@@ -160,7 +160,9 @@ where
 
     for _attempt in 0..SAVE_RETRY_LIMIT {
         let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
-        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await {
+        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state)
+            .await
+        {
             Ok(seq) => {
                 if let Err(commit_error) = tx.commit().await {
                     if should_retry_sequence_write(&commit_error) {
@@ -216,15 +218,18 @@ where
 
     for _attempt in 0..SAVE_RETRY_LIMIT {
         let mut tx = pool.begin().await.map_err(CheckpointSqlError::Query)?;
-        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state).await {
+        match save_checkpoint_in_transaction(&mut tx, thread_id, node, step, created_at, state)
+            .await
+        {
             Ok(seq) => {
                 if enable_projections {
-                    let state_json = serde_json::to_value(state)
-                        .map_err(CheckpointSqlError::Serialization)?;
+                    let state_json =
+                        serde_json::to_value(state).map_err(CheckpointSqlError::Serialization)?;
                     let projection_rows =
                         map_state_to_projection_rows(&state_json, seq, created_at)?;
                     if let Err(error) =
-                        apply_projection_rows_in_transaction(&mut tx, thread_id, &projection_rows).await
+                        apply_projection_rows_in_transaction(&mut tx, thread_id, &projection_rows)
+                            .await
                     {
                         let _ = tx.rollback().await;
                         return Err(error);

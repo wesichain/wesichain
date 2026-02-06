@@ -89,7 +89,8 @@ async fn checkpointer_load_fails_when_required_columns_are_null() {
     .await
     .expect("seed row should insert");
 
-    let load_result: Result<Option<Checkpoint<DemoState>>, _> = checkpointer.load("thread-null").await;
+    let load_result: Result<Option<Checkpoint<DemoState>>, _> =
+        checkpointer.load("thread-null").await;
     let error = load_result.expect_err("load should fail when required columns are null");
     assert!(error.to_string().contains("checkpoint step is missing"));
 

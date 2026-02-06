@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
-use zip::write::FileOptions;
 use wesichain_retrieval::{load_file_async, IngestionError};
+use zip::write::FileOptions;
 
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

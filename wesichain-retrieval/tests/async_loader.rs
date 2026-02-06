@@ -9,7 +9,9 @@ async fn async_loader_reads_txt_document() {
     let path = dir.path().join("demo.txt");
     fs::write(&path, "Hello async ingestion!").expect("write temp file");
 
-    let documents = load_file_async(path.clone()).await.expect("load txt asynchronously");
+    let documents = load_file_async(path.clone())
+        .await
+        .expect("load txt asynchronously");
 
     assert_eq!(documents.len(), 1);
     assert_eq!(documents[0].id, path.to_string_lossy());

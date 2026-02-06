@@ -103,7 +103,11 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
         &'life0 self,
         thread_id: &'life1 str,
     ) -> core::pin::Pin<
-        Box<dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, GraphError>> + Send + 'async_trait>,
+        Box<
+            dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, GraphError>>
+                + Send
+                + 'async_trait,
+        >,
     >
     where
         'life0: 'async_trait,

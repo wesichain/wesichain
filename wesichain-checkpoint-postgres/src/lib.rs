@@ -111,7 +111,11 @@ impl<S: StateSchema> Checkpointer<S> for PostgresCheckpointer {
         &'life0 self,
         thread_id: &'life1 str,
     ) -> core::pin::Pin<
-        Box<dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, GraphError>> + Send + 'async_trait>,
+        Box<
+            dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, GraphError>>
+                + Send
+                + 'async_trait,
+        >,
     >
     where
         'life0: 'async_trait,
@@ -139,7 +143,9 @@ impl<S: StateSchema> Checkpointer<S> for PostgresCheckpointer {
 
             let state: GraphState<S> =
                 serde_json::from_value(stored.state_json).map_err(|error| {
-                    graph_checkpoint_error(format!("failed to deserialize checkpoint state: {error}"))
+                    graph_checkpoint_error(format!(
+                        "failed to deserialize checkpoint state: {error}"
+                    ))
                 })?;
 
             Ok(Some(Checkpoint {

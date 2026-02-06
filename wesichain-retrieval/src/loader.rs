@@ -58,12 +58,13 @@ pub async fn load_files_async(paths: Vec<PathBuf>) -> Result<Vec<Document>, Inge
 }
 
 async fn load_text_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
-    let content = tokio::fs::read_to_string(&path)
-        .await
-        .map_err(|source| IngestionError::Read {
-            path: path.clone(),
-            source,
-        })?;
+    let content =
+        tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|source| IngestionError::Read {
+                path: path.clone(),
+                source,
+            })?;
 
     let mut metadata = HashMap::new();
     metadata.insert(
@@ -241,7 +242,10 @@ fn local_name(name: &[u8]) -> &[u8] {
 }
 
 fn invalid_docx<E: std::fmt::Display>(error: E) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::InvalidData, format!("invalid docx: {error}"))
+    std::io::Error::new(
+        std::io::ErrorKind::InvalidData,
+        format!("invalid docx: {error}"),
+    )
 }
 
 #[cfg(feature = "pdf")]

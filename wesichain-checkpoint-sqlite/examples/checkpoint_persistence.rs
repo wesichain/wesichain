@@ -1,8 +1,8 @@
-use std::error::Error;
 use serde::{Deserialize, Serialize};
+use std::error::Error;
 use wesichain_checkpoint_sqlite::SqliteCheckpointer;
-use wesichain_graph::{Checkpoint, GraphState, StateSchema};
 use wesichain_graph::Checkpointer as _;
+use wesichain_graph::{Checkpoint, GraphState, StateSchema};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 struct DemoState {
@@ -20,16 +20,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
 
     let state = GraphState::new(DemoState { count: 0 });
-    let checkpoint = Checkpoint::new(
-        "example-thread".to_string(),
-        state,
-        1,
-        "node-1".to_string(),
-    );
+    let checkpoint = Checkpoint::new("example-thread".to_string(), state, 1, "node-1".to_string());
 
     checkpointer.save(&checkpoint).await?;
-    println!("Checkpoint saved: thread={}, node={}, step={}",
-             checkpoint.thread_id, checkpoint.node, checkpoint.step);
+    println!(
+        "Checkpoint saved: thread={}, node={}, step={}",
+        checkpoint.thread_id, checkpoint.node, checkpoint.step
+    );
 
     let loaded: Option<Checkpoint<DemoState>> = checkpointer.load(&checkpoint.thread_id).await?;
     if let Some(loaded) = loaded {

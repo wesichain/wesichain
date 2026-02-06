@@ -67,7 +67,9 @@ pub fn map_state_to_projection_rows(
                 .get("role")
                 .and_then(Value::as_str)
                 .ok_or_else(|| {
-                    CheckpointSqlError::Projection("each message must have a string role".to_string())
+                    CheckpointSqlError::Projection(
+                        "each message must have a string role".to_string(),
+                    )
                 })?
                 .to_string();
             let content = message
