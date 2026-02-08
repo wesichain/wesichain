@@ -5,6 +5,8 @@ use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 use wesichain_core::{AgentEvent, Document};
 
+pub mod adapters;
+
 #[derive(Debug, thiserror::Error)]
 pub enum RagError {
     #[error("operation not implemented yet: {0}")]

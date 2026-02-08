@@ -4442,6 +4442,7 @@ name = "wesichain-rag"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "serde_json",
  "thiserror 1.0.69",
  "tokio",
  "tokio-stream",
