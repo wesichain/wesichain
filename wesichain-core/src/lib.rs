@@ -1,3 +1,4 @@
+mod agent_event;
 pub mod callbacks;
 mod chain;
 mod document;
@@ -13,6 +14,7 @@ mod tool;
 mod value;
 mod vector_store;
 
+pub use agent_event::AgentEvent;
 pub use callbacks::{
     ensure_object, CallbackHandler, CallbackManager, RunConfig, RunContext, RunType, ToTraceInput,
     ToTraceOutput,
