@@ -22,5 +22,7 @@ wesichain-graph = { path = "../wesichain-graph" }
 wesichain-retrieval = { path = "../wesichain-retrieval" }
 
 [dev-dependencies]
+tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wesichain-checkpoint-postgres = { path = "../wesichain-checkpoint-postgres" }
 wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite" }
