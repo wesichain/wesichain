@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use futures::stream::{self, BoxStream, StreamExt};
 use petgraph::graph::Graph;
+use tokio::sync::mpsc;
 
 use crate::{
     Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError, GraphEvent,
@@ -12,7 +13,7 @@ use crate::{
 use wesichain_core::callbacks::{
     ensure_object, CallbackManager, RunContext, RunType, ToTraceInput, ToTraceOutput,
 };
-use wesichain_core::{Runnable, WesichainError};
+use wesichain_core::{AgentEvent, Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
 
@@ -20,6 +21,45 @@ pub struct GraphContext {
     pub remaining_steps: Option<usize>,
     pub observer: Option<Arc<dyn Observer>>,
     pub node_id: String,
+}
+
+async fn emit_status_event(
+    sender: &Option<mpsc::Sender<AgentEvent>>,
+    step: &mut usize,
+    thread_id: &str,
+    stage: impl Into<String>,
+    message: impl Into<String>,
+) {
+    if let Some(sender) = sender {
+        *step += 1;
+        let _ = sender
+            .send(AgentEvent::Status {
+                stage: stage.into(),
+                message: message.into(),
+                step: *step,
+                thread_id: thread_id.to_string(),
+            })
+            .await;
+    }
+}
+
+async fn emit_error_event(
+    sender: &Option<mpsc::Sender<AgentEvent>>,
+    step: &mut usize,
+    message: impl Into<String>,
+    source: Option<String>,
+) {
+    if let Some(sender) = sender {
+        *step += 1;
+        let _ = sender
+            .send(AgentEvent::Error {
+                message: message.into(),
+                step: *step,
+                recoverable: false,
+                source,
+            })
+            .await;
+    }
 }
 
 #[async_trait::async_trait]
@@ -390,10 +430,30 @@ impl<S: StateSchema> ExecutableGraph<S> {
         mut state: GraphState<S>,
         options: ExecutionOptions,
     ) -> Result<GraphState<S>, GraphError> {
+        let agent_event_sender = options.agent_event_sender.clone();
+        let agent_event_thread_id = options
+            .agent_event_thread_id
+            .clone()
+            .or_else(|| {
+                self.checkpointer
+                    .as_ref()
+                    .map(|(_, thread_id)| thread_id.clone())
+            })
+            .unwrap_or_else(|| "graph".to_string());
+        let mut agent_event_step = 0usize;
+
         if !self.nodes.contains_key(&self.entry) {
-            return Err(GraphError::MissingNode {
+            let error = GraphError::MissingNode {
                 node: self.entry.clone(),
-            });
+            };
+            emit_error_event(
+                &agent_event_sender,
+                &mut agent_event_step,
+                error.to_string(),
+                Some("graph".to_string()),
+            )
+            .await;
+            return Err(error);
         }
         let effective = self.default_config.merge(&options);
         let observer = options.observer.clone().or_else(|| self.observer.clone());
@@ -494,6 +554,16 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     return Err(error);
                 }
             };
+
+            emit_status_event(
+                &agent_event_sender,
+                &mut agent_event_step,
+                &agent_event_thread_id,
+                "node_start",
+                format!("Starting node {current}"),
+            )
+            .await;
+
             if let Some(obs) = &observer {
                 let input_value = match serde_json::to_value(&state.data) {
                     Ok(value) => value,
@@ -603,6 +673,15 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 }
             }
 
+            emit_status_event(
+                &agent_event_sender,
+                &mut agent_event_step,
+                &agent_event_thread_id,
+                "node_end",
+                format!("Completed node {current}"),
+            )
+            .await;
+
             if self.interrupt_after.contains(&current) {
                 let error = GraphError::Interrupted;
                 if let Some(obs) = &observer {
@@ -657,6 +736,16 @@ impl<S: StateSchema> ExecutableGraph<S> {
             let duration_ms = root.start_instant.elapsed().as_millis();
             manager.on_end(root, &outputs, duration_ms).await;
         }
+
+        emit_status_event(
+            &agent_event_sender,
+            &mut agent_event_step,
+            &agent_event_thread_id,
+            "completed",
+            "Graph execution completed",
+        )
+        .await;
+
         Ok(state)
     }
 

@@ -13,6 +13,8 @@ fn execution_config_defaults_and_merge() {
         cycle_window: Some(3),
         run_config: None,
         observer: None,
+        agent_event_sender: None,
+        agent_event_thread_id: None,
     };
     let merged = defaults.merge(&overrides);
     assert_eq!(merged.max_steps, Some(5));
