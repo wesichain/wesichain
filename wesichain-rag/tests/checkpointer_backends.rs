@@ -76,7 +76,10 @@ async fn sqlite_checkpointer_supports_resume_without_api_changes() {
     let first = collect_final_answer(&rag, &thread_id, "What is the capital of France?").await;
     let second = collect_final_answer(&rag, &thread_id, "Repeat that answer").await;
 
-    assert!(first.contains("#1"), "expected first turn answer marker: {first}");
+    assert!(
+        first.contains("#1"),
+        "expected first turn answer marker: {first}"
+    );
     assert!(
         second.contains("#2"),
         "expected resumed second turn answer marker: {second}"
@@ -113,7 +116,10 @@ async fn postgres_checkpointer_supports_resume_without_api_changes() {
     let first = collect_final_answer(&rag, &thread_id, "What is the capital of France?").await;
     let second = collect_final_answer(&rag, &thread_id, "Repeat that answer").await;
 
-    assert!(first.contains("#1"), "expected first turn answer marker: {first}");
+    assert!(
+        first.contains("#1"),
+        "expected first turn answer marker: {first}"
+    );
     assert!(
         second.contains("#2"),
         "expected resumed second turn answer marker: {second}"

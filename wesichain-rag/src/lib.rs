@@ -51,6 +51,7 @@ pub struct RagSearchResult {
 #[derive(Clone)]
 pub struct WesichainRag {
     event_buffer_size: usize,
+    max_retries: usize,
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
     indexer: Arc<dyn IndexerTrait>,
     retriever: Arc<dyn RetrieverTrait>,
@@ -59,6 +60,7 @@ pub struct WesichainRag {
 #[derive(Clone)]
 pub struct WesichainRagBuilder {
     event_buffer_size: usize,
+    max_retries: usize,
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
     embedder: Option<Arc<dyn Embedding>>,
     vector_store: Option<Arc<dyn VectorStore>>,
@@ -166,10 +168,98 @@ impl Runnable<GraphState<RagRuntimeState>, StateUpdate<RagRuntimeState>> for Gen
     }
 }
 
+fn normalize_agent_event_step(event: AgentEvent, last_step: &mut usize) -> AgentEvent {
+    match event {
+        AgentEvent::Status {
+            stage,
+            message,
+            step,
+            thread_id,
+        } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::Status {
+                stage,
+                message,
+                step: normalized,
+                thread_id,
+            }
+        }
+        AgentEvent::Thought {
+            content,
+            step,
+            metadata,
+        } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::Thought {
+                content,
+                step: normalized,
+                metadata,
+            }
+        }
+        AgentEvent::ToolCall {
+            id,
+            tool_name,
+            input,
+            step,
+        } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::ToolCall {
+                id,
+                tool_name,
+                input,
+                step: normalized,
+            }
+        }
+        AgentEvent::Observation {
+            id,
+            tool_name,
+            output,
+            step,
+        } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::Observation {
+                id,
+                tool_name,
+                output,
+                step: normalized,
+            }
+        }
+        AgentEvent::Final { content, step } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::Final {
+                content,
+                step: normalized,
+            }
+        }
+        AgentEvent::Error {
+            message,
+            step,
+            recoverable,
+            source,
+        } => {
+            let normalized = step.max(last_step.saturating_add(1));
+            *last_step = normalized;
+            AgentEvent::Error {
+                message,
+                step: normalized,
+                recoverable,
+                source,
+            }
+        }
+        AgentEvent::Metadata { key, value } => AgentEvent::Metadata { key, value },
+    }
+}
+
 impl WesichainRag {
     pub fn builder() -> WesichainRagBuilder {
         WesichainRagBuilder {
             event_buffer_size: 64,
+            max_retries: 0,
             checkpointer: Arc::new(InMemoryCheckpointer::<RagRuntimeState>::default()),
             embedder: None,
             vector_store: None,
@@ -308,6 +398,8 @@ impl WesichainRag {
             .set_entry("generate")
             .build();
 
+        let max_retries = self.max_retries;
+
         let (graph_event_tx, mut graph_event_rx) =
             mpsc::channel::<AgentEvent>(self.event_buffer_size);
         let (output_tx, output_rx) =
@@ -322,19 +414,46 @@ impl WesichainRag {
         };
 
         tokio::spawn(async move {
-            let result = graph
-                .invoke_graph_with_options(GraphState::new(state), options)
-                .await;
-            let _ = result_tx.send(result);
+            let base_state = state;
+            let retry_event_sender = options.agent_event_sender.clone();
+            let mut attempt = 0usize;
+
+            loop {
+                let result = graph
+                    .invoke_graph_with_options(GraphState::new(base_state.clone()), options.clone())
+                    .await;
+
+                match result {
+                    Ok(final_state) => {
+                        let _ = result_tx.send(Ok(final_state));
+                        break;
+                    }
+                    Err(error) if attempt < max_retries => {
+                        attempt += 1;
+                        if let Some(sender) = &retry_event_sender {
+                            let _ = sender
+                                .send(AgentEvent::Error {
+                                    message: format!("attempt {attempt} failed, retrying: {error}"),
+                                    step: 0,
+                                    recoverable: true,
+                                    source: Some("graph".to_string()),
+                                })
+                                .await;
+                        }
+                    }
+                    Err(error) => {
+                        let _ = result_tx.send(Err(error));
+                        break;
+                    }
+                }
+            }
         });
 
         tokio::spawn(async move {
             let mut last_step = 0usize;
 
             while let Some(event) = graph_event_rx.recv().await {
-                if let Some(step) = event.step() {
-                    last_step = step;
-                }
+                let event = normalize_agent_event_step(event, &mut last_step);
 
                 if output_tx.send(Ok(event)).await.is_err() {
                     return;
@@ -421,7 +540,8 @@ impl WesichainRagBuilder {
         self
     }
 
-    pub fn with_max_retries(self, _max_retries: usize) -> Self {
+    pub fn with_max_retries(mut self, max_retries: usize) -> Self {
+        self.max_retries = max_retries;
         self
     }
 
@@ -440,6 +560,7 @@ impl WesichainRagBuilder {
 
         Ok(WesichainRag {
             event_buffer_size: self.event_buffer_size,
+            max_retries: self.max_retries,
             checkpointer: self.checkpointer,
             indexer,
             retriever,
