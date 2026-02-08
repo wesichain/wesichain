@@ -4452,6 +4452,7 @@ dependencies = [
  "wesichain-checkpoint-sqlite",
  "wesichain-core",
  "wesichain-graph",
+ "wesichain-retrieval",
 ]
 
 [[package]]

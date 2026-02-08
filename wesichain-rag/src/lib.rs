@@ -5,11 +5,14 @@ use futures::StreamExt;
 use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
-use wesichain_core::{AgentEvent, Document, Runnable, StreamEvent, WesichainError};
+use wesichain_core::{
+    AgentEvent, Document, Embedding, Runnable, StreamEvent, VectorStore, WesichainError,
+};
 use wesichain_graph::{
     Checkpoint, Checkpointer, ExecutionOptions, GraphBuilder, GraphError, GraphState,
     InMemoryCheckpointer, StateSchema, StateUpdate,
 };
+use wesichain_retrieval::{Indexer, RecursiveCharacterTextSplitter, Retriever};
 
 pub mod adapters;
 
@@ -19,6 +22,10 @@ pub enum RagError {
     NotImplemented(&'static str),
     #[error(transparent)]
     Graph(#[from] GraphError),
+    #[error("retrieval error: {0}")]
+    Retrieval(#[from] wesichain_retrieval::RetrievalError),
+    #[error("ingestion error: {0}")]
+    Ingestion(#[from] wesichain_retrieval::IngestionError),
     #[error("runtime error: {0}")]
     Runtime(String),
 }
@@ -45,12 +52,62 @@ pub struct RagSearchResult {
 pub struct WesichainRag {
     event_buffer_size: usize,
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
+    indexer: Arc<dyn IndexerTrait>,
+    retriever: Arc<dyn RetrieverTrait>,
 }
 
 #[derive(Clone)]
 pub struct WesichainRagBuilder {
     event_buffer_size: usize,
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
+    embedder: Option<Arc<dyn Embedding>>,
+    vector_store: Option<Arc<dyn VectorStore>>,
+}
+
+// Trait to allow storing Indexer<dyn Embedding, dyn VectorStore>
+#[async_trait::async_trait]
+pub trait IndexerTrait: Send + Sync {
+    async fn index(&self, docs: Vec<Document>) -> Result<(), RagError>;
+}
+
+#[async_trait::async_trait]
+pub trait RetrieverTrait: Send + Sync {
+    async fn retrieve(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<wesichain_core::SearchResult>, RagError>;
+}
+
+// Implement the traits for concrete types
+#[async_trait::async_trait]
+impl<E, S> IndexerTrait for Indexer<E, S>
+where
+    E: Embedding + 'static,
+    S: VectorStore + 'static,
+{
+    async fn index(&self, docs: Vec<Document>) -> Result<(), RagError> {
+        Indexer::index(self, docs)
+            .await
+            .map_err(RagError::Retrieval)
+    }
+}
+
+#[async_trait::async_trait]
+impl<E, S> RetrieverTrait for Retriever<E, S>
+where
+    E: Embedding + 'static,
+    S: VectorStore + 'static,
+{
+    async fn retrieve(
+        &self,
+        query: &str,
+        top_k: usize,
+    ) -> Result<Vec<wesichain_core::SearchResult>, RagError> {
+        Retriever::retrieve(self, query, top_k, None)
+            .await
+            .map_err(RagError::Retrieval)
+    }
 }
 
 #[derive(Clone)]
@@ -114,6 +171,8 @@ impl WesichainRag {
         WesichainRagBuilder {
             event_buffer_size: 64,
             checkpointer: Arc::new(InMemoryCheckpointer::<RagRuntimeState>::default()),
+            embedder: None,
+            vector_store: None,
         }
     }
 
@@ -122,32 +181,83 @@ impl WesichainRag {
     }
 
     async fn build_prompt(&self, query: &str) -> Result<String, RagError> {
-        let _context = "Retrieved context stub";
-        Ok(query.to_string())
+        // Retrieve relevant context using the retriever
+        let results = self.retriever.retrieve(query, 4).await?;
+
+        if results.is_empty() {
+            return Ok(format!("No relevant context found for: {}", query));
+        }
+
+        // Format context from retrieved documents
+        let context = results
+            .into_iter()
+            .map(|result| {
+                let score = result.score;
+                let content = result.document.content;
+                format!("Score: {:.2}\n{}", score, content)
+            })
+            .collect::<Vec<_>>()
+            .join("\n---\n");
+
+        // Build prompt with context
+        let prompt = format!("Context:\n{}\n\nQuestion: {}", context, query);
+
+        Ok(prompt)
     }
 
-    pub async fn process_file(&self, _path: &Path) -> Result<(), RagError> {
-        Err(RagError::NotImplemented("process_file"))
+    pub async fn process_file(&self, path: &Path) -> Result<(), RagError> {
+        // Load and split the file
+        let documents = wesichain_retrieval::load_and_split_recursive(
+            vec![path.to_path_buf()],
+            &RecursiveCharacterTextSplitter::builder()
+                .build()
+                .expect("default splitter config should be valid"),
+        )
+        .await?;
+
+        // Index the documents
+        self.indexer.index(documents).await?;
+
+        Ok(())
     }
 
-    pub async fn add_documents(&self, _documents: Vec<Document>) -> Result<(), RagError> {
-        Err(RagError::NotImplemented("add_documents"))
+    pub async fn add_documents(&self, documents: Vec<Document>) -> Result<(), RagError> {
+        // Split documents using recursive splitter
+        let splitter = RecursiveCharacterTextSplitter::builder()
+            .build()
+            .expect("default splitter config should be valid");
+        let split_docs = splitter.split_documents(&documents);
+
+        // Index the documents
+        self.indexer.index(split_docs).await?;
+
+        Ok(())
     }
 
     pub async fn similarity_search(
         &self,
-        _query: &str,
-        _k: usize,
+        query: &str,
+        k: usize,
     ) -> Result<Vec<RagSearchResult>, RagError> {
-        Err(RagError::NotImplemented("similarity_search"))
+        let results = self.retriever.retrieve(query, k).await?;
+
+        let rag_results = results
+            .into_iter()
+            .map(|result| RagSearchResult {
+                document: result.document,
+                score: Some(result.score),
+            })
+            .collect();
+
+        Ok(rag_results)
     }
 
     pub async fn similarity_search_with_score(
         &self,
-        _query: &str,
-        _k: usize,
+        query: &str,
+        k: usize,
     ) -> Result<Vec<RagSearchResult>, RagError> {
-        Err(RagError::NotImplemented("similarity_search_with_score"))
+        self.similarity_search(query, k).await
     }
 
     pub async fn query(&self, request: RagQueryRequest) -> Result<RagQueryResponse, RagError> {
@@ -266,17 +376,19 @@ impl WesichainRagBuilder {
         self
     }
 
-    pub fn with_embedder<T>(self, _embedder: T) -> Self
+    pub fn with_embedder<T>(mut self, embedder: T) -> Self
     where
-        T: Send + Sync + 'static,
+        T: Embedding + 'static,
     {
+        self.embedder = Some(Arc::new(embedder));
         self
     }
 
-    pub fn with_vector_store<T>(self, _vector_store: T) -> Self
+    pub fn with_vector_store<T>(mut self, vector_store: T) -> Self
     where
-        T: Send + Sync + 'static,
+        T: VectorStore + 'static,
     {
+        self.vector_store = Some(Arc::new(vector_store));
         self
     }
 
@@ -314,9 +426,23 @@ impl WesichainRagBuilder {
     }
 
     pub fn build(self) -> Result<WesichainRag, RagError> {
+        // Use default embedder and vector store if not provided
+        let embedder = self
+            .embedder
+            .unwrap_or_else(|| Arc::new(wesichain_retrieval::HashEmbedder::new(384)));
+        let vector_store = self
+            .vector_store
+            .unwrap_or_else(|| Arc::new(wesichain_retrieval::InMemoryVectorStore::new()));
+
+        // Create indexer and retriever
+        let indexer = Arc::new(Indexer::new(embedder.clone(), vector_store.clone()));
+        let retriever = Arc::new(Retriever::new(embedder.clone(), vector_store.clone()));
+
         Ok(WesichainRag {
             event_buffer_size: self.event_buffer_size,
             checkpointer: self.checkpointer,
+            indexer,
+            retriever,
         })
     }
 }

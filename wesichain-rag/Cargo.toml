@@ -19,6 +19,7 @@ tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
 wesichain-core = { path = "../wesichain-core" }
 wesichain-graph = { path = "../wesichain-graph" }
+wesichain-retrieval = { path = "../wesichain-retrieval" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
