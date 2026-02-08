@@ -55,6 +55,7 @@ pub struct WesichainRag {
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
     indexer: Arc<dyn IndexerTrait>,
     retriever: Arc<dyn RetrieverTrait>,
+    splitter: RecursiveCharacterTextSplitter,
 }
 
 #[derive(Clone)]
@@ -64,6 +65,7 @@ pub struct WesichainRagBuilder {
     checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
     embedder: Option<Arc<dyn Embedding>>,
     vector_store: Option<Arc<dyn VectorStore>>,
+    splitter: RecursiveCharacterTextSplitter,
 }
 
 // Trait to allow storing Indexer<dyn Embedding, dyn VectorStore>
@@ -263,6 +265,12 @@ impl WesichainRag {
             checkpointer: Arc::new(InMemoryCheckpointer::<RagRuntimeState>::default()),
             embedder: None,
             vector_store: None,
+            splitter: RecursiveCharacterTextSplitter::builder()
+                .chunk_size(1000)
+                .chunk_overlap(200)
+                .separators(vec!["\n\n", "\n", ". ", " ", ""])
+                .build()
+                .expect("default splitter config should be valid"),
         }
     }
 
@@ -296,27 +304,21 @@ impl WesichainRag {
     }
 
     pub async fn process_file(&self, path: &Path) -> Result<(), RagError> {
-        // Load and split the file
-        let documents = wesichain_retrieval::load_and_split_recursive(
-            vec![path.to_path_buf()],
-            &RecursiveCharacterTextSplitter::builder()
-                .build()
-                .expect("default splitter config should be valid"),
-        )
-        .await?;
+        // Load the file
+        let documents = wesichain_retrieval::load_file_async(path.to_path_buf()).await?;
+
+        // Split documents using the configured splitter
+        let split_docs = self.splitter.split_documents(&documents);
 
         // Index the documents
-        self.indexer.index(documents).await?;
+        self.indexer.index(split_docs).await?;
 
         Ok(())
     }
 
     pub async fn add_documents(&self, documents: Vec<Document>) -> Result<(), RagError> {
-        // Split documents using recursive splitter
-        let splitter = RecursiveCharacterTextSplitter::builder()
-            .build()
-            .expect("default splitter config should be valid");
-        let split_docs = splitter.split_documents(&documents);
+        // Split documents using the configured splitter
+        let split_docs = self.splitter.split_documents(&documents);
 
         // Index the documents
         self.indexer.index(split_docs).await?;
@@ -519,10 +521,8 @@ impl WesichainRagBuilder {
         self
     }
 
-    pub fn with_splitter<T>(self, _splitter: T) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
+    pub fn with_splitter(mut self, splitter: RecursiveCharacterTextSplitter) -> Self {
+        self.splitter = splitter;
         self
     }
 
@@ -564,6 +564,7 @@ impl WesichainRagBuilder {
             checkpointer: self.checkpointer,
             indexer,
             retriever,
+            splitter: self.splitter,
         })
     }
 }
