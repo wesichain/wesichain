@@ -1,9 +1,15 @@
 use std::path::Path;
+use std::sync::Arc;
 
-use tokio::sync::mpsc;
+use futures::StreamExt;
+use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
-use wesichain_core::{AgentEvent, Document};
+use wesichain_core::{AgentEvent, Document, Runnable, StreamEvent, WesichainError};
+use wesichain_graph::{
+    Checkpoint, Checkpointer, ExecutionOptions, GraphBuilder, GraphError, GraphState,
+    InMemoryCheckpointer, StateSchema, StateUpdate,
+};
 
 pub mod adapters;
 
@@ -11,6 +17,10 @@ pub mod adapters;
 pub enum RagError {
     #[error("operation not implemented yet: {0}")]
     NotImplemented(&'static str),
+    #[error(transparent)]
+    Graph(#[from] GraphError),
+    #[error("runtime error: {0}")]
+    Runtime(String),
 }
 
 #[derive(Clone, Debug)]
@@ -31,25 +41,89 @@ pub struct RagSearchResult {
     pub score: Option<f32>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct WesichainRag {
     event_buffer_size: usize,
+    checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct WesichainRagBuilder {
     event_buffer_size: usize,
+    checkpointer: Arc<dyn Checkpointer<RagRuntimeState>>,
+}
+
+#[derive(Clone)]
+struct SharedCheckpointer<S: StateSchema> {
+    inner: Arc<dyn Checkpointer<S>>,
+}
+
+impl<S: StateSchema> SharedCheckpointer<S> {
+    fn new(inner: Arc<dyn Checkpointer<S>>) -> Self {
+        Self { inner }
+    }
+}
+
+#[async_trait::async_trait]
+impl<S: StateSchema> Checkpointer<S> for SharedCheckpointer<S> {
+    async fn save(&self, checkpoint: &Checkpoint<S>) -> Result<(), GraphError> {
+        self.inner.save(checkpoint).await
+    }
+
+    async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, GraphError> {
+        self.inner.load(thread_id).await
+    }
+}
+
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct RagRuntimeState {
+    thread_id: String,
+    current_query: String,
+    turns: u64,
+    last_answer: Option<String>,
+}
+
+impl StateSchema for RagRuntimeState {}
+
+#[derive(Clone, Copy)]
+struct GenerateAnswerNode;
+
+#[async_trait::async_trait]
+impl Runnable<GraphState<RagRuntimeState>, StateUpdate<RagRuntimeState>> for GenerateAnswerNode {
+    async fn invoke(
+        &self,
+        input: GraphState<RagRuntimeState>,
+    ) -> Result<StateUpdate<RagRuntimeState>, WesichainError> {
+        let mut next = input.data;
+        next.turns = next.turns.saturating_add(1);
+        let answer = format!("Stub answer #{} for: {}", next.turns, next.current_query);
+        next.last_answer = Some(answer);
+        Ok(StateUpdate::new(next))
+    }
+
+    fn stream(
+        &self,
+        _input: GraphState<RagRuntimeState>,
+    ) -> futures::stream::BoxStream<'_, Result<StreamEvent, WesichainError>> {
+        futures::stream::empty().boxed()
+    }
 }
 
 impl WesichainRag {
     pub fn builder() -> WesichainRagBuilder {
         WesichainRagBuilder {
             event_buffer_size: 64,
+            checkpointer: Arc::new(InMemoryCheckpointer::<RagRuntimeState>::default()),
         }
     }
 
     pub fn event_buffer_size(&self) -> usize {
         self.event_buffer_size
+    }
+
+    async fn build_prompt(&self, query: &str) -> Result<String, RagError> {
+        let _context = "Retrieved context stub";
+        Ok(query.to_string())
     }
 
     pub async fn process_file(&self, _path: &Path) -> Result<(), RagError> {
@@ -80,7 +154,22 @@ impl WesichainRag {
         let thread_id = request
             .thread_id
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        let answer = format!("Stub answer for: {}", request.query);
+
+        let mut stream = self
+            .query_stream(RagQueryRequest {
+                query: request.query,
+                thread_id: Some(thread_id.clone()),
+            })
+            .await?;
+
+        let mut answer = String::new();
+        while let Some(event) = stream.next().await {
+            match event? {
+                AgentEvent::Final { content, .. } => answer = content,
+                AgentEvent::Error { message, .. } => return Err(RagError::Runtime(message)),
+                _ => {}
+            }
+        }
 
         Ok(RagQueryResponse { answer, thread_id })
     }
@@ -92,42 +181,80 @@ impl WesichainRag {
         let thread_id = request
             .thread_id
             .unwrap_or_else(|| Uuid::new_v4().to_string());
-        let query = request.query;
-        let (tx, rx) = mpsc::channel(self.event_buffer_size);
+
+        let mut state = match self.checkpointer.load(&thread_id).await? {
+            Some(checkpoint) => checkpoint.state.data,
+            None => RagRuntimeState::default(),
+        };
+        state.thread_id = thread_id.clone();
+        state.current_query = self.build_prompt(&request.query).await?;
+
+        let graph = GraphBuilder::new()
+            .add_node("generate", GenerateAnswerNode)
+            .with_checkpointer(
+                SharedCheckpointer::new(self.checkpointer.clone()),
+                &thread_id,
+            )
+            .set_entry("generate")
+            .build();
+
+        let (graph_event_tx, mut graph_event_rx) =
+            mpsc::channel::<AgentEvent>(self.event_buffer_size);
+        let (output_tx, output_rx) =
+            mpsc::channel::<Result<AgentEvent, RagError>>(self.event_buffer_size);
+        let (result_tx, result_rx) =
+            oneshot::channel::<Result<GraphState<RagRuntimeState>, GraphError>>();
+
+        let options = ExecutionOptions {
+            agent_event_sender: Some(graph_event_tx),
+            agent_event_thread_id: Some(thread_id.clone()),
+            ..ExecutionOptions::default()
+        };
 
         tokio::spawn(async move {
-            let mut step = 0usize;
-
-            step += 1;
-            let _ = tx
-                .send(Ok(AgentEvent::Status {
-                    stage: "thinking".to_string(),
-                    message: format!("Processing query: {query}"),
-                    step,
-                    thread_id: thread_id.clone(),
-                }))
+            let result = graph
+                .invoke_graph_with_options(GraphState::new(state), options)
                 .await;
-
-            step += 1;
-            let _ = tx
-                .send(Ok(AgentEvent::Final {
-                    content: format!("Stub answer for: {query}"),
-                    step,
-                }))
-                .await;
-
-            step += 1;
-            let _ = tx
-                .send(Ok(AgentEvent::Status {
-                    stage: "completed".to_string(),
-                    message: "Query finished".to_string(),
-                    step,
-                    thread_id,
-                }))
-                .await;
+            let _ = result_tx.send(result);
         });
 
-        Ok(ReceiverStream::new(rx))
+        tokio::spawn(async move {
+            let mut last_step = 0usize;
+
+            while let Some(event) = graph_event_rx.recv().await {
+                if let Some(step) = event.step() {
+                    last_step = step;
+                }
+
+                if output_tx.send(Ok(event)).await.is_err() {
+                    return;
+                }
+            }
+
+            match result_rx.await {
+                Ok(Ok(final_state)) => {
+                    let content = final_state.data.last_answer.unwrap_or_default();
+                    let _ = output_tx
+                        .send(Ok(AgentEvent::Final {
+                            content,
+                            step: last_step.saturating_add(1),
+                        }))
+                        .await;
+                }
+                Ok(Err(error)) => {
+                    let _ = output_tx.send(Err(RagError::Graph(error))).await;
+                }
+                Err(_) => {
+                    let _ = output_tx
+                        .send(Err(RagError::Runtime(
+                            "graph execution completion channel closed".to_string(),
+                        )))
+                        .await;
+                }
+            }
+        });
+
+        Ok(ReceiverStream::new(output_rx))
     }
 }
 
@@ -153,10 +280,11 @@ impl WesichainRagBuilder {
         self
     }
 
-    pub fn with_checkpointer<T>(self, _checkpointer: T) -> Self
+    pub fn with_checkpointer<T>(mut self, checkpointer: T) -> Self
     where
-        T: Send + Sync + 'static,
+        T: Checkpointer<RagRuntimeState> + 'static,
     {
+        self.checkpointer = Arc::new(checkpointer);
         self
     }
 
@@ -188,6 +316,7 @@ impl WesichainRagBuilder {
     pub fn build(self) -> Result<WesichainRag, RagError> {
         Ok(WesichainRag {
             event_buffer_size: self.event_buffer_size,
+            checkpointer: self.checkpointer,
         })
     }
 }
