@@ -4438,6 +4438,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "wesichain-rag"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+ "wesichain-core",
+]
+
+[[package]]
 name = "wesichain-retrieval"
 version = "0.1.0"
 dependencies = [

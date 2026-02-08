@@ -13,6 +13,7 @@ members = [
   "wesichain-retrieval",
   "wesichain-langsmith",
   "wesichain-pinecone",
+  "wesichain-rag",
 ]
 resolver = "2"
 
