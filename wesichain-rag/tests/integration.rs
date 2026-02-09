@@ -38,9 +38,7 @@ async fn query_for_answer(rag: &WesichainRag, thread_id: &str, query: &str) -> S
 
 #[tokio::test]
 async fn multi_document_ingestion_enables_cross_document_retrieval() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     // Ingest documents from different sources
     let docs = vec![
@@ -91,13 +89,12 @@ async fn multi_document_ingestion_enables_cross_document_retrieval() {
 
 #[tokio::test]
 async fn session_resumption_maintains_turn_counter_across_queries() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     rag.add_documents(vec![Document {
         id: "turn-test".to_string(),
-        content: "Session tracking is important for maintaining context in conversations.".to_string(),
+        content: "Session tracking is important for maintaining context in conversations."
+            .to_string(),
         metadata: Default::default(),
         embedding: None,
     }])
@@ -108,27 +105,37 @@ async fn session_resumption_maintains_turn_counter_across_queries() {
 
     // First query
     let first = query_for_answer(&rag, &thread_id, "What is session tracking?").await;
-    assert!(first.contains("#1"), "first turn should be marked #1, got: {first}");
+    assert!(
+        first.contains("#1"),
+        "first turn should be marked #1, got: {first}"
+    );
 
     // Second query (same thread, should resume)
     let second = query_for_answer(&rag, &thread_id, "Why is it important?").await;
-    assert!(second.contains("#2"), "second turn should be marked #2, got: {second}");
+    assert!(
+        second.contains("#2"),
+        "second turn should be marked #2, got: {second}"
+    );
 
     // Third query (same thread)
     let third = query_for_answer(&rag, &thread_id, "Give an example.").await;
-    assert!(third.contains("#3"), "third turn should be marked #3, got: {third}");
+    assert!(
+        third.contains("#3"),
+        "third turn should be marked #3, got: {third}"
+    );
 
     // New thread should reset counter
     let new_thread = unique_thread_id("new-thread");
     let fresh = query_for_answer(&rag, &new_thread, "What is session tracking?").await;
-    assert!(fresh.contains("#1"), "new thread should start at #1, got: {fresh}");
+    assert!(
+        fresh.contains("#1"),
+        "new thread should start at #1, got: {fresh}"
+    );
 }
 
 #[tokio::test]
 async fn query_with_no_relevant_context_returns_empty_notice() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     // Index documents about France
     rag.add_documents(vec![Document {

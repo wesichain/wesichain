@@ -24,9 +24,7 @@ fn demo_docs() -> Vec<Document> {
 
 #[tokio::test]
 async fn stream_respects_backpressure_semantic_events_preserved() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     rag.add_documents(demo_docs())
         .await
@@ -82,9 +80,7 @@ async fn stream_respects_backpressure_semantic_events_preserved() {
 
 #[tokio::test]
 async fn stream_terminates_cleanly_with_timeout() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     rag.add_documents(demo_docs())
         .await
@@ -123,9 +119,7 @@ async fn stream_terminates_cleanly_with_timeout() {
 
 #[tokio::test]
 async fn multiple_concurrent_streams_isolated() {
-    let rag = WesichainRag::builder()
-        .build()
-        .expect("rag should build");
+    let rag = WesichainRag::builder().build().expect("rag should build");
 
     rag.add_documents(demo_docs())
         .await
@@ -144,10 +138,7 @@ async fn multiple_concurrent_streams_isolated() {
                 .await
                 .expect("stream should start");
 
-            let events: Vec<AgentEvent> = stream
-                .filter_map(|r| async { r.ok() })
-                .collect()
-                .await;
+            let events: Vec<AgentEvent> = stream.filter_map(|r| async { r.ok() }).collect().await;
 
             let has_final = events.iter().any(|e| matches!(e, AgentEvent::Final { .. }));
             assert!(has_final, "stream {} should complete with Final", i);

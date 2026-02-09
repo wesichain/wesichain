@@ -73,10 +73,7 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
             let path = entry.path();
 
             if path.is_file() {
-                let ext = path
-                    .extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("");
+                let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
                 match ext {
                     "txt" | "docx" | "pdf" => {
@@ -101,13 +98,15 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
         rag.add_documents(vec![
             wesichain_core::Document {
                 id: "demo-1".to_string(),
-                content: "Paris is the capital of France. It has a population of over 2 million.".to_string(),
+                content: "Paris is the capital of France. It has a population of over 2 million."
+                    .to_string(),
                 metadata: Default::default(),
                 embedding: None,
             },
             wesichain_core::Document {
                 id: "demo-2".to_string(),
-                content: "France is known for its cuisine, wine, and the Eiffel Tower in Paris.".to_string(),
+                content: "France is known for its cuisine, wine, and the Eiffel Tower in Paris."
+                    .to_string(),
                 metadata: Default::default(),
                 embedding: None,
             },
@@ -115,7 +114,10 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
         .await?;
     }
 
-    println!("// {} documents ingested successfully\n", ingested_files.len().max(2));
+    println!(
+        "// {} documents ingested successfully\n",
+        ingested_files.len().max(2)
+    );
 
     // Demo: First query
     let thread_id = "demo-session-001";
@@ -123,17 +125,26 @@ async fn async_main() -> Result<(), Box<dyn Error>> {
 
     println!("// Query 1: What is the capital of France?");
     let answer1 = ingest_and_query(&rag, "What is the capital of France?", thread_id).await?;
-    println!("// Answer: {}\n", answer1.lines().next().unwrap_or(&answer1));
+    println!(
+        "// Answer: {}\n",
+        answer1.lines().next().unwrap_or(&answer1)
+    );
 
     // Demo: Follow-up query (demonstrates session resumption)
     println!("// Query 2: What else is it known for? (follow-up)");
     let answer2 = ingest_and_query(&rag, "What else is it known for?", thread_id).await?;
-    println!("// Answer: {}\n", answer2.lines().next().unwrap_or(&answer2));
+    println!(
+        "// Answer: {}\n",
+        answer2.lines().next().unwrap_or(&answer2)
+    );
 
     // Demo: New session (should reset context)
     println!("// Query 3: What is the population? (new session)");
     let answer3 = ingest_and_query(&rag, "What is the population?", "demo-session-002").await?;
-    println!("// Answer: {}\n", answer3.lines().next().unwrap_or(&answer3));
+    println!(
+        "// Answer: {}\n",
+        answer3.lines().next().unwrap_or(&answer3)
+    );
 
     print!("{}", done_event());
 
