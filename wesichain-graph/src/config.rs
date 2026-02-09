@@ -26,7 +26,9 @@ impl ExecutionConfig {
 }
 
 use std::sync::Arc;
+use tokio::sync::mpsc;
 use wesichain_core::callbacks::RunConfig;
+use wesichain_core::AgentEvent;
 
 use crate::Observer;
 
@@ -37,6 +39,8 @@ pub struct ExecutionOptions {
     pub cycle_window: Option<usize>,
     pub run_config: Option<RunConfig>,
     pub observer: Option<Arc<dyn Observer>>,
+    pub agent_event_sender: Option<mpsc::Sender<AgentEvent>>,
+    pub agent_event_thread_id: Option<String>,
 }
 
 impl std::fmt::Debug for ExecutionOptions {
@@ -47,6 +51,8 @@ impl std::fmt::Debug for ExecutionOptions {
             .field("cycle_window", &self.cycle_window)
             .field("run_config", &self.run_config.is_some())
             .field("observer", &self.observer.is_some())
+            .field("agent_event_sender", &self.agent_event_sender.is_some())
+            .field("agent_event_thread_id", &self.agent_event_thread_id)
             .finish()
     }
 }

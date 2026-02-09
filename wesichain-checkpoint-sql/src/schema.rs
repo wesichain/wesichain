@@ -6,10 +6,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 
 pub const CREATE_CHECKPOINTS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS checkpoints (\
     thread_id TEXT NOT NULL,\
-    seq INTEGER NOT NULL,\
+    seq BIGINT NOT NULL,\
     created_at TEXT NOT NULL,\
     node TEXT,\
-    step INTEGER,\
+    step BIGINT,\
     state_json TEXT NOT NULL,\
     PRIMARY KEY (thread_id, seq)\
 )";
@@ -23,7 +23,7 @@ pub const CREATE_SESSIONS_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS sessions
 
 pub const CREATE_MESSAGES_TABLE_SQL: &str = "CREATE TABLE IF NOT EXISTS messages (\
     thread_id TEXT NOT NULL,\
-    seq INTEGER NOT NULL,\
+    seq BIGINT NOT NULL,\
     role TEXT NOT NULL,\
     content TEXT NOT NULL,\
     created_at TEXT,\

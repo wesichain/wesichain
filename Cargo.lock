@@ -4438,6 +4438,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "wesichain-rag"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-stream",
+ "uuid",
+ "wesichain-checkpoint-postgres",
+ "wesichain-checkpoint-sqlite",
+ "wesichain-core",
+ "wesichain-graph",
+ "wesichain-retrieval",
+]
+
+[[package]]
 name = "wesichain-retrieval"
 version = "0.1.0"
 dependencies = [

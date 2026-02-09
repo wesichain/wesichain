@@ -28,6 +28,22 @@ fn schema_constants_include_expected_tables() {
 }
 
 #[test]
+fn schema_uses_bigint_for_sequence_columns() {
+    assert!(
+        CREATE_CHECKPOINTS_TABLE_SQL.contains("seq BIGINT NOT NULL"),
+        "checkpoints.seq should be BIGINT for postgres/sqlx i64 compatibility"
+    );
+    assert!(
+        CREATE_CHECKPOINTS_TABLE_SQL.contains("step BIGINT"),
+        "checkpoints.step should be BIGINT for postgres/sqlx i64 compatibility"
+    );
+    assert!(
+        CREATE_MESSAGES_TABLE_SQL.contains("seq BIGINT NOT NULL"),
+        "messages.seq should be BIGINT for postgres/sqlx i64 compatibility"
+    );
+}
+
+#[test]
 fn schema_typed_error_display_messages_are_useful() {
     let connection = CheckpointSqlError::Connection(sqlx::Error::RowNotFound);
     assert!(connection
