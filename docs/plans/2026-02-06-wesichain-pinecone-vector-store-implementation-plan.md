@@ -2,9 +2,9 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a new `wesichain-pinecone` crate that provides LangChain-compatible Pinecone vector store ergonomics with Rust-idiomatic APIs, external embeddings, and data-plane-only operations.
+**Goal:** Build a new `wesichain-pinecone` crate that provides migration-friendly Pinecone vector store ergonomics with Rust-idiomatic APIs, external embeddings, and data-plane-only operations.
 
-**Architecture:** Implement a standalone integration crate with layered modules: builder/config, typed HTTP client, request/response mappers, and `PineconeVectorStore<E: Embedding>` orchestration. Use `reqwest + serde` for Pinecone REST calls and implement `VectorStore` trait plus LangChain-style wrappers (`add_documents`, `similarity_search`, `similarity_search_with_score`, `delete`). Keep scope strict to data-plane operations and add optional warning-only dimension validation.
+**Architecture:** Implement a standalone integration crate with layered modules: builder/config, typed HTTP client, request/response mappers, and `PineconeVectorStore<E: Embedding>` orchestration. Use `reqwest + serde` for Pinecone REST calls and implement `VectorStore` trait plus compatibility wrappers (`add_documents`, `similarity_search`, `similarity_search_with_score`, `delete`). Keep scope strict to data-plane operations and add optional warning-only dimension validation.
 
 **Tech Stack:** Rust 1.75, tokio, async-trait, reqwest, serde/serde_json, thiserror, tracing, uuid, wiremock, wesichain-core.
 
@@ -937,7 +937,7 @@ In `store.rs`:
 - `search` uses provided embedding directly and returns `Vec<SearchResult>`.
 - `delete` maps to `/vectors/delete`.
 
-Also expose LangChain-style wrapper:
+Also expose compatibility wrapper:
 
 ```rust
 pub async fn delete_ids(&self, ids: Vec<String>) -> Result<(), StoreError> { ... }

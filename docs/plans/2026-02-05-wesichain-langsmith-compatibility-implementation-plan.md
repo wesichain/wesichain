@@ -691,7 +691,7 @@ impl LangSmithConfig {
     pub fn new(api_key: SecretString, project_name: impl Into<String>) -> Self {
         Self {
             api_key,
-            api_url: "https://api.smith.langchain.com".to_string(),
+            api_url: "https://api.smith.service".to_string(),
             project_name: project_name.into(),
             flush_interval: Duration::from_secs(2),
             max_batch_size: 50,

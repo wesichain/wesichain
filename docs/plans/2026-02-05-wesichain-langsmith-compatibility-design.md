@@ -4,7 +4,7 @@ Date: 2026-02-05
 Status: Validated
 
 ## Goal
-Deliver near-identical LangSmith observability parity with Python LangChain/LangGraph for core execution flows (Runnable, chains, LLMs, tools, graphs, agents) while preserving Wesichain's zero-overhead defaults and low runtime cost.
+Deliver near-identical LangSmith observability parity with common Python stacks for core execution flows (Runnable, chains, LLMs, tools, graphs, agents) while preserving Wesichain's zero-overhead defaults and low runtime cost.
 
 ## Success Criteria
 - Rust and Python versions of the same workflow produce comparable LangSmith run trees (inputs, outputs, errors, timing, parent/child hierarchy).

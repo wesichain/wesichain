@@ -960,7 +960,7 @@ git commit -m "feat(graph): add tool execution node"
 - Create: `wesichain-graph/examples/react_agent.rs`
 - Create: `wesichain-graph/examples/persistent_conversation.rs`
 - Create: `wesichain-graph/examples/human_in_loop_review.rs`
-- Create: `docs/migration/langgraph-to-wesichain.md`
+- Create: `docs/migration/graph-workflows-to-wesichain.md`
 - Modify: `README.md`
 
 **Step 1: Write the documentation/examples**
@@ -975,7 +975,7 @@ Expected: PASS (no panic)
 **Step 3: Commit**
 
 ```bash
-git add wesichain-graph/examples docs/migration/langgraph-to-wesichain.md README.md
+git add wesichain-graph/examples docs/migration/graph-workflows-to-wesichain.md README.md
 git commit -m "docs(graph): add phase 7 examples and migration guide"
 ```
 

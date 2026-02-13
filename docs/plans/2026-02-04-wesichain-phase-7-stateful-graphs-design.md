@@ -6,7 +6,7 @@ Status: Draft
 ## Goals
 - Deliver stateful, resumable, graph-based workflows with cycles and conditional routing.
 - Keep API compatibility with existing GraphBuilder, GraphState, and Checkpointer.
-- Provide LangGraph-like ergonomics (START/END, conditional edges, interrupts) in Rust.
+- Provide familiar graph-workflow ergonomics (START/END, conditional edges, interrupts) in Rust.
 - Support checkpointing, basic memory, and a ReAct-style agent loop.
 - Add streaming and observability hooks without heavy dependencies.
 
@@ -38,7 +38,7 @@ Status: Draft
 **Summary**: Keep the public builder stable while compiling to a petgraph-backed program for fast routing and safety checks.
 `GraphBuilder` remains the public builder and produces an `ExecutableGraph`. Internally it compiles to a `GraphProgram` backed by petgraph with a name-to-index map for fast lookup. Nodes are still `Runnable<GraphState<S>, StateUpdate<S>>` and execution remains sequential. Conditional routing is represented as separate edges in the compiled graph with an attached router function per source node.
 
-`START` and `END` are provided as constants for LangGraph-style wiring, while `set_entry` remains valid. Execution is driven by a `GraphContext` that tracks `thread_id`, `step_count`, and `recent_nodes` for safety checks and resume logic.
+`START` and `END` are provided as constants for graph-style wiring, while `set_entry` remains valid. Execution is driven by a `GraphContext` that tracks `thread_id`, `step_count`, and `recent_nodes` for safety checks and resume logic.
 
 ## State and Reducers
 **Summary**: Reducers are opt-in and implemented on the user state struct to control merge behavior.
@@ -201,7 +201,7 @@ Integrate `tracing` spans per node and per step. Streaming yields `GraphEvent` v
 - ReAct loop: tool call routing and failure policies.
 
 ## Examples and Migration Docs
-**Summary**: Provide focused examples and a LangGraph-to-Wesichain mapping doc.
+**Summary**: Provide focused examples and a graph-workflow migration mapping doc.
 Examples in `wesichain-graph/examples`:
 
 - `simple_retrieval_graph.rs`
@@ -209,7 +209,7 @@ Examples in `wesichain-graph/examples`:
 - `persistent_conversation.rs`
 - `human_in_loop_review.rs`
 
-Migration doc: `docs/migration/langgraph-to-wesichain.md` with side-by-side mappings:
+Migration doc: `docs/migration/graph-workflows-to-wesichain.md` with side-by-side mappings:
 - StateGraph -> GraphBuilder
 - add_node/add_edge/add_conditional_edges
 - compile(checkpointer, interrupt_before/after)

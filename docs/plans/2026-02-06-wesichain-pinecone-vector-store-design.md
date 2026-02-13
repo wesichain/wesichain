@@ -4,7 +4,7 @@ Date: 2026-02-06
 Status: Validated
 
 ## Goal
-Add a production-ready `wesichain-pinecone` crate that mirrors LangChain `PineconeVectorStore` ergonomics while staying Rust-idiomatic, async-first, and dependency-lean.
+Add a production-ready `wesichain-pinecone` crate that mirrors common Python `PineconeVectorStore` ergonomics while staying Rust-idiomatic, async-first, and dependency-lean.
 
 ## Scope
 
@@ -14,7 +14,7 @@ Add a production-ready `wesichain-pinecone` crate that mirrors LangChain `Pineco
 - External embedding injection (`E: Embedding`) with Google/OpenAI/Ollama/local compatibility.
 - Hybrid API surface:
   - Rust-idiomatic core methods.
-  - LangChain-compatible wrapper methods.
+  - Compatibility wrapper methods.
 - Typed metadata filters with raw JSON fallback.
 - Tracing spans and contextual error messages.
 - Unit tests, HTTP contract tests, and ignored live tests.
@@ -29,7 +29,7 @@ Add a production-ready `wesichain-pinecone` crate that mirrors LangChain `Pineco
 ## Approach Options and Decision
 
 ### Option A: New crate `wesichain-pinecone` (chosen)
-- Pros: mirrors LangChain packaging (`langchain-pinecone`), clean dependency boundaries, independent release cadence, strong migration discoverability.
+- Pros: mirrors established Python packaging patterns, clean dependency boundaries, independent release cadence, strong migration discoverability.
 - Cons: small initial setup overhead.
 
 ### Option B: Add Pinecone backend to `wesichain-retrieval` behind a feature
@@ -91,7 +91,7 @@ Hybrid methods:
   - `search_with_score(query, k, filter)`
   - `delete_ids(ids)`
 
-- LangChain-compatible wrappers:
+- Compatibility wrappers:
   - `add_documents(docs, ids)`
   - `similarity_search(query, k, filter)`
   - `similarity_search_with_score(query, k, filter)`
@@ -206,7 +206,7 @@ This provides production visibility without forcing external observability depen
 Required deliverables:
 - `wesichain-pinecone` README with quickstart.
 - `examples/pinecone_rag.rs` showing ingest + retrieval.
-- Python LangChain -> Rust Wesichain mapping table.
+- Python baseline -> Rust Wesichain mapping table.
 - Common gotchas section:
   - full endpoint URL required,
   - namespace omission behavior,

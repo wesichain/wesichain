@@ -1,6 +1,6 @@
 # wesichain-pinecone
 
-Pinecone vector store integration for Wesichain with LangChain-like ergonomics and Rust-native APIs.
+Pinecone vector store integration for Wesichain with migration-friendly ergonomics and Rust-native APIs.
 
 ## Features
 
@@ -8,7 +8,7 @@ Pinecone vector store integration for Wesichain with LangChain-like ergonomics a
 - Data-plane operations: upsert, query, delete
 - Typed metadata filters with raw JSON fallback
 - Automatic upsert chunking for large ingest batches
-- LangChain-style methods:
+- Compatibility wrapper methods:
   - `add_documents`
   - `similarity_search`
   - `similarity_search_with_score`
@@ -72,9 +72,9 @@ println!("{}", results.len());
 # }
 ```
 
-## Migration Table (LangChain -> Wesichain)
+## Migration Table (Python -> Wesichain)
 
-| Python (LangChain) | Rust (Wesichain) | Notes |
+| Python baseline | Rust (Wesichain) | Notes |
 |---|---|---|
 | `PineconeVectorStore(index_name=..., embedding=...)` | `PineconeVectorStore::builder(embedder).base_url(...).api_key(...).build().await?` | Uses full Pinecone index URL |
 | `PineconeVectorStore.from_documents(docs, embedding, ...)` | `PineconeVectorStore::from_documents(docs, embedder, ...).await?` | One-shot builder + ingest |

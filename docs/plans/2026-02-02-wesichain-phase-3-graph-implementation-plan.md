@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Implement a minimal LangGraph-style graph engine with typed state, conditional routing, and checkpointing in a new `wesichain-graph` crate.
+**Goal:** Implement a minimal graph engine with typed state, conditional routing, and checkpointing in a new `wesichain-graph` crate.
 
 **Architecture:** Introduce a `GraphBuilder` that compiles to `ExecutableGraph` with nodes as `Runnable<State, StateUpdate>`. State is a typed struct `S: StateSchema` (serde + clone). Execution applies per-node updates with simple merge rules and optional checkpointing after each node. Use petgraph for internal node/edge representation and tokio for async execution.
 

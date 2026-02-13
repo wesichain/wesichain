@@ -257,7 +257,7 @@ impl LangSmithConfig {
     pub fn new(api_key: SecretString, project_name: impl Into<String>) -> Self {
         Self {
             api_key,
-            api_url: "https://api.smith.langchain.com".to_string(),
+            api_url: "https://api.smith.service".to_string(),
             project_name: project_name.into(),
             flush_interval: Duration::from_secs(2),
             max_batch_size: 50,
@@ -1626,7 +1626,7 @@ Update `wesichain-langsmith/src/lib.rs` (add to top):
 //! async fn main() {
 //!     let config = LangSmithConfig {
 //!         api_key: SecretString::new("key".to_string()),
-//!         api_url: "https://api.smith.langchain.com".to_string(),
+//!         api_url: "https://api.smith.service".to_string(),
 //!         project_name: "example".to_string(),
 //!         flush_interval: Duration::from_secs(2),
 //!         max_batch_size: 50,

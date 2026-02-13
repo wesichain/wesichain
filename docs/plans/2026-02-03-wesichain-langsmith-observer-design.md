@@ -69,8 +69,8 @@ Tool concurrency:
 
 ## Wire Format and Endpoints
 Endpoints (default api_url):
-- Create: POST https://api.smith.langchain.com/runs
-- Update: PATCH https://api.smith.langchain.com/runs/{run_id}
+- Create: POST https://api.smith.service/runs
+- Update: PATCH https://api.smith.service/runs/{run_id}
 
 Runs payload fields:
 - id (UUID v4)
@@ -102,7 +102,7 @@ Public surface:
 - LangSmithObserver::dropped_events() -> u64
 
 Defaults:
-- api_url = https://api.smith.langchain.com
+- api_url = https://api.smith.service
 - sampling_rate = 1.0 (Sampler::Always)
 
 Security:
@@ -158,7 +158,7 @@ use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
 
 let config = LangSmithConfig {
     api_key: std::env::var("LANGSMITH_API_KEY").expect("key required").into(),
-    api_url: "https://api.smith.langchain.com".into(),
+    api_url: "https://api.smith.service".into(),
     project_name: "wesichain-prod".into(),
     flush_interval: Duration::from_secs(2),
     max_batch_size: 50,
@@ -185,7 +185,7 @@ let _stats = observer.flush(Duration::from_secs(5)).await?;
 Migration story:
 
 ```python
-# Python (LangGraph)
+# Python (graph workflow)
 # handler = LangSmithCallbackHandler(...)
 # graph.invoke(state, config={"callbacks": [handler]})
 ```

@@ -4,7 +4,7 @@ Date: 2026-02-02
 Status: Draft
 
 ## Goals
-- Add execution safety guards (max steps + cycle detection) with LangGraph-like per-invoke overrides.
+- Add execution safety guards (max steps + cycle detection) with graph-workflow-style per-invoke overrides.
 - Add persistent checkpointing with append-only history in JSONL.
 - Keep Phase 3 APIs intact; changes are additive and low overhead.
 

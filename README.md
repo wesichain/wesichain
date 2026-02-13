@@ -37,11 +37,11 @@ Wesichain `v0.1.0` is live on crates.io as a modular crate family.
 
 - 15 published crates, each installable independently
 - no umbrella `wesichain` crate yet (intentional for minimal dependency footprints)
-- designed for Rust-native RAG, stateful graph execution, and tool-using agents
+- designed for tool-using ReAct agents, stateful graph execution, and RAG
 
 ---
 
-## Quick Start (Modular)
+## Quick Start (ReAct First)
 
 ### 1) Add dependencies
 
@@ -49,46 +49,69 @@ Wesichain `v0.1.0` is live on crates.io as a modular crate family.
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 wesichain-core = "0.1.0"
-wesichain-rag = "0.1.0"
+wesichain-graph = "0.1.0"
+wesichain-llm = "0.1.0"
 ```
 
-### 2) Minimal in-memory RAG flow
+### 2) Create a ReAct agent with tools
 
 ```rust
-use std::collections::HashMap;
+use std::sync::Arc;
 
-use wesichain_core::{Document, Value};
-use wesichain_rag::{RagQueryRequest, WesichainRag};
+use wesichain_core::{HasFinalOutput, HasUserInput, ScratchpadState, ToolCallingLlm};
+use wesichain_graph::{GraphBuilder, GraphState, ReActAgentNode, StateSchema};
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let rag = WesichainRag::builder().build()?;
+// AppState implements:
+// StateSchema + ScratchpadState + HasUserInput + HasFinalOutput
+let llm: Arc<dyn ToolCallingLlm> = Arc::new(my_llm);
 
-    rag.add_documents(vec![Document {
-        id: "doc-1".to_string(),
-        content: "Rust focuses on safety, speed, and fearless concurrency.".to_string(),
-        metadata: HashMap::<String, Value>::new(),
-        embedding: None,
-    }])
-    .await?;
+let react_node = ReActAgentNode::builder()
+    .llm(llm)
+    .tools(vec![Arc::new(CalculatorTool), Arc::new(SearchTool)])
+    .max_iterations(12)
+    .build()?;
 
-    let response = rag
-        .query(RagQueryRequest {
-            query: "What does Rust focus on?".to_string(),
-            thread_id: None,
-        })
-        .await?;
+let graph = GraphBuilder::new()
+    .add_node("agent", react_node)
+    .set_entry("agent")
+    .build();
 
-    println!("{}", response.answer);
-    Ok(())
-}
+let initial = GraphState::new(AppState::from_input("Find 2+2, then explain it."));
+let result = graph.invoke_graph(initial).await?;
+println!("{:?}", result.data);
 ```
 
-For end-to-end examples (streaming, sqlite checkpoints, retriever graphs):
+For full runnable ReAct examples:
 
-- `wesichain-rag/examples/simple-rag-stream.rs`
-- `wesichain-graph/examples/persistent_conversation.rs`
-- `wesichain-graph/examples/react_agent.rs`
+- `cargo run -p wesichain-graph --example react_agent`
+- `cargo run -p wesichain-graph --example persistent_conversation`
+
+### 3) Add RAG when you need retrieval grounding
+
+```rust
+use wesichain_rag::{RagQueryRequest, WesichainRag};
+
+let rag = WesichainRag::builder().build()?;
+let response = rag
+    .query(RagQueryRequest {
+        query: "What does Rust focus on?".to_string(),
+        thread_id: None,
+    })
+    .await?;
+println!("{}", response.answer);
+```
+
+For end-to-end RAG streaming example:
+
+- `cargo run -p wesichain-rag --example simple-rag-stream`
+
+### 4) Pick the right starting point
+
+| If you need | Start with |
+|---|---|
+| Tool use + multi-step reasoning | ReAct graph agent (`wesichain-graph` + `ReActAgentNode`) |
+| Retrieval-grounded answers | `wesichain-rag` |
+| Both | ReAct graph for orchestration + retrieval as a node/tool |
 
 ---
 
@@ -139,7 +162,7 @@ wesichain-checkpoint-sqlite = "0.1.0"
 
 ## Performance
 
-| Metric | Python LangChain | Wesichain (Rust) | Improvement |
+| Metric | Typical Python baseline | Wesichain (Rust) | Improvement |
 |---|---|---|---|
 | Memory (baseline) | 250-500 MB | 80-150 MB | 3-5x lower |
 | Cold start | 2-5s | 50-200ms | 10-50x faster |
@@ -157,8 +180,9 @@ Benchmark notes and methodology: `docs/benchmarks/README.md`.
 | [docs.rs (core)](https://docs.rs/wesichain-core) | API reference for core abstractions |
 | [docs.rs (graph)](https://docs.rs/wesichain-graph) | Graph runtime API reference |
 | [docs.rs (rag)](https://docs.rs/wesichain-rag) | RAG pipeline API reference |
-| [Migration Guide](docs/migration/langgraph-to-wesichain.md) | LangGraph to Wesichain migration notes |
-| [Examples](wesichain-rag/examples/) | Working RAG examples |
+| [Migration Guide](docs/migration/graph-workflows-to-wesichain.md) | Graph workflow migration notes |
+| [Examples (ReAct + Graph)](wesichain-graph/examples/) | ReAct and graph workflow examples |
+| [Examples (RAG)](wesichain-rag/examples/) | Retrieval and streaming RAG examples |
 | [Design Docs](docs/plans/) | Architecture and implementation plans |
 
 ---
@@ -198,7 +222,7 @@ Wesichain is dual licensed:
 ---
 
 <p align="center">
-  Built with Rust · Inspired by LangChain/LangGraph · Optimized for production<br>
+  Built with Rust · Designed for production graph workflows<br>
   <a href="https://github.com/wesichain/wesichain">GitHub</a> ·
   <a href="https://crates.io/search?q=wesichain-">Crates.io</a> ·
   <a href="https://docs.rs/wesichain-core">Documentation</a>

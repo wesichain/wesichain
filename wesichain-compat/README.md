@@ -1,10 +1,10 @@
 # Wesichain Compat
 
-A compatibility layer for Wesichain to support LangChain 0.3.0 patterns and APIs.
+A compatibility layer for Wesichain to support migration-oriented patterns and APIs.
 
 ## Features
 
-- **LangChain Aliases**: `LangChainRunnable`, `LangChainError`.
+- **Runnable Aliases**: compatibility aliases for incremental migration.
 - **Batch Processing**: `batch` and `abatch` methods on `Runnable` for concurrent execution.
 - **Binding**: `bind` method to attach arguments (e.g., tools) to runnables.
 - **Chat Prompts**: `ChatPromptTemplate` for structured chat interactions.
@@ -14,7 +14,7 @@ A compatibility layer for Wesichain to support LangChain 0.3.0 patterns and APIs
 ### Batch Processing
 
 ```rust
-use wesichain_compat::LangChainRunnable;
+use wesichain_compat::RunnableExt;
 
 let inputs = vec![input1, input2, input3];
 let results = runnable.batch(inputs).await;
@@ -24,7 +24,7 @@ let results = runnable.batch(inputs).await;
 ### Tool Binding & Macros
 
 ```rust
-use wesichain_compat::{Bindable, LangChainRunnable};
+use wesichain_compat::Bindable;
 use wesichain_macros::tool;
 use serde_json::json;
 

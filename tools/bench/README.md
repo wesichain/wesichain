@@ -20,5 +20,5 @@ Outputs `rss_bytes=<value>` in bytes.
 ## Python Baseline
 
 ```bash
-python tools/bench/langchain_baseline.py
+python tools/bench/python_baseline.py
 ```

@@ -4,16 +4,16 @@ Date: 2026-02-01
 Status: Locked
 
 ## Goal
-Build a Rust-native RAG/agent framework focused on easy migration from LangChain/LangGraph, with a flagship ReAct agent that demonstrates lower memory and CPU usage, streaming, and resumable execution.
+Build a Rust-native RAG/agent framework focused on easy migration from Python ecosystems, with a flagship ReAct agent that demonstrates lower memory and CPU usage, streaming, and resumable execution.
 
 ## Success Criteria
-- A Rust developer can port a ~50-line LangChain ReAct agent, run the same query, and observe lower memory/CPU usage.
+- A Rust developer can port a ~50-line Python ReAct agent, run the same query, and observe lower memory/CPU usage.
 - The agent can resume from a saved checkpoint after process restart.
 - The ReAct example feels familiar and idiomatic in Rust (.then() composition, builders).
 - Benchmarks are reproducible via Criterion and optional heaptrack.
 
 ## Non-Goals (v0)
-- Full LangGraph-style StateGraph orchestration and multi-agent workflows.
+- Full state-graph orchestration and multi-agent workflows.
 - Broad integration catalog (vector DBs, tools, providers).
 - UI, server, or hosted execution platform.
 - Python bindings or FFI.
@@ -98,7 +98,7 @@ A single stream emits StreamEvent for tokens, tool calls, tool results, and fina
 - Profiling docs: heaptrack workflow for 50-turn loops.
 
 ## Migration and Examples
-- README includes side-by-side LangChain ReAct -> Wesichain ReAct with the same prompt and tools.
+- README includes side-by-side Python ReAct -> Wesichain ReAct with the same prompt and tools.
 - Flagship example: Research Assistant (search + calculator + time).
 - Short Why Wesichain paragraph emphasizing memory/CPU savings, no GC pauses, Tokio async, and resumable execution.
 

@@ -1,6 +1,6 @@
 # Wesichain Core
 
-Core abstractions for building LLM applications, compatible with LangChain concepts.
+Core abstractions for building LLM applications with migration-friendly primitives.
 
 ## Features
 

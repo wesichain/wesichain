@@ -30,7 +30,7 @@ All notable changes to Wesichain will be documented in this file.
 - Added `load_and_split_recursive()` convenience function
 
 ### Performance
-- Recursive splitter: 200-221 MiB/s throughput (2-4x vs Python LangChain)
+- Recursive splitter: 200-221 MiB/s throughput (2-4x vs typical Python baselines)
 - Zero-copy semantics and compile-time type safety
 
 ### Documentation

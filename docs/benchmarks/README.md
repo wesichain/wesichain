@@ -21,7 +21,7 @@ Throughput measured on macOS (Darwin) with `cargo bench -p wesichain-retrieval -
 
 ### Comparison Notes
 
-Python LangChain's `RecursiveCharacterTextSplitter` typically achieves ~50-100 MiB/s for similar workloads. Rust implementation shows **~2-4x throughput improvement** with zero-copy semantics and compile-time safety.
+Typical Python recursive text splitters often achieve ~50-100 MiB/s for similar workloads. Rust implementation shows **~2-4x throughput improvement** with zero-copy semantics and compile-time safety.
 
 Running benchmark:
 ```bash

@@ -2,7 +2,7 @@
 
 Date: 2026-02-09  
 Status: Locked and validated  
-Scope: P0 migration infrastructure for LangChain/LangGraph-style agentic RAG workloads
+Scope: P0 migration infrastructure for Python-style agentic RAG workloads
 
 ## Goal
 
@@ -191,7 +191,7 @@ Performance is a directional guardrail in this milestone (bounded memory, bounde
 - Ensure `txt/pdf/docx` and recursive splitter usage paths are first-class in facade defaults.
 - Publish reference app mirroring the sample endpoint lifecycle.
 - Publish migration toolkit docs:
-  - concept mapping (LangGraph/LangChain -> Wesichain)
+  - concept mapping (Python graph workflows -> Wesichain)
   - endpoint mapping (sample routes -> facade calls)
   - streaming adapter recipes (SSE/WebSocket)
   - checkpoint migration recipes and session resumption
