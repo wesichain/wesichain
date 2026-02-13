@@ -16,3 +16,9 @@ thiserror = "1"
 tokio = { version = "1", features = ["sync"] }
 wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.1.0" }
 wesichain-graph = { path = "../wesichain-graph", version = "0.1.0" }
+
+[dev-dependencies]
+async-trait = "0.1"
+futures = "0.3"
+tokio = { version = "1", features = ["macros", "rt"] }
+wesichain-core = { path = "../wesichain-core", version = "0.1.0" }

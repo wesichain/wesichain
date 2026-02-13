@@ -4353,12 +4353,15 @@ dependencies = [
 name = "wesichain-checkpoint-sqlite"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
+ "futures",
  "serde",
  "serde_json",
  "sqlx",
  "thiserror 1.0.69",
  "tokio",
  "wesichain-checkpoint-sql",
+ "wesichain-core",
  "wesichain-graph",
 ]
 
@@ -4427,7 +4430,6 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "wesichain-agent",
- "wesichain-checkpoint-sqlite",
  "wesichain-core",
  "wesichain-llm",
  "wesichain-prompt",

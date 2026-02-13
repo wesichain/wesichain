@@ -1,9 +1,8 @@
 use futures::stream::StreamExt;
 use serde::{Deserialize, Serialize};
+use wesichain_checkpoint_sqlite::SqliteCheckpointer;
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 use wesichain_graph::{Checkpointer, GraphBuilder, GraphState, StateSchema, StateUpdate};
-
-use wesichain_checkpoint_sqlite::SqliteCheckpointer;
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 struct DemoState {
@@ -34,7 +33,7 @@ impl Runnable<GraphState<DemoState>, StateUpdate<DemoState>> for AddOne {
 }
 
 #[tokio::test]
-async fn checkpointer_sqlite_graph_builder_saves_checkpoint() {
+async fn sqlite_checkpointer_graph_builder_saves_checkpoint() {
     let checkpointer = SqliteCheckpointer::builder("sqlite::memory:")
         .max_connections(1)
         .build()
