@@ -6,18 +6,24 @@
 
 <p align="center">
   <strong>Build production-grade LLM agents in Rust</strong><br>
-  Composable chains · Resumable ReAct agents · 30-70% lower memory
+  Composable chains · Resumable graph workflows · Streaming-first runtime
 </p>
 
 <p align="center">
   <a href="https://github.com/wesichain/wesichain/actions">
     <img src="https://github.com/wesichain/wesichain/workflows/CI/badge.svg" alt="CI Status">
   </a>
-  <a href="https://crates.io/crates/wesichain">
-    <img src="https://img.shields.io/crates/v/wesichain.svg" alt="Crates.io">
+  <a href="https://crates.io/crates/wesichain-core">
+    <img src="https://img.shields.io/crates/v/wesichain-core.svg" alt="wesichain-core">
   </a>
-  <a href="https://docs.rs/wesichain">
-    <img src="https://docs.rs/wesichain/badge.svg" alt="Documentation">
+  <a href="https://crates.io/crates/wesichain-graph">
+    <img src="https://img.shields.io/crates/v/wesichain-graph.svg" alt="wesichain-graph">
+  </a>
+  <a href="https://crates.io/crates/wesichain-rag">
+    <img src="https://img.shields.io/crates/v/wesichain-rag.svg" alt="wesichain-rag">
+  </a>
+  <a href="https://docs.rs/wesichain-core">
+    <img src="https://docs.rs/wesichain-core/badge.svg" alt="docs.rs wesichain-core">
   </a>
   <img src="https://img.shields.io/badge/rust-1.75+-orange.svg" alt="Rust 1.75+">
   <a href="./LICENSE-MIT">
@@ -27,239 +33,173 @@
 
 ---
 
-## ✨ Features
+Wesichain `v0.1.0` is live on crates.io as a modular crate family.
 
-<table>
-<tr>
-<td width="33%">
-
-**🧩 Composable Chains**
-
-Build pipelines with intuitive `.then()` composition. Familiar API for LangChain developers.
-
-</td>
-<td width="33%">
-
-**🔄 Resumable Agents**
-
-ReAct agents with automatic checkpointing. Resume workflows after crashes or restarts.
-
-</td>
-<td width="33%">
-
-**⚡ Streaming First**
-
-Token-by-token streaming with structured events. Real-time responses for better UX.
-
-</td>
-</tr>
-<tr>
-<td width="33%">
-
-**🕸️ Graph Workflows**
-
-LangGraph-style state machines with cycles, branches, and parallel execution.
-
-</td>
-<td width="33%">
-
-**🔌 Provider Agnostic**
-
-OpenAI, Anthropic, Google Gemini, Ollama, Mistral. Switch providers with one line.
-
-</td>
-<td width="33%">
-
-**📊 Built-in Observability**
-
-LangSmith integration for tracing, debugging, and monitoring agent execution.
-
-</td>
-</tr>
-</table>
+- 15 published crates, each installable independently
+- no umbrella `wesichain` crate yet (intentional for minimal dependency footprints)
+- designed for Rust-native RAG, stateful graph execution, and tool-using agents
 
 ---
 
-## 🚀 Quick Start
+## Quick Start (Modular)
 
-### 1. Add to Cargo.toml
+### 1) Add dependencies
 
 ```toml
 [dependencies]
-wesichain = "0.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wesichain-core = "0.1.0"
+wesichain-rag = "0.1.0"
 ```
 
-### 2. Build your first chain
+### 2) Minimal in-memory RAG flow
 
 ```rust
-use wesichain_core::{Runnable, RunnableExt};
+use std::collections::HashMap;
+
+use wesichain_core::{Document, Value};
+use wesichain_rag::{RagQueryRequest, WesichainRag};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Compose a chain: Prompt → LLM → Parser
-    let chain = Prompt
-        .then(OpenAiClient::new("gpt-4o-mini"))
-        .then(JsonParser);
+    let rag = WesichainRag::builder().build()?;
 
-    // Run it
-    let result = chain
-        .invoke("What is Rust's ownership model?".to_string())
+    rag.add_documents(vec![Document {
+        id: "doc-1".to_string(),
+        content: "Rust focuses on safety, speed, and fearless concurrency.".to_string(),
+        metadata: HashMap::<String, Value>::new(),
+        embedding: None,
+    }])
+    .await?;
+
+    let response = rag
+        .query(RagQueryRequest {
+            query: "What does Rust focus on?".to_string(),
+            thread_id: None,
+        })
         .await?;
 
-    println!("{}", result);
+    println!("{}", response.answer);
     Ok(())
 }
 ```
 
-### 3. Add a ReAct agent with tools
+For end-to-end examples (streaming, sqlite checkpoints, retriever graphs):
 
-```rust
-use wesichain_agent::{ReActAgent, Tool};
-
-let agent = ReActAgent::builder()
-    .llm(openai_client)
-    .tools(vec![
-        Calculator,
-        WebSearch,
-        CodeInterpreter,
-    ])
-    .checkpoint(JsonFileCheckpointer::new("./checkpoints"))
-    .build()?;
-
-// The agent can use tools and resumes if interrupted
-let result = agent
-    .invoke("Calculate fibonacci(50) and search for its significance")
-    .await?;
-```
+- `wesichain-rag/examples/simple-rag-stream.rs`
+- `wesichain-graph/examples/persistent_conversation.rs`
+- `wesichain-graph/examples/react_agent.rs`
 
 ---
 
-## 📦 Installation
+## Wesichain Crates (v0.1.0)
 
-### With specific providers
+Wesichain is modular by default; install only the crates you need.
+
+| Crate | Purpose | crates.io | docs.rs |
+|---|---|---|---|
+| `wesichain-core` | Core traits and runtime primitives (`Runnable`, tools, parsers, vector-store traits) | [link](https://crates.io/crates/wesichain-core) | [link](https://docs.rs/wesichain-core) |
+| `wesichain-prompt` | Prompt templates and prompt formatting utilities | [link](https://crates.io/crates/wesichain-prompt) | [link](https://docs.rs/wesichain-prompt) |
+| `wesichain-llm` | LLM provider adapters and request/response abstractions | [link](https://crates.io/crates/wesichain-llm) | [link](https://docs.rs/wesichain-llm) |
+| `wesichain-macros` | Procedural macros for ergonomic integration | [link](https://crates.io/crates/wesichain-macros) | [link](https://docs.rs/wesichain-macros) |
+| `wesichain-embeddings` | Embedding interfaces and providers | [link](https://crates.io/crates/wesichain-embeddings) | [link](https://docs.rs/wesichain-embeddings) |
+| `wesichain-retrieval` | Retrieval utilities (indexing, splitting, retrievers) | [link](https://crates.io/crates/wesichain-retrieval) | [link](https://docs.rs/wesichain-retrieval) |
+| `wesichain-agent` | Agent orchestration and tool-calling flows | [link](https://crates.io/crates/wesichain-agent) | [link](https://docs.rs/wesichain-agent) |
+| `wesichain-graph` | Stateful graph execution, routing, interrupts, and checkpoints | [link](https://crates.io/crates/wesichain-graph) | [link](https://docs.rs/wesichain-graph) |
+| `wesichain-checkpoint-sql` | Shared SQL checkpoint schema/operations | [link](https://crates.io/crates/wesichain-checkpoint-sql) | [link](https://docs.rs/wesichain-checkpoint-sql) |
+| `wesichain-checkpoint-sqlite` | SQLite checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-sqlite) | [link](https://docs.rs/wesichain-checkpoint-sqlite) |
+| `wesichain-checkpoint-postgres` | Postgres checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-postgres) | [link](https://docs.rs/wesichain-checkpoint-postgres) |
+| `wesichain-rag` | RAG pipeline helpers built on core + graph + retrieval | [link](https://crates.io/crates/wesichain-rag) | [link](https://docs.rs/wesichain-rag) |
+| `wesichain-langsmith` | LangSmith-compatible tracing/observability integration | [link](https://crates.io/crates/wesichain-langsmith) | [link](https://docs.rs/wesichain-langsmith) |
+| `wesichain-pinecone` | Pinecone vector store integration | [link](https://crates.io/crates/wesichain-pinecone) | [link](https://docs.rs/wesichain-pinecone) |
+| `wesichain-compat` | Compatibility utilities for migration-oriented workflows | [link](https://crates.io/crates/wesichain-compat) | [link](https://docs.rs/wesichain-compat) |
+
+---
+
+## Installation Patterns
+
+Use only what you need:
 
 ```toml
-# OpenAI only
+# Core chain primitives
 [dependencies]
-wesichain = { version = "0.1", features = ["openai"] }
+wesichain-core = "0.1.0"
 
-# Multiple providers
-[dependencies]
-wesichain = { version = "0.1", features = ["openai", "anthropic", "ollama"] }
+# Add graph execution
+wesichain-graph = "0.1.0"
 
-# All features (including postgres checkpointing)
-[dependencies]
-wesichain = { version = "0.1", features = ["full"] }
-```
+# Add RAG utilities
+wesichain-rag = "0.1.0"
 
-### Available features
-
-| Feature | Description |
-|---------|-------------|
-| `openai` | OpenAI GPT models |
-| `anthropic` | Anthropic Claude models |
-| `google` | Google Gemini models |
-| `ollama` | Local Ollama models |
-| `mistral` | Mistral AI models |
-| `postgres` | Postgres checkpointing |
-| `sqlite` | SQLite checkpointing |
-| `langsmith` | Observability integration |
-| `full` | All features enabled |
-
----
-
-## 🏗️ Architecture
-
-Wesichain is a workspace of focused, composable crates:
-
-```
-wesichain/
-├── wesichain-core          # Core traits: Runnable, Chain, Tool, Checkpointer
-├── wesichain-prompt        # Prompt templates with variable substitution
-├── wesichain-llm           # Provider-agnostic LLM trait + adapters
-├── wesichain-agent         # ReAct agent with memory and tool calling
-├── wesichain-graph         # Stateful graph execution with persistence
-├── wesichain-embeddings    # Text embedding models
-├── wesichain-rag           # Retrieval-Augmented Generation
-├── wesichain-retrieval     # Vector store integrations (Pinecone, Qdrant)
-├── wesichain-langsmith     # Tracing and observability
-└── wesichain               # Umbrella crate with ergonomic prelude
+# Add sqlite checkpoint backend
+wesichain-checkpoint-sqlite = "0.1.0"
 ```
 
 ---
 
-## 📊 Performance
+## Performance
 
 | Metric | Python LangChain | Wesichain (Rust) | Improvement |
-|--------|------------------|------------------|-------------|
-| **Memory (baseline)** | 250-500 MB | 80-150 MB | **3-5x lower** |
-| **Cold start** | 2-5s | 50-200ms | **10-50x faster** |
-| **Throughput** | GIL-limited | Native parallel | **Unlimited scaling** |
-| **Latency p99** | GC spikes | Predictable | **Zero pauses** |
+|---|---|---|---|
+| Memory (baseline) | 250-500 MB | 80-150 MB | 3-5x lower |
+| Cold start | 2-5s | 50-200ms | 10-50x faster |
+| Throughput | GIL-limited | Native parallel | scales with cores |
+| Latency p99 | GC spikes | Predictable | lower jitter |
 
-*Benchmarks: 100 concurrent agent requests, 10 tool calls each. [Reproduce](./wesichain/benches/)*
+Benchmark notes and methodology: `docs/benchmarks/README.md`.
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Resource | Description |
-|----------|-------------|
-| [API Reference](https://docs.rs/wesichain) | Complete API documentation |
-| [Examples](./wesichain/examples/) | Working code examples |
-| [Design Docs](./docs/plans/) | Architecture decisions |
-| [Migration Guide](./docs/migration.md) | From LangChain/LangGraph |
+|---|---|
+| [docs.rs (core)](https://docs.rs/wesichain-core) | API reference for core abstractions |
+| [docs.rs (graph)](https://docs.rs/wesichain-graph) | Graph runtime API reference |
+| [docs.rs (rag)](https://docs.rs/wesichain-rag) | RAG pipeline API reference |
+| [Migration Guide](docs/migration/langgraph-to-wesichain.md) | LangGraph to Wesichain migration notes |
+| [Examples](wesichain-rag/examples/) | Working RAG examples |
+| [Design Docs](docs/plans/) | Architecture and implementation plans |
 
 ---
 
-## 🛠️ Development
+## Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/wesichain/wesichain.git
-cd wesichain
-
-# Build
-cd wesichain && cargo build --release
+# Build all workspace crates
+cargo build --all
 
 # Run tests
-cargo test
-cargo test --features openai,postgres
+cargo test --all
 
-# Run benchmarks
-cargo bench
-
-# Generate docs
-cargo doc --open
+# Lint and format
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
 ```
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](./CONTRIBUTING.md) for details.
+Contributions are welcome. Start with `CONTRIBUTING.md`.
 
-- [Report bugs](https://github.com/wesichain/wesichain/issues)
-- [Request features](https://github.com/wesichain/wesichain/issues)
-- [Submit PRs](https://github.com/wesichain/wesichain/pulls)
+- [Open an issue](https://github.com/wesichain/wesichain/issues)
+- [Submit a pull request](https://github.com/wesichain/wesichain/pulls)
 
 ---
 
-## 📄 License
+## License
 
-Wesichain is dual-licensed under:
+Wesichain is dual licensed:
 
-- [MIT License](./LICENSE-MIT)
-- [Apache License 2.0](./LICENSE-APACHE)
-
-You may use, distribute, and modify this software under either license at your option.
+- [MIT](LICENSE-MIT)
+- [Apache-2.0](LICENSE-APACHE)
 
 ---
 
 <p align="center">
   Built with Rust · Inspired by LangChain/LangGraph · Optimized for production<br>
   <a href="https://github.com/wesichain/wesichain">GitHub</a> ·
-  <a href="https://crates.io/crates/wesichain">Crates.io</a> ·
-  <a href="https://docs.rs/wesichain">Documentation</a>
+  <a href="https://crates.io/search?q=wesichain-">Crates.io</a> ·
+  <a href="https://docs.rs/wesichain-core">Documentation</a>
 </p>
