@@ -1,7 +1,5 @@
 use futures::stream::{self, BoxStream, StreamExt};
-use wesichain_core::callbacks::{
-    ensure_object, RunConfig, RunContext, RunType, ToTraceInput, ToTraceOutput,
-};
+use wesichain_core::{ensure_object, RunConfig, RunContext, RunType, ToTraceInput, ToTraceOutput};
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 use wesichain_llm::{LlmRequest, LlmResponse, Message, Role};
 
@@ -74,7 +72,7 @@ where
         });
 
         if let Some((manager, root)) = &callbacks {
-            let inputs = ensure_object(input_text.to_trace_input());
+            let inputs = ensure_object(ToTraceInput::to_trace_input(&input_text));
             manager.on_start(root, &inputs).await;
         }
 
@@ -88,17 +86,18 @@ where
             let response = match &callbacks {
                 Some((manager, root)) => {
                     let llm_ctx = root.child(RunType::Llm, "llm_invoke".to_string());
-                    let inputs = ensure_object(request.to_trace_input());
+                    let inputs = ensure_object(ToTraceInput::to_trace_input(&request));
                     manager.on_start(&llm_ctx, &inputs).await;
                     match self.llm.invoke(request).await {
                         Ok(response) => {
-                            let outputs = ensure_object(response.to_trace_output());
+                            let outputs = ensure_object(ToTraceOutput::to_trace_output(&response));
                             let duration_ms = llm_ctx.start_instant.elapsed().as_millis();
                             manager.on_end(&llm_ctx, &outputs, duration_ms).await;
                             response
                         }
                         Err(err) => {
-                            let error = ensure_object(err.to_string().to_trace_output());
+                            let error =
+                                ensure_object(ToTraceInput::to_trace_input(&err.to_string()));
                             let duration_ms = llm_ctx.start_instant.elapsed().as_millis();
                             manager.on_error(&llm_ctx, &error, duration_ms).await;
                             let root_duration = root.start_instant.elapsed().as_millis();
@@ -115,7 +114,7 @@ where
             } = response;
             if tool_calls.is_empty() {
                 if let Some((manager, root)) = &callbacks {
-                    let outputs = ensure_object(content.to_trace_output());
+                    let outputs = ensure_object(ToTraceOutput::to_trace_output(&content));
                     let duration_ms = root.start_instant.elapsed().as_millis();
                     manager.on_end(root, &outputs, duration_ms).await;
                 }
@@ -134,11 +133,12 @@ where
                 let result = match &callbacks {
                     Some((manager, root)) => {
                         let tool_ctx = root.child(RunType::Tool, call.name.clone());
-                        let inputs = ensure_object(args.to_trace_input());
+                        let inputs = ensure_object(ToTraceInput::to_trace_input(&args));
                         manager.on_start(&tool_ctx, &inputs).await;
                         match self.tools.call(&call.name, args).await {
                             Ok(result) => {
-                                let outputs = ensure_object(result.to_trace_output());
+                                let outputs =
+                                    ensure_object(ToTraceOutput::to_trace_output(&result));
                                 let duration_ms = tool_ctx.start_instant.elapsed().as_millis();
                                 manager.on_end(&tool_ctx, &outputs, duration_ms).await;
                                 result
@@ -149,7 +149,7 @@ where
                                     reason: err.to_string(),
                                 };
                                 let error_value =
-                                    ensure_object(error.to_string().to_trace_output());
+                                    ensure_object(ToTraceInput::to_trace_input(&error.to_string()));
                                 let duration_ms = tool_ctx.start_instant.elapsed().as_millis();
                                 manager.on_error(&tool_ctx, &error_value, duration_ms).await;
                                 let root_duration = root.start_instant.elapsed().as_millis();
@@ -176,7 +176,7 @@ where
 
         let err = WesichainError::Custom(format!("max steps exceeded: {}", self.max_steps));
         if let Some((manager, root)) = &callbacks {
-            let error = ensure_object(err.to_string().to_trace_output());
+            let error = ensure_object(ToTraceInput::to_trace_input(&err.to_string()));
             let duration_ms = root.start_instant.elapsed().as_millis();
             manager.on_error(root, &error, duration_ms).await;
         }

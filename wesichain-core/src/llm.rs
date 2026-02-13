@@ -1,6 +1,7 @@
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use crate::{Value, WesichainError};
+use async_trait::async_trait;
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -50,7 +51,49 @@ pub struct LlmResponse {
     pub tool_calls: Vec<ToolCall>,
 }
 
-#[async_trait::async_trait]
-pub trait ToolCallingLlm: Send + Sync + 'static {
-    async fn invoke(&self, request: LlmRequest) -> Result<LlmResponse, WesichainError>;
+#[async_trait]
+pub trait ToolCallingLlm: crate::Runnable<LlmRequest, LlmResponse> + Send + Sync + 'static {}
+
+impl crate::Bindable for LlmRequest {
+    fn bind(&mut self, args: Value) -> Result<(), WesichainError> {
+        // We only support binding "tools" for now, which is a list of tool specs
+        if let Some(obj) = args.as_object() {
+            if let Some(tools_val) = obj.get("tools") {
+                let tools: Vec<ToolSpec> =
+                    serde_json::from_value(tools_val.clone()).map_err(WesichainError::Serde)?;
+                self.tools.extend(tools);
+            }
+        }
+        Ok(())
+    }
 }
+
+pub trait ToolCallingLlmExt: ToolCallingLlm {
+    fn with_structured_output<T>(self) -> impl crate::Runnable<LlmRequest, T>
+    where
+        T: schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + 'static,
+        Self: Sized,
+    {
+        use crate::{RunnableExt, StructuredOutputParser};
+
+        let schema = schemars::schema_for!(T);
+        let as_value = serde_json::to_value(schema).unwrap_or(Value::Null);
+
+        // Wrap in a tool spec
+        let tool_spec = ToolSpec {
+            name: "output_formatter".to_string(), // Fixed name for now, or derive from T type name?
+            description: "Output the result in this format".to_string(),
+            parameters: as_value,
+        };
+
+        // Bind the tool to the LLM
+        let bound = self.bind(serde_json::json!({
+            "tools": [tool_spec]
+        }));
+
+        // Chain with parser
+        bound.then(StructuredOutputParser::<T>::new())
+    }
+}
+
+impl<L> ToolCallingLlmExt for L where L: ToolCallingLlm {}

@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use wesichain_core::{
-    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep, ScratchpadState, Tool,
-    ToolCall, ToolCallingLlm, ToolError, Value,
+    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep, Runnable, ScratchpadState,
+    Tool, ToolCall, ToolCallingLlm, ToolError, Value, WesichainError,
 };
 use wesichain_graph::{ExecutionOptions, GraphBuilder, GraphState, ReActAgentNode, StateSchema};
 
@@ -76,11 +77,8 @@ impl Tool for MockTool {
 struct MockLlm;
 
 #[async_trait::async_trait]
-impl ToolCallingLlm for MockLlm {
-    async fn invoke(
-        &self,
-        _request: LlmRequest,
-    ) -> Result<LlmResponse, wesichain_core::WesichainError> {
+impl Runnable<LlmRequest, LlmResponse> for MockLlm {
+    async fn invoke(&self, _request: LlmRequest) -> Result<LlmResponse, WesichainError> {
         Ok(LlmResponse {
             content: "".to_string(),
             tool_calls: vec![ToolCall {
@@ -90,7 +88,16 @@ impl ToolCallingLlm for MockLlm {
             }],
         })
     }
+
+    fn stream(
+        &self,
+        _input: LlmRequest,
+    ) -> futures::stream::BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
+        futures::stream::empty().boxed()
+    }
 }
+
+impl ToolCallingLlm for MockLlm {}
 
 #[tokio::test]
 async fn react_agent_executes_tool_and_finishes() {

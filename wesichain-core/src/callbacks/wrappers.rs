@@ -5,6 +5,7 @@ use crate::callbacks::{
 };
 use crate::{Runnable, StreamEvent, WesichainError};
 
+#[allow(dead_code)]
 pub struct TracedRunnable<R> {
     inner: R,
     manager: CallbackManager,
@@ -14,6 +15,7 @@ pub struct TracedRunnable<R> {
 }
 
 impl<R> TracedRunnable<R> {
+    #[allow(dead_code)]
     pub fn new(
         inner: R,
         manager: CallbackManager,
