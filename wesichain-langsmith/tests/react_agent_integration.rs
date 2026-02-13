@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use futures::StreamExt;
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -9,8 +10,8 @@ use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use wesichain_core::{
-    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep, ScratchpadState, Tool,
-    ToolCall, ToolCallingLlm, ToolError, Value, WesichainError,
+    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep, Runnable, ScratchpadState,
+    Tool, ToolCall, ToolCallingLlm, ToolError, Value, WesichainError,
 };
 use wesichain_graph::{ExecutionOptions, GraphBuilder, GraphState, ReActAgentNode, StateSchema};
 use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
@@ -83,7 +84,7 @@ impl Tool for MockTool {
 struct MockLlm;
 
 #[async_trait::async_trait]
-impl ToolCallingLlm for MockLlm {
+impl Runnable<LlmRequest, LlmResponse> for MockLlm {
     async fn invoke(&self, _request: LlmRequest) -> Result<LlmResponse, WesichainError> {
         Ok(LlmResponse {
             content: "".to_string(),
@@ -94,7 +95,16 @@ impl ToolCallingLlm for MockLlm {
             }],
         })
     }
+
+    fn stream(
+        &self,
+        _input: LlmRequest,
+    ) -> futures::stream::BoxStream<'_, Result<wesichain_core::StreamEvent, WesichainError>> {
+        futures::stream::empty().boxed()
+    }
 }
+
+impl ToolCallingLlm for MockLlm {}
 
 #[tokio::test]
 async fn langsmith_traces_react_agent() {

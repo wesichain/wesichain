@@ -14,6 +14,8 @@ members = [
   "wesichain-langsmith",
   "wesichain-pinecone",
   "wesichain-rag",
+  "wesichain-compat",
+  "wesichain-macros",
 ]
 resolver = "2"
 

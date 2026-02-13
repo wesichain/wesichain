@@ -21,11 +21,11 @@ thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
-wesichain-core = { path = "../wesichain-core" }
-wesichain-graph = { path = "../wesichain-graph" }
+wesichain-core = { path = "../wesichain-core", version = "0.1.0" }
+wesichain-graph = { path = "../wesichain-graph", version = "0.1.0" }
 
 [dev-dependencies]
 futures = "0.3"
 wiremock = "0.6"
-wesichain-agent = { path = "../wesichain-agent" }
-wesichain-llm = { path = "../wesichain-llm" }
+wesichain-agent = { path = "../wesichain-agent", version = "0.1.0" }
+wesichain-llm = { path = "../wesichain-llm", version = "0.1.0" }

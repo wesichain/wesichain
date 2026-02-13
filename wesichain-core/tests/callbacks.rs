@@ -1,7 +1,9 @@
 use std::collections::BTreeMap;
 
-use wesichain_core::callbacks::{ensure_object, CallbackManager, RunContext, RunType};
-use wesichain_core::Value;
+use wesichain_core::{
+    ensure_object, CallbackHandler, CallbackManager, RunConfig, RunContext, RunType, Runnable,
+    RunnableExt, Value,
+};
 
 #[test]
 fn child_context_inherits_trace_and_parent() {

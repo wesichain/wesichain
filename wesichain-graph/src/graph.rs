@@ -10,10 +10,10 @@ use crate::{
     Checkpoint, Checkpointer, EdgeKind, ExecutionConfig, ExecutionOptions, GraphError, GraphEvent,
     GraphProgram, GraphState, NodeData, Observer, StateSchema, StateUpdate, END, START,
 };
-use wesichain_core::callbacks::{
-    ensure_object, CallbackManager, RunContext, RunType, ToTraceInput, ToTraceOutput,
+use wesichain_core::{
+    ensure_object, AgentEvent, CallbackManager, RunContext, RunType, Runnable, ToTraceInput,
+    ToTraceOutput, WesichainError,
 };
-use wesichain_core::{AgentEvent, Runnable, WesichainError};
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> String + Send + Sync>;
 
@@ -763,5 +763,42 @@ impl<S: StateSchema> ExecutableGraph<S> {
         self.invoke_graph_with_options(state, options)
             .await
             .map_err(|err| WesichainError::Custom(err.to_string()))
+    }
+
+    pub async fn get_state(&self, thread_id: &str) -> Result<Option<GraphState<S>>, GraphError> {
+        if let Some((checkpointer, _)) = &self.checkpointer {
+            let checkpoint = checkpointer.load(thread_id).await?;
+            Ok(checkpoint.map(|cp| cp.state))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn update_state(
+        &self,
+        thread_id: &str,
+        values: S,
+        as_node: Option<String>,
+    ) -> Result<(), GraphError> {
+        if let Some((checkpointer, _)) = &self.checkpointer {
+            // Load current state or default
+            let (mut state, step) = if let Some(checkpoint) = checkpointer.load(thread_id).await? {
+                (checkpoint.state, checkpoint.step + 1)
+            } else {
+                (GraphState::new(S::default()), 1)
+            };
+
+            // Apply update
+            let update = StateUpdate::new(values);
+            state = state.apply_update(update);
+
+            // Save new checkpoint
+            let node = as_node.unwrap_or_else(|| "user".to_string());
+            let checkpoint = Checkpoint::new(thread_id.to_string(), state, step, node);
+            checkpointer.save(&checkpoint).await?;
+            Ok(())
+        } else {
+            Err(GraphError::Checkpoint("Checkpointer not configured".into()))
+        }
     }
 }

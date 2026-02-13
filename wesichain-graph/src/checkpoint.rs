@@ -77,3 +77,24 @@ impl<S: StateSchema> Checkpointer<S> for InMemoryCheckpointer<S> {
             .and_then(|history| history.last().cloned()))
     }
 }
+#[async_trait::async_trait]
+impl<S: StateSchema> HistoryCheckpointer<S> for InMemoryCheckpointer<S> {
+    async fn list_checkpoints(
+        &self,
+        thread_id: &str,
+    ) -> Result<Vec<CheckpointMetadata>, GraphError> {
+        let guard = self
+            .inner
+            .read()
+            .map_err(|_| GraphError::Checkpoint("lock".into()))?;
+        let history = guard.get(thread_id).cloned().unwrap_or_default();
+        let metadata = history
+            .into_iter()
+            .map(|cp| CheckpointMetadata {
+                seq: cp.step,
+                created_at: cp.created_at,
+            })
+            .collect();
+        Ok(metadata)
+    }
+}

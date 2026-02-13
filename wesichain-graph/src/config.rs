@@ -27,8 +27,7 @@ impl ExecutionConfig {
 
 use std::sync::Arc;
 use tokio::sync::mpsc;
-use wesichain_core::callbacks::RunConfig;
-use wesichain_core::AgentEvent;
+use wesichain_core::{AgentEvent, RunConfig};
 
 use crate::Observer;
 
