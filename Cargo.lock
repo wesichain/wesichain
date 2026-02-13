@@ -4427,6 +4427,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "wesichain-agent",
+ "wesichain-checkpoint-sqlite",
  "wesichain-core",
  "wesichain-llm",
  "wesichain-prompt",

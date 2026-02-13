@@ -13,12 +13,17 @@ type LlmFactory = Box<
         + Send
         + Sync,
 >;
+type PromptFactory = Box<
+    dyn Fn(String, Vec<String>) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError>
+        + Send
+        + Sync,
+>;
 
 #[derive(Default)]
 pub struct RunnableRegistry {
     tool_factories: HashMap<String, ToolFactory>,
     llm_factories: HashMap<String, LlmFactory>,
-    prompt_factories: HashMap<String, Box<dyn Fn(String, Vec<String>) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError> + Send + Sync>>,
+    prompt_factories: HashMap<String, PromptFactory>,
 }
 
 impl RunnableRegistry {
@@ -47,12 +52,16 @@ impl RunnableRegistry {
         self.llm_factories
             .insert(name.to_string(), Box::new(factory));
     }
-    
+
     pub fn register_prompt<F>(&mut self, name: &str, factory: F)
     where
-        F: Fn(String, Vec<String>) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError> + Send + Sync + 'static,
+        F: Fn(String, Vec<String>) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError>
+            + Send
+            + Sync
+            + 'static,
     {
-        self.prompt_factories.insert(name.to_string(), Box::new(factory));
+        self.prompt_factories
+            .insert(name.to_string(), Box::new(factory));
     }
 
     pub fn lookup_tool(&self, name: &str, config: Value) -> Result<Arc<dyn Tool>, WesichainError> {
@@ -65,12 +74,18 @@ impl RunnableRegistry {
             )))
         }
     }
-    
-    pub fn lookup_prompt(&self, template: &str, input_variables: Vec<String>) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError> {
+
+    pub fn lookup_prompt(
+        &self,
+        template: &str,
+        input_variables: Vec<String>,
+    ) -> Result<Arc<dyn Runnable<Value, Value>>, WesichainError> {
         if let Some(factory) = self.prompt_factories.get("default") {
             factory(template.to_string(), input_variables)
         } else {
-             Err(WesichainError::Custom("No default prompt factory registered".to_string()))
+            Err(WesichainError::Custom(
+                "No default prompt factory registered".to_string(),
+            ))
         }
     }
 

@@ -5,9 +5,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::NamedTempFile;
 use wesichain_core::{
-    load_runnable, save_runnable, serde::SerializableRunnable, LlmRequest,
-    LlmResponse, Message, Role, Runnable, RunnableRegistry, Tool, ToolError, Value,
-    WesichainError,
+    load_runnable, save_runnable, serde::SerializableRunnable, LlmRequest, LlmResponse, Message,
+    Role, Runnable, RunnableRegistry, Tool, ToolError, Value, WesichainError,
 };
 
 // --- Mock LLM ---
@@ -194,7 +193,8 @@ async fn test_registry_chain_reconstruction() {
     let parallel_ser = SerializableRunnable::Parallel { steps: steps_map };
 
     // Test reconstruction
-    let loaded_parallel = wesichain_core::reconstruct::<Value, Value>(parallel_ser, Some(&registry)).unwrap();
+    let loaded_parallel =
+        wesichain_core::reconstruct::<Value, Value>(parallel_ser, Some(&registry)).unwrap();
     let input_par = serde_json::json!("test_input");
     let output_par = loaded_parallel.invoke(input_par).await.unwrap();
 
@@ -246,7 +246,8 @@ async fn test_registry_chain_reconstruction() {
         input_variables: vec!["name".to_string()],
     };
 
-    let loaded_prompt = wesichain_core::reconstruct::<Value, Value>(prompt_ser, Some(&registry)).unwrap();
+    let loaded_prompt =
+        wesichain_core::reconstruct::<Value, Value>(prompt_ser, Some(&registry)).unwrap();
     let output_prompt = loaded_prompt
         .invoke(serde_json::json!("World"))
         .await
@@ -266,10 +267,13 @@ async fn test_registry_chain_reconstruction() {
     // Load as Runnable<Value, Value>
     let loaded_tool: Box<dyn Runnable<Value, Value>> =
         load_runnable(file_tool.path(), Some(&registry)).unwrap();
-    
+
     let input_tool = serde_json::Value::String("test args".to_string());
-    
+
     let output_tool = loaded_tool.invoke(input_tool).await.unwrap();
-    
-    assert_eq!(output_tool.as_str().unwrap(), "Tool mock_tool_1 processed: test args");
+
+    assert_eq!(
+        output_tool.as_str().unwrap(),
+        "Tool mock_tool_1 processed: test args"
+    );
 }

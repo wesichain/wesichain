@@ -49,4 +49,3 @@ impl SerializableRunnable {
 }
 
 // Conversion to actual Runnable trait objects is handled in `src/persistence.rs` via `reconstruct`.
-

@@ -1,9 +1,7 @@
 use crate::runnable::Runnable;
 use crate::serde::SerializableRunnable;
 use crate::WesichainError;
-use crate::{
-    JsonOutputParser, StrOutputParser,
-};
+use crate::{JsonOutputParser, StrOutputParser};
 use futures::StreamExt;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -103,23 +101,27 @@ where
                     async fn invoke(&self, input: Value) -> Result<Value, WesichainError> {
                         // Check string directly first to avoid clone if possible, but as_str borrows.
                         if let Some(s) = input.as_str() {
-                             let out = self.inner.invoke(s.to_string()).await?;
-                             return Ok(Value::String(out));
+                            let out = self.inner.invoke(s.to_string()).await?;
+                            return Ok(Value::String(out));
                         }
-                        
+
                         // Try LlmResponse
-                        if let Ok(resp) = serde_json::from_value::<crate::LlmResponse>(input.clone()) {
-                             let out = self.inner.invoke(resp).await?;
-                             return Ok(Value::String(out));
-                        } 
-                        
+                        if let Ok(resp) =
+                            serde_json::from_value::<crate::LlmResponse>(input.clone())
+                        {
+                            let out = self.inner.invoke(resp).await?;
+                            return Ok(Value::String(out));
+                        }
+
                         // Try String (consumes input)
                         if let Ok(s) = serde_json::from_value::<String>(input) {
-                             let out = self.inner.invoke(s).await?;
-                             return Ok(Value::String(out));
-                        } 
-                        
-                        Err(WesichainError::Custom("Invalid input for StrOutputParser".into()))
+                            let out = self.inner.invoke(s).await?;
+                            return Ok(Value::String(out));
+                        }
+
+                        Err(WesichainError::Custom(
+                            "Invalid input for StrOutputParser".into(),
+                        ))
                     }
 
                     fn stream<'a>(
@@ -128,27 +130,39 @@ where
                     ) -> futures::stream::BoxStream<'a, Result<crate::StreamEvent, WesichainError>>
                     {
                         if let Some(s) = input.as_str() {
-                             return self.inner.stream(s.to_string());
+                            return self.inner.stream(s.to_string());
                         }
 
-                        if let Ok(resp) = serde_json::from_value::<crate::LlmResponse>(input.clone()) {
-                             return self.inner.stream(resp);
-                        } 
+                        if let Ok(resp) =
+                            serde_json::from_value::<crate::LlmResponse>(input.clone())
+                        {
+                            return self.inner.stream(resp);
+                        }
 
                         if let Ok(s) = serde_json::from_value::<String>(input) {
-                             return self.inner.stream(s);
-                        } 
+                            return self.inner.stream(s);
+                        }
 
-                        futures::stream::once(async { Err(WesichainError::Custom("Invalid input for StrOutputParser".into())) }).boxed()
+                        futures::stream::once(async {
+                            Err(WesichainError::Custom(
+                                "Invalid input for StrOutputParser".into(),
+                            ))
+                        })
+                        .boxed()
                     }
-                    
+
                     fn to_serializable(&self) -> Option<SerializableRunnable> {
-                        Some(SerializableRunnable::Parser { kind: "str".to_string(), target_type: None })
+                        Some(SerializableRunnable::Parser {
+                            kind: "str".to_string(),
+                            target_type: None,
+                        })
                     }
                 }
-                
+
                 Ok(Arc::new(RuntimeChainAdapter {
-                    inner: crate::chain::RuntimeChain::new(vec![Arc::new(StrParserAdapter { inner: crate::StrOutputParser })]),
+                    inner: crate::chain::RuntimeChain::new(vec![Arc::new(StrParserAdapter {
+                        inner: crate::StrOutputParser,
+                    })]),
                     _marker: PhantomData,
                 }))
             } else {
@@ -248,31 +262,40 @@ where
         SerializableRunnable::Parallel { steps } => {
             let mut runtime_steps = BTreeMap::new();
             for (key, val) in steps {
-                let runnable: Arc<dyn Runnable<Value, Value> + Send + Sync> = reconstruct(val, registry)?;
+                let runnable: Arc<dyn Runnable<Value, Value> + Send + Sync> =
+                    reconstruct(val, registry)?;
                 runtime_steps.insert(key, runnable);
             }
             let parallel = crate::RunnableParallel::new(runtime_steps);
-             
-             struct ParallelWrapper { inner: crate::RunnableParallel<Value, Value> }
-             
-             #[async_trait::async_trait]
-             impl Runnable<Value, Value> for ParallelWrapper {
-                 async fn invoke(&self, input: Value) -> Result<Value, WesichainError> {
-                     let map = self.inner.invoke(input).await?;
-                     let json_map: serde_json::Map<String, Value> = map.into_iter().collect();
-                     Ok(Value::Object(json_map))
-                 }
-                 fn stream<'a>(&'a self, input: Value) -> futures::stream::BoxStream<'a, Result<crate::StreamEvent, WesichainError>> {
-                     self.inner.stream(input)
-                 }
-                 fn to_serializable(&self) -> Option<SerializableRunnable> {
-                     self.inner.to_serializable()
-                 }
-             }
 
-             Ok(Arc::new(RuntimeChainAdapter {
-                 inner: crate::chain::RuntimeChain::new(vec![Arc::new(ParallelWrapper { inner: parallel })]),
-                 _marker: PhantomData,
+            struct ParallelWrapper {
+                inner: crate::RunnableParallel<Value, Value>,
+            }
+
+            #[async_trait::async_trait]
+            impl Runnable<Value, Value> for ParallelWrapper {
+                async fn invoke(&self, input: Value) -> Result<Value, WesichainError> {
+                    let map = self.inner.invoke(input).await?;
+                    let json_map: serde_json::Map<String, Value> = map.into_iter().collect();
+                    Ok(Value::Object(json_map))
+                }
+                fn stream<'a>(
+                    &'a self,
+                    input: Value,
+                ) -> futures::stream::BoxStream<'a, Result<crate::StreamEvent, WesichainError>>
+                {
+                    self.inner.stream(input)
+                }
+                fn to_serializable(&self) -> Option<SerializableRunnable> {
+                    self.inner.to_serializable()
+                }
+            }
+
+            Ok(Arc::new(RuntimeChainAdapter {
+                inner: crate::chain::RuntimeChain::new(vec![Arc::new(ParallelWrapper {
+                    inner: parallel,
+                })]),
+                _marker: PhantomData,
             }))
         }
         SerializableRunnable::Fallbacks { primary, fallbacks } => {
@@ -280,7 +303,8 @@ where
                 reconstruct(*primary, registry)?;
             let mut fallback_runnables = Vec::new();
             for fb in fallbacks {
-                let runnable: Arc<dyn Runnable<Value, Value> + Send + Sync> = reconstruct(fb, registry)?;
+                let runnable: Arc<dyn Runnable<Value, Value> + Send + Sync> =
+                    reconstruct(fb, registry)?;
                 fallback_runnables.push(runnable);
             }
 

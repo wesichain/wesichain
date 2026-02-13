@@ -8,8 +8,8 @@ use tempfile::NamedTempFile;
 use wesichain_core::{
     persistence::{load_json_parser, load_str_parser},
     save_runnable,
-    serde::SerializableRunnable, JsonOutputParser, Runnable, RunnableExt, RunnableParallel,
-    StrOutputParser, WesichainError,
+    serde::SerializableRunnable,
+    JsonOutputParser, Runnable, RunnableExt, RunnableParallel, StrOutputParser, WesichainError,
 };
 
 #[tokio::test]
