@@ -1,0 +1,23 @@
+[package]
+name = "wesichain-chroma"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Chroma vector store integration for Wesichain"
+
+[dependencies]
+async-trait = "0.1"
+chroma = { version = "0.13", default-features = false, features = ["rustls"] }
+reqwest = { version = "0.12", default-features = false }
+serde_json = "1"
+thiserror = "1"
+wesichain-core = { path = "../wesichain-core", version = "0.1.0" }
+
+[dev-dependencies]
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wesichain-rag = { path = "../wesichain-rag", version = "0.1.0" }
+wesichain-retrieval = { path = "../wesichain-retrieval", version = "0.1.0" }

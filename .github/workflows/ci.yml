@@ -17,8 +17,42 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Run tests
         run: cargo test --all-features
+
+  chroma-contract:
+    name: Chroma Contract
+    runs-on: ubuntu-latest
+    services:
+      chroma:
+        image: chromadb/chroma:latest
+        ports:
+          - 8000:8000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Wait for Chroma
+        run: |
+          for i in {1..90}; do
+            if curl -fsS http://127.0.0.1:8000/api/v2/heartbeat >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Chroma did not become ready in time" >&2
+          exit 1
+      - name: Run Chroma contract tests
+        env:
+          RUN_CHROMA_CONTRACT: "1"
+          CHROMA_ENDPOINT: http://127.0.0.1:8000
+          CHROMA_TENANT: default_tenant
+          CHROMA_DATABASE: default_database
+        run: cargo test -p wesichain-chroma -- --nocapture
 
   fmt:
     name: Format
@@ -40,5 +74,7 @@ jobs:
         with:
           components: clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Run clippy
         run: cargo clippy --all-features -- -D warnings

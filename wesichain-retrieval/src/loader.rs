@@ -45,6 +45,8 @@ pub async fn load_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionEr
     match extension.as_str() {
         "txt" => load_text_file_async(path).await,
         "docx" => load_docx_file_async(path).await,
+        #[cfg(feature = "pdf")]
+        "pdf" => load_pdf_file_async(path).await,
         _ => Err(IngestionError::UnsupportedExtension { path, extension }),
     }
 }
@@ -105,6 +107,17 @@ async fn load_docx_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionE
         metadata,
         embedding: None,
     }])
+}
+
+#[cfg(feature = "pdf")]
+async fn load_pdf_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
+    let loader = PdfLoader::new(path.clone());
+    loader.load().map_err(|source| match source.kind() {
+        std::io::ErrorKind::NotFound | std::io::ErrorKind::PermissionDenied => {
+            IngestionError::Read { path, source }
+        }
+        _ => IngestionError::Parse { path, source },
+    })
 }
 
 fn parse_docx_text(bytes: &[u8]) -> Result<String, std::io::Error> {

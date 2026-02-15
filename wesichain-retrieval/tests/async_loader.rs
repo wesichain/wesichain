@@ -57,3 +57,29 @@ async fn async_loader_is_additive_and_does_not_break_sync_text_loader() {
     assert_eq!(sync_docs[0].content, "sync content");
     assert_eq!(sync_docs[0].id, sync_path.to_string_lossy());
 }
+
+#[tokio::test]
+#[cfg(feature = "pdf")]
+async fn async_loader_routes_pdf_extension_when_feature_enabled() {
+    let dir = tempdir().expect("temp dir");
+    let path = dir.path().join("missing.pdf");
+
+    let error = load_file_async(path.clone())
+        .await
+        .expect_err("missing pdf should return read error");
+
+    assert!(!matches!(
+        error,
+        IngestionError::UnsupportedExtension { .. }
+    ));
+    assert!(matches!(
+        &error,
+        IngestionError::Read {
+            path: error_path,
+            ..
+        } | IngestionError::Parse {
+            path: error_path,
+            ..
+        } if error_path == &path
+    ));
+}
