@@ -10,6 +10,9 @@
 </p>
 
 <p align="center">
+  <a href="https://wesichain.vercel.app/">
+    <img src="https://img.shields.io/badge/docs-wesichain.vercel.app-orange?style=flat" alt="Documentation">
+  </a>
   <a href="https://github.com/wesichain/wesichain/actions">
     <img src="https://github.com/wesichain/wesichain/workflows/CI/badge.svg" alt="CI Status">
   </a>
@@ -30,6 +33,10 @@
     <img src="https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg" alt="License">
   </a>
 </p>
+
+---
+
+🚀 **[Get Started →](https://wesichain.vercel.app/docs/getting-started/installation)** · **[Explore Crates →](https://wesichain.vercel.app/crate-selector)** · **[View Benchmarks →](https://wesichain.vercel.app/benchmarks)**
 
 ---
 
@@ -175,12 +182,14 @@ Benchmark notes and methodology: `docs/benchmarks/README.md`.
 
 ## Documentation
 
+📖 **[Official Documentation Site →](https://wesichain.vercel.app/)**
+
 | Resource | Description |
 |---|---|
 | [docs.rs (core)](https://docs.rs/wesichain-core) | API reference for core abstractions |
 | [docs.rs (graph)](https://docs.rs/wesichain-graph) | Graph runtime API reference |
 | [docs.rs (rag)](https://docs.rs/wesichain-rag) | RAG pipeline API reference |
-| [Migration Guide](docs/migration/graph-workflows-to-wesichain.md) | Graph workflow migration notes |
+| [Migration Guide](https://wesichain.vercel.app/docs/getting-started/migration) | Graph workflow migration notes |
 | [Examples (ReAct + Graph)](wesichain-graph/examples/) | ReAct and graph workflow examples |
 | [Examples (RAG)](wesichain-rag/examples/) | Retrieval and streaming RAG examples |
 | [Design Docs](docs/plans/) | Architecture and implementation plans |
@@ -223,7 +232,7 @@ Wesichain is dual licensed:
 
 <p align="center">
   Built with Rust · Designed for production graph workflows<br>
+  <a href="https://wesichain.vercel.app/">📖 Documentation</a> ·
   <a href="https://github.com/wesichain/wesichain">GitHub</a> ·
-  <a href="https://crates.io/search?q=wesichain-">Crates.io</a> ·
-  <a href="https://docs.rs/wesichain-core">Documentation</a>
+  <a href="https://crates.io/search?q=wesichain-">Crates.io</a>
 </p>
