@@ -13,6 +13,7 @@ members = [
   "wesichain-retrieval",
   "wesichain-langsmith",
   "wesichain-pinecone",
+  "wesichain-chroma",
   "wesichain-rag",
   "wesichain-compat",
   "wesichain-macros",
