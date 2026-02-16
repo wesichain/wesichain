@@ -1,0 +1,151 @@
+name: PR Checks
+
+on:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Run clippy
+        run: cargo clippy --all-features -- -D warnings
+
+  detect-impact:
+    name: Detect Changed Crates
+    runs-on: ubuntu-latest
+    outputs:
+      touched_crates: ${{ steps.detect.outputs.touched_crates }}
+      core_trait_changed: ${{ steps.detect.outputs.core_trait_changed }}
+      connector_examples: ${{ steps.detect.outputs.connector_examples }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: detect
+        name: Resolve changed paths and crate impact
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          changed_files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"
+
+          CHANGED_FILES="$changed_files" python3 - <<'PY'
+          import fnmatch
+          import glob
+          import json
+          import os
+          from pathlib import Path
+          import tomllib
+
+          lines = [line.strip() for line in os.environ.get("CHANGED_FILES", "").splitlines() if line.strip()]
+          crates = set()
+
+          known_crates = {Path(path).parent.name for path in glob.glob("wesichain-*/Cargo.toml")}
+          if Path("wesichain/Cargo.toml").exists():
+            known_crates.add("wesichain")
+
+          with Path("tools/ci/impact-map.toml").open("rb") as f:
+            impact_map = tomllib.load(f)
+          rules = impact_map.get("rules", [])
+          groups = impact_map.get("groups", {})
+          matched_rule_names = set()
+
+          for rel_path in lines:
+            parts = rel_path.split("/")
+            if not parts:
+              continue
+
+            root = parts[0]
+            if root in known_crates:
+              crates.add(root)
+
+            for rule in rules:
+              for pattern in rule.get("match", []):
+                if fnmatch.fnmatch(rel_path, pattern):
+                  matched_rule_names.add(rule.get("name", ""))
+                  break
+
+          core_trait_changed = "core_trait_change" in matched_rule_names
+          connector_examples = []
+          if core_trait_changed:
+            for entry in groups.get("connector_examples", []):
+              if ":" not in entry:
+                continue
+              crate, example = entry.split(":", 1)
+              connector_examples.append({"crate": crate, "example": example})
+
+          crate_list = sorted(crates)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+            fh.write(f"touched_crates={json.dumps(crate_list)}\\n")
+            fh.write(f"core_trait_changed={'true' if core_trait_changed else 'false'}\\n")
+            fh.write(f"connector_examples={json.dumps(connector_examples)}\\n")
+          PY
+
+  touched-crates:
+    name: Touched Crate Checks
+    needs: detect-impact
+    if: ${{ needs.detect-impact.outputs.touched_crates != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate: ${{ fromJson(needs.detect-impact.outputs.touched_crates) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Install protoc
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Check touched crate
+        run: cargo check -p ${{ matrix.crate }}
+      - name: Test touched crate
+        run: cargo test -p ${{ matrix.crate }} --tests -- --nocapture
+
+  qdrant-bench-advisory:
+    name: Qdrant Benchmark (Advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run advisory benchmark
+        run: cargo bench -p wesichain-qdrant --bench vs_langchain -- --sample-size 10
+
+  core-trait-fanout:
+    name: Core Trait Fan-Out Compile
+    needs: detect-impact
+    if: ${{ needs.detect-impact.outputs.connector_examples != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.detect-impact.outputs.connector_examples) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile connector example
+        run: cargo check -p ${{ matrix.crate }} --example ${{ matrix.example }}

@@ -39,6 +39,12 @@ All notable changes to Wesichain will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- `wesichain-qdrant` crate with Qdrant `VectorStore` integration
+- Qdrant metadata filter translation for `Eq`, `In`, `Range`, `All`, and `Any`
+- Migration artifacts for LangChain-to-Wesichain Qdrant parity (guide, example, parity test)
+- Benchmark harness and threshold tooling for Qdrant slice validation
+
 ### Planned
 - Triples projection extraction from graph state
 - Additional file format loaders (markdown, csv)

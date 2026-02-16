@@ -1,0 +1,11 @@
+# Template for temporary CI/benchmark waivers.
+# Copy an entry, fill in values, and remove when resolved.
+waivers: []
+
+# Example:
+# waivers:
+#   - metric: "query_p95"
+#     owner: "@team-or-user"
+#     reason: "brief explanation of why this waiver is needed"
+#     expiry: "2026-12-31"
+#     issue: "https://github.com/<org>/<repo>/issues/<id>"

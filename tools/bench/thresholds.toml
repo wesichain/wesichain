@@ -1,0 +1,7 @@
+[qdrant]
+query_p50 = 10
+query_p95 = 15
+query_p99 = 25
+index_throughput = 20
+peak_memory = 30
+error_rate = 0
