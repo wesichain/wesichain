@@ -1,0 +1,15 @@
+[groups]
+connector_examples = [
+  "wesichain-qdrant:rag_integration",
+  "wesichain-chroma:rag_integration",
+  "wesichain-pinecone:pinecone_rag",
+]
+
+[[rules]]
+name = "core_trait_change"
+match = [
+  "wesichain-core/Cargo.toml",
+  "wesichain-core/src/*.rs",
+  "wesichain-core/src/**/*.rs",
+]
+escalate_group = "connector_examples"

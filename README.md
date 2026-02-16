@@ -142,6 +142,7 @@ Wesichain is modular by default; install only the crates you need.
 | `wesichain-rag` | RAG pipeline helpers built on core + graph + retrieval | [link](https://crates.io/crates/wesichain-rag) | [link](https://docs.rs/wesichain-rag) |
 | `wesichain-langsmith` | LangSmith-compatible tracing/observability integration | [link](https://crates.io/crates/wesichain-langsmith) | [link](https://docs.rs/wesichain-langsmith) |
 | `wesichain-pinecone` | Pinecone vector store integration | [link](https://crates.io/crates/wesichain-pinecone) | [link](https://docs.rs/wesichain-pinecone) |
+| `wesichain-qdrant` | Qdrant vector store integration | [link](https://crates.io/crates/wesichain-qdrant) | [link](https://docs.rs/wesichain-qdrant) |
 | `wesichain-compat` | Compatibility utilities for migration-oriented workflows | [link](https://crates.io/crates/wesichain-compat) | [link](https://docs.rs/wesichain-compat) |
 
 ---
