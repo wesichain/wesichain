@@ -699,6 +699,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
         let mut join_set = tokio::task::JoinSet::new();
         // Track active tasks (NodeId, PathId) to persist them on interrupt
         let mut active_tasks: HashSet<(String, u64)> = HashSet::new();
+        let mut callback_nodes: HashMap<(String, u64), RunContext> = HashMap::new();
         let start_time = Instant::now();
         let mut visit_counts: HashMap<String, u32> = HashMap::new();
         let mut path_visits: HashMap<(String, u64), u32> = HashMap::new();
@@ -872,6 +873,13 @@ impl<S: StateSchema> ExecutableGraph<S> {
                 )
                 .await;
 
+                if let Some((manager, root)) = &callbacks {
+                    let node_ctx = root.child(RunType::Chain, current.clone());
+                    let node_inputs = ensure_object(state.to_trace_input());
+                    manager.on_start(&node_ctx, &node_inputs).await;
+                    callback_nodes.insert((current.clone(), path_id), node_ctx);
+                }
+
                 // Prepare input and context
                 let input_state = state.clone();
                 let node_ctx_obs = observer.clone();
@@ -945,6 +953,16 @@ impl<S: StateSchema> ExecutableGraph<S> {
                                 node: current.clone(),
                                 source: Box::new(err),
                             };
+                            if let Some((manager, _root)) = &callbacks {
+                                if let Some(node_ctx) =
+                                    callback_nodes.remove(&(current.clone(), path_id))
+                                {
+                                    let error_value =
+                                        ensure_object(error.to_string().to_trace_output());
+                                    let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                                    manager.on_error(&node_ctx, &error_value, duration_ms).await;
+                                }
+                            }
                             if let Some(obs) = &observer {
                                 obs.on_error(&current, &error).await;
                             }
@@ -960,6 +978,14 @@ impl<S: StateSchema> ExecutableGraph<S> {
                     };
 
                     state = state.apply_update(update);
+
+                    if let Some((manager, _root)) = &callbacks {
+                        if let Some(node_ctx) = callback_nodes.remove(&(current.clone(), path_id)) {
+                            let node_outputs = ensure_object(state.to_trace_output());
+                            let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                            manager.on_end(&node_ctx, &node_outputs, duration_ms).await;
+                        }
+                    }
 
                     if let Some(obs) = &observer {
                         let output_value = match serde_json::to_value(&state.data) {
