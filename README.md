@@ -40,10 +40,10 @@
 
 ---
 
-Wesichain `v0.1.0` is live on crates.io as a modular crate family.
+Wesichain `v0.2.0` is live on crates.io as a modular crate family.
 
-- 15 published crates, each installable independently
-- no umbrella `wesichain` crate yet (intentional for minimal dependency footprints)
+- 19 published crates, each installable independently
+- no umbrella `wesichain` crate on crates.io yet (intentional for minimal dependency footprints)
 - designed for tool-using ReAct agents, stateful graph execution, and RAG
 
 ---
@@ -55,9 +55,9 @@ Wesichain `v0.1.0` is live on crates.io as a modular crate family.
 ```toml
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-wesichain-core = "0.1.0"
-wesichain-graph = "0.1.0"
-wesichain-llm = "0.1.0"
+wesichain-core = "0.2.0"
+wesichain-graph = "0.2.0"
+wesichain-llm = "0.2.0"
 ```
 
 ### 2) Create a ReAct agent with tools
@@ -122,7 +122,7 @@ For end-to-end RAG streaming example:
 
 ---
 
-## Wesichain Crates (v0.1.0)
+## Wesichain Crates (v0.2.0)
 
 Wesichain is modular by default; install only the crates you need.
 
@@ -139,8 +139,10 @@ Wesichain is modular by default; install only the crates you need.
 | `wesichain-checkpoint-sql` | Shared SQL checkpoint schema/operations | [link](https://crates.io/crates/wesichain-checkpoint-sql) | [link](https://docs.rs/wesichain-checkpoint-sql) |
 | `wesichain-checkpoint-sqlite` | SQLite checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-sqlite) | [link](https://docs.rs/wesichain-checkpoint-sqlite) |
 | `wesichain-checkpoint-postgres` | Postgres checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-postgres) | [link](https://docs.rs/wesichain-checkpoint-postgres) |
+| `wesichain-checkpoint-redis` | Redis checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-redis) | [link](https://docs.rs/wesichain-checkpoint-redis) |
 | `wesichain-rag` | RAG pipeline helpers built on core + graph + retrieval | [link](https://crates.io/crates/wesichain-rag) | [link](https://docs.rs/wesichain-rag) |
 | `wesichain-langsmith` | LangSmith-compatible tracing/observability integration | [link](https://crates.io/crates/wesichain-langsmith) | [link](https://docs.rs/wesichain-langsmith) |
+| `wesichain-chroma` | Chroma vector store integration | [link](https://crates.io/crates/wesichain-chroma) | [link](https://docs.rs/wesichain-chroma) |
 | `wesichain-pinecone` | Pinecone vector store integration | [link](https://crates.io/crates/wesichain-pinecone) | [link](https://docs.rs/wesichain-pinecone) |
 | `wesichain-qdrant` | Qdrant vector store integration | [link](https://crates.io/crates/wesichain-qdrant) | [link](https://docs.rs/wesichain-qdrant) |
 | `wesichain-weaviate` | Weaviate vector store integration | [link](https://crates.io/crates/wesichain-weaviate) | [link](https://docs.rs/wesichain-weaviate) |
@@ -155,16 +157,16 @@ Use only what you need:
 ```toml
 # Core chain primitives
 [dependencies]
-wesichain-core = "0.1.0"
+wesichain-core = "0.2.0"
 
 # Add graph execution
-wesichain-graph = "0.1.0"
+wesichain-graph = "0.2.0"
 
 # Add RAG utilities
-wesichain-rag = "0.1.0"
+wesichain-rag = "0.2.0"
 
 # Add sqlite checkpoint backend
-wesichain-checkpoint-sqlite = "0.1.0"
+wesichain-checkpoint-sqlite = "0.2.0"
 ```
 
 ---

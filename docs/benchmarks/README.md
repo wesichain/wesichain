@@ -29,3 +29,18 @@ cargo bench -p wesichain-retrieval --bench recursive_splitter
 ```
 
 Results saved to `target/criterion/` for detailed analysis.
+
+## Vector Store Benchmarks
+
+Nightly and release-oriented connector benchmarks are tracked as JSON snapshots.
+
+- Qdrant snapshot: `docs/benchmarks/data/qdrant-2026-02-16.json`
+- Weaviate snapshot: `docs/benchmarks/data/weaviate-2026-02-16.json`
+- Weekly summary: `docs/benchmarks/data/weekly/2026-W08.md`
+
+Threshold evaluation helpers live in `tools/bench/`:
+
+```bash
+python3 tools/bench/evaluate_thresholds.py --input docs/benchmarks/data/qdrant-2026-02-16.json
+python3 tools/bench/evaluate_thresholds.py --input docs/benchmarks/data/weaviate-2026-02-16.json
+```
