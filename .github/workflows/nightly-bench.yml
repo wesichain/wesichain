@@ -28,7 +28,6 @@ jobs:
           python3 tools/bench/evaluate_thresholds.py \
             --thresholds tools/bench/thresholds.toml \
             --criterion-root target/criterion \
-            --criterion-benchmark-name wesichain_object_payload \
             --rss-file target/bench/rss.txt \
             --waivers WAIVERS.yml \
             --dataset-size 1000
@@ -52,6 +51,7 @@ jobs:
           python3 tools/bench/evaluate_thresholds.py \
             --thresholds tools/bench/thresholds.toml \
             --criterion-root target/criterion \
+            --criterion-benchmark-name wesichain_object_payload \
             --rss-file target/bench/rss.txt \
             --waivers WAIVERS.yml \
             --dataset-size 1000
