@@ -30,7 +30,7 @@ mod openai_tests {
             .with_api_key("test-key")
             .with_api_base(format!("{}/v1", server.uri()));
         let client = Client::with_config(config);
-        let embedder = OpenAiEmbedding::new(client, "text-embedding-3-small".to_string(), 3);
+        let embedder = OpenAiEmbedding::with_client(client, "text-embedding-3-small", 3);
 
         let out = embedder.embed("hello").await.unwrap();
         assert_eq!(out, vec![0.1, 0.2, 0.3]);
@@ -57,7 +57,7 @@ mod openai_tests {
             .with_api_key("test-key")
             .with_api_base(format!("{}/v1", server.uri()));
         let client = Client::with_config(config);
-        let embedder = OpenAiEmbedding::new(client, "text-embedding-3-small".to_string(), 3);
+        let embedder = OpenAiEmbedding::with_client(client, "text-embedding-3-small", 3);
 
         let err = embedder.embed("hello").await.unwrap_err();
         assert!(matches!(err, EmbeddingError::InvalidResponse(_)));
@@ -84,7 +84,7 @@ mod openai_tests {
             .with_api_key("test-key")
             .with_api_base(format!("{}/v1", server.uri()));
         let client = Client::with_config(config);
-        let embedder = OpenAiEmbedding::new(client, "text-embedding-3-small".to_string(), 3);
+        let embedder = OpenAiEmbedding::with_client(client, "text-embedding-3-small", 3);
         let inputs = vec!["hello".to_string(), "world".to_string()];
 
         let err = embedder.embed_batch(&inputs).await.unwrap_err();
@@ -113,7 +113,7 @@ mod openai_tests {
             .with_api_key("test-key")
             .with_api_base(format!("{}/v1", server.uri()));
         let client = Client::with_config(config);
-        let embedder = OpenAiEmbedding::new(client, "text-embedding-3-small".to_string(), 3);
+        let embedder = OpenAiEmbedding::with_client(client, "text-embedding-3-small", 3);
         let inputs = vec!["hello".to_string(), "world".to_string()];
 
         let err = embedder.embed_batch(&inputs).await.unwrap_err();

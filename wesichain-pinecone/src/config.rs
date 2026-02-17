@@ -1,10 +1,11 @@
+use std::sync::Arc;
 use crate::client::PineconeHttpClient;
 use crate::store::PineconeVectorStore;
 use crate::PineconeStoreError;
 use wesichain_core::Embedding;
 
-pub struct PineconeStoreBuilder<E> {
-    embedder: E,
+pub struct PineconeStoreBuilder {
+    embedder: Arc<dyn Embedding>,
     base_url: Option<String>,
     api_key: Option<String>,
     namespace: Option<String>,
@@ -14,10 +15,10 @@ pub struct PineconeStoreBuilder<E> {
     max_batch_size: usize,
 }
 
-impl<E> PineconeStoreBuilder<E> {
-    pub fn new(embedder: E) -> Self {
+impl PineconeStoreBuilder {
+    pub fn new<E: Embedding + Send + Sync + 'static>(embedder: E) -> Self {
         Self {
-            embedder,
+            embedder: Arc::new(embedder),
             base_url: None,
             api_key: None,
             namespace: None,
@@ -77,10 +78,7 @@ impl<E> PineconeStoreBuilder<E> {
         self
     }
 
-    pub async fn build(self) -> Result<PineconeVectorStore<E>, PineconeStoreError>
-    where
-        E: Embedding + Send + Sync,
-    {
+    pub async fn build(self) -> Result<PineconeVectorStore, PineconeStoreError> {
         let base_url = self
             .base_url
             .ok_or_else(|| PineconeStoreError::Config("base_url is required".to_string()))?;

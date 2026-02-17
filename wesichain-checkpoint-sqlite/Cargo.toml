@@ -15,7 +15,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-r
 thiserror = "1"
 tokio = { version = "1", features = ["sync"] }
 wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.2.0" }
-wesichain-graph = { path = "../wesichain-graph", version = "0.2.0" }
+wesichain-core = { path = "../wesichain-core", version = "0.2.0" }
 
 [dev-dependencies]
 async-trait = "0.1"

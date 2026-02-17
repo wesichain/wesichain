@@ -11,6 +11,8 @@ pub enum RetrievalError {
     Embedding(#[from] EmbeddingError),
     #[error("store error: {0}")]
     Store(#[from] StoreError),
+    #[error("{0}")]
+    Other(String),
 }
 
 #[derive(Debug, Error)]

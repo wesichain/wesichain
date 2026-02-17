@@ -80,7 +80,7 @@ impl RetrieverNode {
 #[async_trait]
 impl<S> Runnable<GraphState<S>, StateUpdate<S>> for RetrieverNode
 where
-    S: StateSchema + HasQuery + HasRetrievedDocs + HasMetadataFilter,
+    S: StateSchema<Update = S> + HasQuery + HasRetrievedDocs + HasMetadataFilter,
 {
     async fn invoke(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError> {
         let query = input.data.query();

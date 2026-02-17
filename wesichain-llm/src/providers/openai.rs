@@ -42,3 +42,5 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiClient {
         self.0.stream(input)
     }
 }
+
+impl wesichain_core::ToolCallingLlm for OpenAiClient {}

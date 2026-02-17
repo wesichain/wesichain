@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use serde_json::Value;
 use uuid::Uuid;
 use wesichain_core::{Document, Embedding, MetadataFilter, SearchResult, StoreError, VectorStore};
@@ -11,8 +12,8 @@ use crate::types::{
 };
 use crate::PineconeStoreError;
 
-pub struct PineconeVectorStore<E> {
-    pub(crate) embedder: E,
+pub struct PineconeVectorStore {
+    pub(crate) embedder: Arc<dyn Embedding>,
     pub(crate) client: PineconeHttpClient,
     pub(crate) namespace: Option<String>,
     pub(crate) text_key: String,
@@ -21,13 +22,13 @@ pub struct PineconeVectorStore<E> {
     pub(crate) max_batch_size: usize,
 }
 
-impl<E> PineconeVectorStore<E> {
-    pub fn builder(embedder: E) -> PineconeStoreBuilder<E> {
+impl PineconeVectorStore {
+    pub fn builder<E: Embedding + Send + Sync + 'static>(embedder: E) -> PineconeStoreBuilder {
         PineconeStoreBuilder::new(embedder)
     }
 
     pub(crate) fn new(
-        embedder: E,
+        embedder: Arc<dyn Embedding>,
         client: PineconeHttpClient,
         namespace: Option<String>,
         text_key: String,
@@ -49,12 +50,7 @@ impl<E> PineconeVectorStore<E> {
     pub fn text_key(&self) -> &str {
         &self.text_key
     }
-}
 
-impl<E> PineconeVectorStore<E>
-where
-    E: Embedding + Send + Sync,
-{
     pub(crate) async fn validate_dimension_on_init(&self) {
         if !self.validate_dimension {
             return;
@@ -362,7 +358,7 @@ where
         self.delete_ids(ids).await
     }
 
-    pub async fn from_documents(
+    pub async fn from_documents<E: Embedding + Send + Sync + 'static>(
         docs: Vec<Document>,
         embedder: E,
         base_url: impl Into<String>,
@@ -386,10 +382,7 @@ where
 }
 
 #[async_trait::async_trait]
-impl<E> VectorStore for PineconeVectorStore<E>
-where
-    E: Embedding + Send + Sync,
-{
+impl VectorStore for PineconeVectorStore {
     async fn add(&self, docs: Vec<Document>) -> Result<(), StoreError> {
         self.add_documents(docs, None).await
     }

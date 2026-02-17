@@ -42,3 +42,5 @@ impl Runnable<LlmRequest, LlmResponse> for DeepSeekClient {
         self.0.stream(input)
     }
 }
+
+impl wesichain_core::ToolCallingLlm for DeepSeekClient {}

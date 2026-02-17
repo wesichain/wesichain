@@ -1,4 +1,4 @@
-use crate::{LlmResponse, Runnable, StreamEvent, WesichainError};
+use crate::{LlmRequest, LlmResponse, Message, Role, Runnable, StreamEvent, WesichainError};
 use async_trait::async_trait;
 use futures::stream::BoxStream;
 use futures::StreamExt;
@@ -188,3 +188,89 @@ impl<T: DeserializeOwned + serde::Serialize + Send + Sync + 'static> Runnable<Ll
         })
     }
 }
+
+/// A parser/chain that wraps an LLM and a base parser.
+/// It attempts to invoke the LLM and parse the result.
+/// If parsing fails, it feeds the error back to the LLM to generate a fix.
+#[derive(Clone)]
+pub struct OutputFixingParser<L, P> {
+    llm: L,
+    parser: P,
+    max_retries: usize,
+}
+
+impl<L, P> OutputFixingParser<L, P> {
+    pub fn new(llm: L, parser: P, max_retries: usize) -> Self {
+        Self {
+            llm,
+            parser,
+            max_retries,
+        }
+    }
+}
+
+#[async_trait]
+impl<L, P, O> Runnable<LlmRequest, O> for OutputFixingParser<L, P>
+where
+    L: Runnable<LlmRequest, LlmResponse> + Clone + Send + Sync,
+    P: Runnable<LlmResponse, O> + Clone + Send + Sync,
+    O: Send + Sync + 'static,
+{
+    async fn invoke(&self, input: LlmRequest) -> Result<O, WesichainError> {
+        let mut current_request = input.clone();
+        let mut attempts = 0;
+
+        loop {
+            // 1. Invoke LLM
+            let response = self.llm.invoke(current_request.clone()).await?;
+
+            // 2. Try to parse
+            match self.parser.invoke(response.clone()).await {
+                Ok(output) => return Ok(output),
+                Err(e) => {
+                    attempts += 1;
+                    if attempts >= self.max_retries {
+                        return Err(e);
+                    }
+
+                    // 3. Prepare retry request
+                    // Append bad response and error message
+                    current_request.messages.push(Message {
+                        role: Role::Assistant,
+                        content: response.content,
+                        tool_call_id: None,
+                        tool_calls: Vec::new(),
+                    });
+                    current_request.messages.push(Message {
+                        role: Role::User,
+                        content: format!(
+                            "The previous response failed to parse with error: {}. Please fix the output to match the required format.",
+                            e
+                        ),
+                        tool_call_id: None,
+                        tool_calls: Vec::new(),
+                    });
+                }
+            }
+        }
+    }
+
+    fn stream(&self, input: LlmRequest) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+        futures::stream::once(async move {
+            let _res = self.invoke(input).await?;
+            Ok(StreamEvent::Metadata {
+                key: "fixed_output".to_string(),
+                value: serde_json::to_value("Processing complete").unwrap_or(Value::Null),
+            })
+        })
+        .boxed()
+    }
+
+    fn to_serializable(&self) -> Option<crate::serde::SerializableRunnable> {
+        Some(crate::serde::SerializableRunnable::Parser {
+            kind: "output_fixing".to_string(),
+            target_type: None, 
+        })
+    }
+}
+

@@ -525,3 +525,5 @@ impl Runnable<LlmRequest, LlmResponse> for GoogleClient {
         .boxed()
     }
 }
+
+impl wesichain_core::ToolCallingLlm for GoogleClient {}

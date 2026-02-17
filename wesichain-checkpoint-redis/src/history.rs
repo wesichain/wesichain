@@ -1,7 +1,9 @@
 use fred::interfaces::KeysInterface;
-use wesichain_graph::{
-    Checkpoint, CheckpointMetadata, GraphError, HistoryCheckpointer, StateSchema,
+use wesichain_core::checkpoint::{
+    Checkpoint, CheckpointMetadata, HistoryCheckpointer,
 };
+use wesichain_core::state::StateSchema;
+use wesichain_core::WesichainError;
 
 use crate::keys::{safe_thread_id, ThreadKeys};
 use crate::{checkpoint_error, map_redis_error, RedisCheckpointer};
@@ -14,7 +16,7 @@ where
     async fn list_checkpoints(
         &self,
         thread_id: &str,
-    ) -> Result<Vec<CheckpointMetadata>, GraphError> {
+    ) -> Result<Vec<CheckpointMetadata>, WesichainError> {
         let thread_id = safe_thread_id(thread_id)?;
         let keys = ThreadKeys::new(&self.namespace, thread_id);
 

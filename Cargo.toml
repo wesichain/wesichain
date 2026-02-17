@@ -19,7 +19,7 @@ members = [
   "wesichain-weaviate",
   "wesichain-rag",
   "wesichain-compat",
-  "wesichain-macros",
+  "wesichain-macros", "wesichain-memory",
 ]
 resolver = "2"
 

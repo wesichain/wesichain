@@ -26,6 +26,18 @@ pub enum WesichainError {
     Custom(String),
 }
 
+impl From<EmbeddingError> for WesichainError {
+    fn from(err: EmbeddingError) -> Self {
+        WesichainError::Custom(err.to_string())
+    }
+}
+
+impl From<StoreError> for WesichainError {
+    fn from(err: StoreError) -> Self {
+        WesichainError::Custom(err.to_string())
+    }
+}
+
 #[derive(Debug)]
 pub enum EmbeddingError {
     InvalidResponse(String),

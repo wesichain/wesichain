@@ -22,6 +22,7 @@ mod value;
 mod vector_store;
 pub mod state;
 pub mod checkpoint;
+pub mod prelude;
 
 pub use agent_event::AgentEvent;
 pub use binding::{Bindable, RunnableBinding};
@@ -39,7 +40,8 @@ pub use llm::{
 };
 pub use metadata_filter::MetadataFilter;
 pub use output_parsers::{
-    BaseOutputParser, JsonOutputParser, StrOutputParser, StructuredOutputParser,
+    BaseOutputParser, JsonOutputParser, OutputFixingParser, StrOutputParser,
+    StructuredOutputParser,
 };
 pub use persistence::{load_runnable, reconstruct, save_runnable};
 pub use react::{HasFinalOutput, HasUserInput, ReActStep, ScratchpadState};

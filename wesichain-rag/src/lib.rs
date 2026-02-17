@@ -22,6 +22,8 @@ pub enum RagError {
     NotImplemented(&'static str),
     #[error(transparent)]
     Graph(#[from] GraphError),
+    #[error(transparent)]
+    Wesichain(#[from] WesichainError),
     #[error("retrieval error: {0}")]
     Retrieval(#[from] wesichain_retrieval::RetrievalError),
     #[error("ingestion error: {0}")]
@@ -127,11 +129,11 @@ impl<S: StateSchema> SharedCheckpointer<S> {
 
 #[async_trait::async_trait]
 impl<S: StateSchema> Checkpointer<S> for SharedCheckpointer<S> {
-    async fn save(&self, checkpoint: &Checkpoint<S>) -> Result<(), GraphError> {
+    async fn save(&self, checkpoint: &Checkpoint<S>) -> Result<(), WesichainError> {
         self.inner.save(checkpoint).await
     }
 
-    async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, GraphError> {
+    async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, WesichainError> {
         self.inner.load(thread_id).await
     }
 }
@@ -144,7 +146,12 @@ pub struct RagRuntimeState {
     last_answer: Option<String>,
 }
 
-impl StateSchema for RagRuntimeState {}
+impl StateSchema for RagRuntimeState {
+    type Update = Self;
+    fn apply(_current: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 #[derive(Clone, Copy)]
 struct GenerateAnswerNode;

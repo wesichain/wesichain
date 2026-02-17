@@ -21,8 +21,8 @@ async fn async_loader_reads_txt_document() {
 #[tokio::test]
 async fn async_loader_returns_unsupported_extension_error() {
     let dir = tempdir().expect("temp dir");
-    let path = dir.path().join("demo.md");
-    fs::write(&path, "markdown").expect("write temp file");
+    let path = dir.path().join("demo.xyz");
+    fs::write(&path, "unsupported content").expect("write temp file");
 
     let error = load_file_async(path.clone())
         .await
@@ -33,7 +33,7 @@ async fn async_loader_returns_unsupported_extension_error() {
         IngestionError::UnsupportedExtension {
             path: error_path,
             extension,
-        } if error_path == path && extension == "md"
+        } if error_path == path && extension == "xyz"
     ));
 }
 

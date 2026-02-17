@@ -13,10 +13,24 @@ pub struct OpenAiEmbedding {
 }
 
 impl OpenAiEmbedding {
-    pub fn new(client: Client<OpenAIConfig>, model: String, dimension: usize) -> Self {
+    pub fn new(api_key: impl Into<String>, model: impl Into<String>, dimension: usize) -> Self {
+        let config = OpenAIConfig::default().with_api_key(api_key);
+        let client = Client::with_config(config);
         Self {
             client,
-            model,
+            model: model.into(),
+            dimension,
+        }
+    }
+
+    pub fn with_client(
+        client: Client<OpenAIConfig>,
+        model: impl Into<String>,
+        dimension: usize,
+    ) -> Self {
+        Self {
+            client,
+            model: model.into(),
             dimension,
         }
     }

@@ -23,7 +23,7 @@ impl ToolNode {
 
     pub async fn invoke<S>(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError>
     where
-        S: StateSchema + HasToolCalls,
+        S: StateSchema<Update = S> + HasToolCalls,
     {
         <Self as Runnable<GraphState<S>, StateUpdate<S>>>::invoke(self, input).await
     }
@@ -32,7 +32,7 @@ impl ToolNode {
 #[async_trait::async_trait]
 impl<S> Runnable<GraphState<S>, StateUpdate<S>> for ToolNode
 where
-    S: StateSchema + HasToolCalls,
+    S: StateSchema<Update = S> + HasToolCalls,
 {
     async fn invoke(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError> {
         let mut next = input.data.clone();
