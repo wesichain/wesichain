@@ -4,9 +4,9 @@ use std::time::Duration;
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use regex::Regex;
-use serde_json::Value;
+use serde_json::{json, Value};
 use uuid::Uuid;
-use wesichain_core::{CallbackHandler, RunContext, RunType as CoreRunType};
+use wesichain_core::{CallbackHandler, LlmInput, LlmResult, RunContext, RunType as CoreRunType};
 
 use crate::{
     ensure_object, sanitize_value, truncate_value, FlushError, FlushStats, LangSmithConfig,
@@ -93,6 +93,41 @@ impl LangSmithCallbackHandler {
             CoreRunType::Retriever | CoreRunType::Runnable => RunType::Chain,
         }
     }
+
+    fn prepare_llm_inputs(&self, input: &LlmInput) -> Value {
+        let mut invocation_params = serde_json::Map::new();
+        if let Some(temp) = input.temperature {
+            invocation_params.insert("temperature".to_string(), json!(temp));
+        }
+        if let Some(max_tokens) = input.max_tokens {
+            invocation_params.insert("max_tokens".to_string(), json!(max_tokens));
+        }
+        if !input.stop_sequences.is_empty() {
+            invocation_params.insert("stop".to_string(), json!(input.stop_sequences));
+        }
+
+        json!({
+            "model": input.model,
+            "prompt": self.sanitize_object(Value::String(input.prompt.clone())),
+            "invocation_params": invocation_params,
+        })
+    }
+
+    fn prepare_llm_outputs(&self, result: &LlmResult) -> Value {
+        let mut outputs = serde_json::Map::new();
+        outputs.insert("generations".to_string(), json!(result.generations));
+        outputs.insert("model".to_string(), json!(result.model));
+
+        if let Some(usage) = &result.token_usage {
+            outputs.insert("token_usage".to_string(), json!({
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+            }));
+        }
+
+        self.sanitize_object(Value::Object(outputs))
+    }
 }
 
 #[async_trait::async_trait]
@@ -148,6 +183,49 @@ impl CallbackHandler for LangSmithCallbackHandler {
             end_time: Some(Utc::now()),
             outputs: None,
             error: Some(error),
+            duration_ms: Some(duration_ms),
+        };
+        self.exporter.enqueue(event).await;
+        self.maybe_clear_trace(ctx);
+    }
+
+    async fn on_llm_start(&self, ctx: &RunContext, input: &LlmInput) {
+        if !self.should_sample(ctx.trace_id) {
+            return;
+        }
+
+        let inputs = self.prepare_llm_inputs(input);
+        let metadata = serde_json::to_value(&ctx.metadata).unwrap_or(Value::Null);
+        let metadata = self.sanitize_object(metadata);
+
+        let event = RunEvent::Start {
+            run_id: ctx.run_id,
+            parent_run_id: ctx.parent_run_id,
+            trace_id: ctx.trace_id,
+            name: ctx.name.clone(),
+            run_type: RunType::Llm,
+            start_time: DateTime::<Utc>::from(ctx.start_time),
+            inputs,
+            tags: ctx.tags.clone(),
+            metadata,
+            session_name: self.session_name.clone(),
+        };
+        self.exporter.enqueue(event).await;
+    }
+
+    async fn on_llm_end(&self, ctx: &RunContext, result: &LlmResult, duration_ms: u128) {
+        if !self.should_sample(ctx.trace_id) {
+            self.maybe_clear_trace(ctx);
+            return;
+        }
+
+        let outputs = self.prepare_llm_outputs(result);
+
+        let event = RunEvent::Update {
+            run_id: ctx.run_id,
+            end_time: Some(Utc::now()),
+            outputs: Some(outputs),
+            error: None,
             duration_ms: Some(duration_ms),
         };
         self.exporter.enqueue(event).await;
