@@ -89,6 +89,18 @@ pub trait CallbackHandler: Send + Sync {
     async fn on_end(&self, ctx: &RunContext, outputs: &Value, duration_ms: u128);
     async fn on_error(&self, ctx: &RunContext, error: &Value, duration_ms: u128);
     async fn on_stream_chunk(&self, _ctx: &RunContext, _chunk: &Value) {}
+
+    /// Called when an LLM call starts. Override for structured LLM observability.
+    /// Default implementation calls `on_start` with serialized input.
+    async fn on_llm_start(&self, ctx: &RunContext, input: &LlmInput) {
+        self.on_start(ctx, &serde_json::to_value(input).unwrap_or_default()).await
+    }
+
+    /// Called when an LLM call ends. Override for structured LLM observability.
+    /// Default implementation calls `on_end` with serialized result.
+    async fn on_llm_end(&self, ctx: &RunContext, result: &LlmResult, duration_ms: u128) {
+        self.on_end(ctx, &serde_json::to_value(result).unwrap_or_default(), duration_ms).await
+    }
 }
 
 #[derive(Clone, Default)]
@@ -138,6 +150,18 @@ impl CallbackManager {
     pub async fn on_stream_chunk(&self, ctx: &RunContext, chunk: &Value) {
         for handler in &self.handlers {
             handler.on_stream_chunk(ctx, chunk).await;
+        }
+    }
+
+    pub async fn on_llm_start(&self, ctx: &RunContext, input: &LlmInput) {
+        for handler in &self.handlers {
+            handler.on_llm_start(ctx, input).await;
+        }
+    }
+
+    pub async fn on_llm_end(&self, ctx: &RunContext, result: &LlmResult, duration_ms: u128) {
+        for handler in &self.handlers {
+            handler.on_llm_end(ctx, result, duration_ms).await;
         }
     }
 }
