@@ -17,7 +17,9 @@ struct MockState {
 }
 
 impl StateSchema for MockState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let mut new_state = current.clone();
         if !update.input.is_empty() {
             new_state.input = update.input;

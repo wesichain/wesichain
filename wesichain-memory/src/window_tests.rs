@@ -19,7 +19,10 @@ mod tests {
         inputs.insert("input".to_string(), Value::String("One".to_string()));
         let mut outputs = HashMap::new();
         outputs.insert("output".to_string(), Value::String("1".to_string()));
-        memory.save_context(thread_id, &inputs, &outputs).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs, &outputs)
+            .await
+            .unwrap();
 
         let vars = memory.load_memory_variables(thread_id).await.unwrap();
         let history = vars.get("history").unwrap();
@@ -32,7 +35,10 @@ mod tests {
         inputs2.insert("input".to_string(), Value::String("Two".to_string()));
         let mut outputs2 = HashMap::new();
         outputs2.insert("output".to_string(), Value::String("2".to_string()));
-        memory.save_context(thread_id, &inputs2, &outputs2).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs2, &outputs2)
+            .await
+            .unwrap();
 
         let vars = memory.load_memory_variables(thread_id).await.unwrap();
         let history = vars.get("history").unwrap();
@@ -56,12 +62,16 @@ mod tests {
             inputs.insert("input".to_string(), Value::String(format!("Q{}", i)));
             let mut outputs = HashMap::new();
             outputs.insert("output".to_string(), Value::String(format!("A{}", i)));
-            memory.save_context(thread_id, &inputs, &outputs).await.unwrap();
+            memory
+                .save_context(thread_id, &inputs, &outputs)
+                .await
+                .unwrap();
         }
 
         // Should have exactly 4 messages
         let vars = memory.load_memory_variables(thread_id).await.unwrap();
-        let messages: Vec<Message> = serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
+        let messages: Vec<Message> =
+            serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
         assert_eq!(messages.len(), 4);
         assert_eq!(messages[0].content, "Q1");
         assert_eq!(messages[3].content, "A2");
@@ -78,23 +88,33 @@ mod tests {
         inputs1.insert("input".to_string(), Value::String("Q1".to_string()));
         let mut outputs1 = HashMap::new();
         outputs1.insert("output".to_string(), Value::String("A1".to_string()));
-        memory.save_context(thread_id, &inputs1, &outputs1).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs1, &outputs1)
+            .await
+            .unwrap();
 
         let mut inputs2 = HashMap::new();
         inputs2.insert("input".to_string(), Value::String("Q2".to_string()));
         let mut outputs2 = HashMap::new();
         outputs2.insert("output".to_string(), Value::String("A2".to_string()));
-        memory.save_context(thread_id, &inputs2, &outputs2).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs2, &outputs2)
+            .await
+            .unwrap();
 
         let mut inputs3 = HashMap::new();
         inputs3.insert("input".to_string(), Value::String("Q3".to_string()));
         let mut outputs3 = HashMap::new();
         outputs3.insert("output".to_string(), Value::String("A3".to_string()));
-        memory.save_context(thread_id, &inputs3, &outputs3).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs3, &outputs3)
+            .await
+            .unwrap();
 
         // Should have only last 4 messages (Q2, A2, Q3, A3)
         let vars = memory.load_memory_variables(thread_id).await.unwrap();
-        let messages: Vec<Message> = serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
+        let messages: Vec<Message> =
+            serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
         assert_eq!(messages.len(), 4);
         assert_eq!(messages[0].content, "Q2"); // Q1 and A1 dropped
         assert_eq!(messages[1].content, "A2");
@@ -115,7 +135,10 @@ mod tests {
                 inputs.insert("input".to_string(), Value::String(format!("Q{}", i)));
                 let mut outputs = HashMap::new();
                 outputs.insert("output".to_string(), Value::String(format!("A{}", i)));
-                memory1.save_context(thread_id, &inputs, &outputs).await.unwrap();
+                memory1
+                    .save_context(thread_id, &inputs, &outputs)
+                    .await
+                    .unwrap();
             }
         }
 
@@ -123,7 +146,8 @@ mod tests {
         {
             let memory2 = ConversationWindowMemory::new(checkpointer.clone(), 4);
             let vars = memory2.load_memory_variables(thread_id).await.unwrap();
-            let messages: Vec<Message> = serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
+            let messages: Vec<Message> =
+                serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
             assert_eq!(messages.len(), 4);
             assert_eq!(messages[0].content, "Q2");
             assert_eq!(messages[3].content, "A3");
@@ -133,14 +157,18 @@ mod tests {
             inputs.insert("input".to_string(), Value::String("Q4".to_string()));
             let mut outputs = HashMap::new();
             outputs.insert("output".to_string(), Value::String("A4".to_string()));
-            memory2.save_context(thread_id, &inputs, &outputs).await.unwrap();
+            memory2
+                .save_context(thread_id, &inputs, &outputs)
+                .await
+                .unwrap();
         }
 
         // Third memory instance should see last 4 (Q3, A3, Q4, A4)
         {
             let memory3 = ConversationWindowMemory::new(checkpointer.clone(), 4);
             let vars = memory3.load_memory_variables(thread_id).await.unwrap();
-            let messages: Vec<Message> = serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
+            let messages: Vec<Message> =
+                serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
             assert_eq!(messages.len(), 4);
             assert_eq!(messages[0].content, "Q3"); // Q2, A2 dropped
             assert_eq!(messages[3].content, "A4");
@@ -158,14 +186,18 @@ mod tests {
         inputs.insert("input".to_string(), Value::String("Hello".to_string()));
         let mut outputs = HashMap::new();
         outputs.insert("output".to_string(), Value::String("Hi".to_string()));
-        memory.save_context(thread_id, &inputs, &outputs).await.unwrap();
+        memory
+            .save_context(thread_id, &inputs, &outputs)
+            .await
+            .unwrap();
 
         // Clear
         memory.clear(thread_id).await.unwrap();
 
         // Should be empty
         let vars = memory.load_memory_variables(thread_id).await.unwrap();
-        let messages: Vec<Message> = serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
+        let messages: Vec<Message> =
+            serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
         assert_eq!(messages.len(), 0);
     }
 }

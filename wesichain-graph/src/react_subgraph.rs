@@ -149,7 +149,13 @@ impl AgentNode {
 #[async_trait::async_trait]
 impl<S> GraphNode<S> for AgentNode
 where
-    S: StateSchema<Update = S> + ScratchpadState + HasUserInput + HasFinalOutput + Default + Send + Sync,
+    S: StateSchema<Update = S>
+        + ScratchpadState
+        + HasUserInput
+        + HasFinalOutput
+        + Default
+        + Send
+        + Sync,
 {
     async fn invoke_with_context(
         &self,
@@ -403,7 +409,13 @@ impl ReActGraphBuilder {
 
     pub fn build<S>(self) -> Result<ExecutableGraph<S>, GraphError>
     where
-        S: StateSchema<Update = S> + ScratchpadState + HasUserInput + HasFinalOutput + Default + Send + Sync,
+        S: StateSchema<Update = S>
+            + ScratchpadState
+            + HasUserInput
+            + HasFinalOutput
+            + Default
+            + Send
+            + Sync,
     {
         let llm = self
             .llm

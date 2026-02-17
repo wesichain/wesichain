@@ -1,7 +1,5 @@
 use fred::interfaces::KeysInterface;
-use wesichain_core::checkpoint::{
-    Checkpoint, CheckpointMetadata, HistoryCheckpointer,
-};
+use wesichain_core::checkpoint::{Checkpoint, CheckpointMetadata, HistoryCheckpointer};
 use wesichain_core::state::StateSchema;
 use wesichain_core::WesichainError;
 

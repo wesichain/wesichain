@@ -47,7 +47,11 @@ where
         }
     }
 
-    pub fn with_prefixes(mut self, human_prefix: impl Into<String>, ai_prefix: impl Into<String>) -> Self {
+    pub fn with_prefixes(
+        mut self,
+        human_prefix: impl Into<String>,
+        ai_prefix: impl Into<String>,
+    ) -> Self {
         self.human_prefix = human_prefix.into();
         self.ai_prefix = ai_prefix.into();
         self
@@ -77,10 +81,7 @@ where
         // For buffer memory, we can return messages as a list of objects or a string.
         // Returning as a JSON value of messages array for now.
         let mut vars = HashMap::new();
-        vars.insert(
-            self.memory_key.clone(),
-            serde_json::to_value(messages)?,
-        );
+        vars.insert(self.memory_key.clone(), serde_json::to_value(messages)?);
 
         Ok(vars)
     }
@@ -97,7 +98,7 @@ where
             .or_else(|| inputs.get("question"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        
+
         let output_text = outputs
             .get("output")
             .or_else(|| outputs.get("text"))
@@ -145,7 +146,7 @@ where
     }
 
     async fn clear(&self, thread_id: &str) -> Result<(), WesichainError> {
-         let new_checkpoint = Checkpoint::new(
+        let new_checkpoint = Checkpoint::new(
             thread_id.to_string(),
             wesichain_core::state::GraphState::new(CheckpointMemoryState::default()),
             0, // Reset step for clear

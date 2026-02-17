@@ -27,10 +27,10 @@ where
                 "EnsembleRetriever requires at least one retriever".to_string(),
             ));
         }
-        
+
         let count = retrievers.len();
         let weights = vec![1.0 / count as f32; count];
-        
+
         Ok(Self {
             retrievers,
             weights,
@@ -51,7 +51,7 @@ where
             self.retrievers.len(),
             "Weights length must match retrievers length"
         );
-        
+
         // Normalize weights
         let sum: f32 = weights.iter().sum();
         self.weights = weights.iter().map(|w| w / sum).collect();
@@ -67,13 +67,9 @@ where
     }
 
     /// Compute Reciprocal Rank Fusion score for a document.
-    fn compute_rrf_score(
-        &self,
-        doc_id: &str,
-        results_per_retriever: &[Vec<SearchResult>],
-    ) -> f32 {
+    fn compute_rrf_score(&self, doc_id: &str, results_per_retriever: &[Vec<SearchResult>]) -> f32 {
         let mut total_score = 0.0;
-        
+
         for (retriever_idx, results) in results_per_retriever.iter().enumerate() {
             if let Some(rank) = results.iter().position(|r| {
                 // Match on doc content as ID proxy since we don't have stable IDs
@@ -83,7 +79,7 @@ where
                 total_score += self.weights[retriever_idx] * rrf;
             }
         }
-        
+
         total_score
     }
 }
@@ -101,17 +97,17 @@ where
     ) -> Result<Vec<SearchResult>, RetrievalError> {
         // Run all retrievers in parallel
         let mut handles = Vec::new();
-        
+
         for retriever in &self.retrievers {
             let retriever = retriever.clone();
             let query = query.to_string();
             let filter = filter.cloned();
-            
+
             handles.push(tokio::spawn(async move {
                 retriever.retrieve(&query, top_k, filter.as_ref()).await
             }));
         }
-        
+
         // Collect results
         let mut results_per_retriever = Vec::new();
         for handle in handles {
@@ -126,25 +122,26 @@ where
                 }
             }
         }
-        
+
         // Deduplicate and score using RRF
         let mut doc_scores: HashMap<String, (f32, Document)> = HashMap::new();
-        
+
         for results in &results_per_retriever {
             for result in results {
                 let doc_id = result.document.content.clone(); // Use content as ID
-                
+
                 doc_scores.entry(doc_id).or_insert_with(|| {
-                    let score = self.compute_rrf_score(&result.document.content, &results_per_retriever);
+                    let score =
+                        self.compute_rrf_score(&result.document.content, &results_per_retriever);
                     (score, result.document.clone())
                 });
             }
         }
-        
+
         // Sort by score and return top_k
         let mut scored_docs: Vec<(f32, Document)> = doc_scores.into_values().collect();
         scored_docs.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-        
+
         Ok(scored_docs
             .into_iter()
             .take(top_k)

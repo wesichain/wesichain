@@ -473,8 +473,9 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
                                                 ctx.queue.iter().cloned().collect(),
                                             );
                                             if let Err(err) = checkpointer.save(&checkpoint).await {
-                                                ctx.pending_events
-                                                    .push_back(GraphEvent::Error(GraphError::from(err)));
+                                                ctx.pending_events.push_back(GraphEvent::Error(
+                                                    GraphError::from(err),
+                                                ));
                                                 ctx.join_set.shutdown().await;
                                                 continue;
                                             }
@@ -1137,7 +1138,8 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
                                 obs.on_error(&current, &graph_err).await;
                             }
                             if let Some((manager, root)) = &callbacks {
-                                let error_value = ensure_object(graph_err.to_string().to_trace_output());
+                                let error_value =
+                                    ensure_object(graph_err.to_string().to_trace_output());
                                 let duration_ms = root.start_instant.elapsed().as_millis();
                                 manager.on_error(root, &error_value, duration_ms).await;
                             }

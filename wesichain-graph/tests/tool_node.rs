@@ -11,7 +11,12 @@ struct AgentState {
     tool_results: Vec<Message>,
 }
 
-impl StateSchema for AgentState {}
+impl StateSchema for AgentState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 impl HasToolCalls for AgentState {
     fn tool_calls(&self) -> &Vec<ToolCall> {

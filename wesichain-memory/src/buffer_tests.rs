@@ -43,12 +43,12 @@ mod tests {
 
         // 4. Save another turn
         let mut inputs2 = HashMap::new();
-        inputs2.insert("input".to_string(), Value::String("How are you?".to_string()));
-        let mut outputs2 = HashMap::new();
-        outputs2.insert(
-            "output".to_string(),
-            Value::String("I'm good".to_string()),
+        inputs2.insert(
+            "input".to_string(),
+            Value::String("How are you?".to_string()),
         );
+        let mut outputs2 = HashMap::new();
+        outputs2.insert("output".to_string(), Value::String("I'm good".to_string()));
 
         memory
             .save_context(thread_id, &inputs2, &outputs2)

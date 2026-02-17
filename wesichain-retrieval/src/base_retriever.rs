@@ -4,7 +4,7 @@ use wesichain_core::{MetadataFilter, SearchResult};
 use crate::error::RetrievalError;
 
 /// Base trait for document retrievers.
-/// 
+///
 /// Retrievers take a query string and return relevant documents from a backing store.
 /// This trait abstracts over different retrieval strategies (vector search, keyword search,
 /// hybrid approaches, etc.).

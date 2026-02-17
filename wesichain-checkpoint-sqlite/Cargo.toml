@@ -21,4 +21,5 @@ wesichain-core = { path = "../wesichain-core", version = "0.2.0" }
 async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1", features = ["macros", "rt"] }
+wesichain-graph = { path = "../wesichain-graph", version = "0.2.0" }
 wesichain-core = { path = "../wesichain-core", version = "0.2.0" }

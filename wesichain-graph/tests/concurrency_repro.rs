@@ -10,7 +10,9 @@ struct ConcurrencyState {
 }
 
 impl StateSchema for ConcurrencyState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let mut logs = current.logs.clone();
         logs.extend(update.logs);
         ConcurrencyState { logs }

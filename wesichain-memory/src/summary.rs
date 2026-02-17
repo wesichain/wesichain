@@ -79,7 +79,11 @@ where
         self
     }
 
-    async fn summarize(&self, current_summary: &str, new_messages: &[Message]) -> Result<String, WesichainError> {
+    async fn summarize(
+        &self,
+        current_summary: &str,
+        new_messages: &[Message],
+    ) -> Result<String, WesichainError> {
         let new_lines = new_messages
             .iter()
             .map(|m| {
@@ -132,9 +136,12 @@ where
 
         // Return summary + recent buffer messages
         let mut content_parts = Vec::new();
-        
+
         if !state.summary.is_empty() {
-            content_parts.push(format!("Summary of earlier conversation:\n{}", state.summary));
+            content_parts.push(format!(
+                "Summary of earlier conversation:\n{}",
+                state.summary
+            ));
         }
 
         if !state.buffer.is_empty() {
@@ -209,8 +216,10 @@ where
         if state.buffer.len() > self.buffer_size {
             let to_summarize = state.buffer.len() - self.buffer_size;
             let messages_to_summarize: Vec<Message> = state.buffer.drain(..to_summarize).collect();
-            
-            state.summary = self.summarize(&state.summary, &messages_to_summarize).await?;
+
+            state.summary = self
+                .summarize(&state.summary, &messages_to_summarize)
+                .await?;
         }
 
         // Save new checkpoint

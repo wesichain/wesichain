@@ -47,10 +47,7 @@ impl Runnable<String, String> for MockStreamingRunnable {
         Ok("result".to_string())
     }
 
-    fn stream(
-        &self,
-        _input: String,
-    ) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+    fn stream(&self, _input: String) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
         stream::iter(vec![
             Ok(StreamEvent::ContentChunk("Hello".to_string())),
             Ok(StreamEvent::ContentChunk(" World".to_string())),
@@ -64,16 +61,15 @@ async fn traced_runnable_stream_fires_callbacks() {
     let handler = Arc::new(RecordingHandler::new());
     let manager = CallbackManager::new(vec![handler.clone()]);
 
-    let parent = RunContext::root(RunType::Chain, "parent".to_string(), vec![], BTreeMap::new());
+    let parent = RunContext::root(
+        RunType::Chain,
+        "parent".to_string(),
+        vec![],
+        BTreeMap::new(),
+    );
 
     let inner = MockStreamingRunnable;
-    let traced = TracedRunnable::new(
-        inner,
-        manager,
-        parent,
-        RunType::Chain,
-        "test".to_string(),
-    );
+    let traced = TracedRunnable::new(inner, manager, parent, RunType::Chain, "test".to_string());
 
     let mut stream = traced.stream("input".to_string());
     while let Some(_event) = stream.next().await {}

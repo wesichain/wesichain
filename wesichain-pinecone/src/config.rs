@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use crate::client::PineconeHttpClient;
 use crate::store::PineconeVectorStore;
 use crate::PineconeStoreError;
+use std::sync::Arc;
 use wesichain_core::Embedding;
 
 pub struct PineconeStoreBuilder {

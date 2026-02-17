@@ -15,7 +15,12 @@ struct DemoState {
     docs: Vec<Document>,
 }
 
-impl StateSchema for DemoState {}
+impl StateSchema for DemoState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 impl HasQuery for DemoState {
     fn query(&self) -> &str {

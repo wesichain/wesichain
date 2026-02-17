@@ -101,7 +101,7 @@ async fn test_multi_query_deduplication() {
 
     // Setup: Mock retriever with overlapping results
     let mut results_map = HashMap::new();
-    
+
     // Original query returns doc1 and doc2
     results_map.insert(
         "what is machine learning?".to_string(),
@@ -110,7 +110,7 @@ async fn test_multi_query_deduplication() {
             create_search_result("doc2", "Machine learning...", 0.8),
         ],
     );
-    
+
     // Variant 1 returns doc2 (duplicate) and doc3
     results_map.insert(
         "what is AI?".to_string(),
@@ -119,7 +119,7 @@ async fn test_multi_query_deduplication() {
             create_search_result("doc3", "AI definition...", 0.75),
         ],
     );
-    
+
     // Variant 2 returns doc1 (duplicate) and doc4
     results_map.insert(
         "artificial intelligence definition".to_string(),
@@ -130,10 +130,9 @@ async fn test_multi_query_deduplication() {
     );
 
     let mock_retriever = MockRetriever::new(results_map);
-    
+
     // Create MultiQueryRetriever
-    let multi_query = MultiQueryRetriever::new(mock_llm, mock_retriever)
-        .with_num_queries(2);
+    let multi_query = MultiQueryRetriever::new(mock_llm, mock_retriever).with_num_queries(2);
 
     // Execute
     let results = multi_query
@@ -143,7 +142,7 @@ async fn test_multi_query_deduplication() {
 
     // Should have 4 unique documents (doc1, doc2, doc3, doc4)
     assert_eq!(results.len(), 4);
-    
+
     // Check all unique IDs are present
     let ids: Vec<_> = results.iter().map(|r| r.document.id.as_str()).collect();
     assert!(ids.contains(&"doc1"));

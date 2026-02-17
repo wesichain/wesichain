@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use wesichain_core::{Document, MetadataFilter, SearchResult};
     use wesichain_retrieval::{BaseRetriever, EnsembleRetriever, RetrievalError};
-    use std::collections::HashMap;
 
     // Mock retriever for testing
     #[derive(Clone)]
@@ -58,9 +58,12 @@ mod tests {
 
         // Should have 4 unique documents
         assert_eq!(results.len(), 4);
-        
+
         // doc2 and doc3 appear in both, so should rank higher
-        let doc_contents: Vec<&str> = results.iter().map(|r| r.document.content.as_str()).collect();
+        let doc_contents: Vec<&str> = results
+            .iter()
+            .map(|r| r.document.content.as_str())
+            .collect();
         assert!(doc_contents.contains(&"doc2"));
         assert!(doc_contents.contains(&"doc3"));
     }
@@ -68,17 +71,11 @@ mod tests {
     #[tokio::test]
     async fn test_ensemble_weighted() {
         let retriever1 = MockRetriever {
-            results: vec![
-                ("doc1".to_string(), 0.9),
-                ("doc2".to_string(), 0.5),
-            ],
+            results: vec![("doc1".to_string(), 0.9), ("doc2".to_string(), 0.5)],
         };
 
         let retriever2 = MockRetriever {
-            results: vec![
-                ("doc2".to_string(), 0.9),
-                ("doc3".to_string(), 0.5),
-            ],
+            results: vec![("doc2".to_string(), 0.9), ("doc3".to_string(), 0.5)],
         };
 
         // Give retriever2 more weight
@@ -101,10 +98,7 @@ mod tests {
         };
 
         let retriever2 = MockRetriever {
-            results: vec![
-                ("doc4".to_string(), 0.8),
-                ("doc5".to_string(), 0.6),
-            ],
+            results: vec![("doc4".to_string(), 0.8), ("doc5".to_string(), 0.6)],
         };
 
         let ensemble = EnsembleRetriever::new(vec![retriever1, retriever2]).unwrap();

@@ -15,7 +15,12 @@ struct ReviewState {
     approved: bool,
 }
 
-impl StateSchema for ReviewState {}
+impl StateSchema for ReviewState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 struct Prepare;
 

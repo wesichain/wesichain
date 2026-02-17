@@ -14,7 +14,8 @@ struct DemoState {
 }
 
 impl StateSchema for DemoState {
-    fn merge(current: &Self, other: Self) -> Self {
+    type Update = Self;
+    fn apply(current: &Self, other: Self) -> Self {
         let mut executed = current.executed.clone();
         executed.extend(other.executed);
         Self { executed }

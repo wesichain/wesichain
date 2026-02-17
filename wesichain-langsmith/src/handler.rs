@@ -119,11 +119,14 @@ impl LangSmithCallbackHandler {
         outputs.insert("model".to_string(), json!(result.model));
 
         if let Some(usage) = &result.token_usage {
-            outputs.insert("token_usage".to_string(), json!({
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
-            }));
+            outputs.insert(
+                "token_usage".to_string(),
+                json!({
+                    "prompt_tokens": usage.prompt_tokens,
+                    "completion_tokens": usage.completion_tokens,
+                    "total_tokens": usage.total_tokens,
+                }),
+            );
         }
 
         self.sanitize_object(Value::Object(outputs))

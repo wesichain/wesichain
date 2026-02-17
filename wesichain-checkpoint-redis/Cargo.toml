@@ -18,3 +18,4 @@ wesichain-core = { path = "../wesichain-core", version = "0.2.0" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+wesichain-graph = { path = "../wesichain-graph", version = "0.2.0" }

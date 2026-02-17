@@ -5,13 +5,13 @@ mod script;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::keys::{index_key, safe_thread_id, ThreadKeys};
+use crate::script::LUA_SAVE;
 use fred::interfaces::{KeysInterface, LuaInterface, SortedSetsInterface};
 use fred::prelude::*;
 use tokio::sync::RwLock;
-use crate::keys::{index_key, safe_thread_id, ThreadKeys};
-use crate::script::LUA_SAVE;
 use wesichain_core::checkpoint::{Checkpoint, Checkpointer};
-use wesichain_core::state::{GraphState, StateSchema};
+use wesichain_core::state::{StateSchema};
 use wesichain_core::WesichainError;
 
 pub use keys::{index_key as redis_index_key, safe_thread_id as validate_thread_id};

@@ -34,7 +34,11 @@ where
         }
     }
 
-    pub fn with_prefixes(mut self, human_prefix: impl Into<String>, ai_prefix: impl Into<String>) -> Self {
+    pub fn with_prefixes(
+        mut self,
+        human_prefix: impl Into<String>,
+        ai_prefix: impl Into<String>,
+    ) -> Self {
         self.human_prefix = human_prefix.into();
         self.ai_prefix = ai_prefix.into();
         self
@@ -62,10 +66,7 @@ where
         };
 
         let mut vars = HashMap::new();
-        vars.insert(
-            self.memory_key.clone(),
-            serde_json::to_value(messages)?,
-        );
+        vars.insert(self.memory_key.clone(), serde_json::to_value(messages)?);
 
         Ok(vars)
     }
@@ -81,7 +82,7 @@ where
             .or_else(|| inputs.get("question"))
             .and_then(|v| v.as_str())
             .unwrap_or("");
-        
+
         let output_text = outputs
             .get("output")
             .or_else(|| outputs.get("text"))
@@ -113,7 +114,7 @@ where
 
         // Update state and trim
         state.messages.extend(new_messages);
-        
+
         if state.messages.len() > self.window_size {
             let start = state.messages.len() - self.window_size;
             state.messages = state.messages[start..].to_vec();
@@ -134,7 +135,7 @@ where
     }
 
     async fn clear(&self, thread_id: &str) -> Result<(), WesichainError> {
-         let new_checkpoint = Checkpoint::new(
+        let new_checkpoint = Checkpoint::new(
             thread_id.to_string(),
             GraphState::new(CheckpointMemoryState::default()),
             0,

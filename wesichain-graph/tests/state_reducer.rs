@@ -8,7 +8,8 @@ struct MergeState {
 }
 
 impl StateSchema for MergeState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+    fn apply(current: &Self, update: Self) -> Self {
         let mut merged = current.clone();
         merged.messages.extend(update.messages);
         merged.count += update.count;
@@ -21,7 +22,12 @@ struct OverrideState {
     count: i32,
 }
 
-impl StateSchema for OverrideState {}
+impl StateSchema for OverrideState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 #[test]
 fn state_merge_appends_and_adds() {

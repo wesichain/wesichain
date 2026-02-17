@@ -21,7 +21,12 @@ struct TestState {
     iteration: u32,
 }
 
-impl StateSchema for TestState {}
+impl StateSchema for TestState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 impl HasUserInput for TestState {
     fn user_input(&self) -> &str {
         &self.input

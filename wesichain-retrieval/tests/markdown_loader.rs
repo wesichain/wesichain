@@ -70,10 +70,7 @@ Even more.
     // Check first header
     let h1 = &headers[0];
     assert_eq!(h1.get("level").and_then(|v| v.as_u64()), Some(1));
-    assert_eq!(
-        h1.get("text").and_then(|v| v.as_str()),
-        Some("Top Level")
-    );
+    assert_eq!(h1.get("text").and_then(|v| v.as_str()), Some("Top Level"));
 
     // Check second header
     let h2 = &headers[1];
@@ -86,10 +83,7 @@ Even more.
     // Check third header
     let h3 = &headers[2];
     assert_eq!(h3.get("level").and_then(|v| v.as_u64()), Some(3));
-    assert_eq!(
-        h3.get("text").and_then(|v| v.as_str()),
-        Some("Third Level")
-    );
+    assert_eq!(h3.get("text").and_then(|v| v.as_str()), Some("Third Level"));
 }
 
 #[tokio::test]

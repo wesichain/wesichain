@@ -269,8 +269,7 @@ where
     fn to_serializable(&self) -> Option<crate::serde::SerializableRunnable> {
         Some(crate::serde::SerializableRunnable::Parser {
             kind: "output_fixing".to_string(),
-            target_type: None, 
+            target_type: None,
         })
     }
 }
-

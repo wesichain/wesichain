@@ -9,7 +9,12 @@ struct DemoState {
     count: i32,
 }
 
-impl StateSchema for DemoState {}
+impl StateSchema for DemoState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

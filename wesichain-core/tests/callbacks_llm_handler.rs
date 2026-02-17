@@ -56,7 +56,12 @@ async fn callback_handler_llm_methods_are_called() {
     let handler = Arc::new(RecordingHandler::new());
     let manager = CallbackManager::new(vec![handler.clone()]);
 
-    let ctx = RunContext::root(RunType::Llm, "test-llm".to_string(), vec![], BTreeMap::new());
+    let ctx = RunContext::root(
+        RunType::Llm,
+        "test-llm".to_string(),
+        vec![],
+        BTreeMap::new(),
+    );
     let input = LlmInput {
         model: "gpt-4".to_string(),
         prompt: "Hello".to_string(),
@@ -93,7 +98,12 @@ async fn default_impl_fallback_to_on_start() {
     });
     let manager = CallbackManager::new(vec![handler.clone()]);
 
-    let ctx = RunContext::root(RunType::Llm, "fallback-test".to_string(), vec![], BTreeMap::new());
+    let ctx = RunContext::root(
+        RunType::Llm,
+        "fallback-test".to_string(),
+        vec![],
+        BTreeMap::new(),
+    );
     let input = LlmInput {
         model: "gpt-3".to_string(),
         prompt: "Test".to_string(),

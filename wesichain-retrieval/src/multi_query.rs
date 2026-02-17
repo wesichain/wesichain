@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 
 use async_trait::async_trait;
-use wesichain_core::{LlmRequest, LlmResponse, Message, MetadataFilter, Role, Runnable, SearchResult};
+use wesichain_core::{
+    LlmRequest, LlmResponse, Message, MetadataFilter, Role, Runnable, SearchResult,
+};
 
 use crate::{BaseRetriever, RetrievalError};
 
@@ -90,11 +92,10 @@ where
             tools: vec![],
         };
 
-        let response = self
-            .llm
-            .invoke(request)
-            .await
-            .map_err(|e| RetrievalError::Other(format!("LLM query generation failed: {}", e)))?;
+        let response =
+            self.llm.invoke(request).await.map_err(|e| {
+                RetrievalError::Other(format!("LLM query generation failed: {}", e))
+            })?;
 
         // Parse JSON response
         let content = response.content.trim();
@@ -120,7 +121,12 @@ where
             .map(|q| {
                 let retriever = self.base_retriever.clone();
                 let query = q.clone();
-                async move { (query.clone(), retriever.retrieve(&query, top_k, filter).await) }
+                async move {
+                    (
+                        query.clone(),
+                        retriever.retrieve(&query, top_k, filter).await,
+                    )
+                }
             })
             .collect();
 

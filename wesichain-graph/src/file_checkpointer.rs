@@ -6,9 +6,7 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    Checkpoint, CheckpointMetadata, Checkpointer, HistoryCheckpointer, StateSchema,
-};
+use crate::{Checkpoint, CheckpointMetadata, Checkpointer, HistoryCheckpointer, StateSchema};
 use wesichain_core::WesichainError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -59,7 +57,8 @@ impl FileCheckpointer {
         if !path.exists() {
             return Ok(1);
         }
-        let file = File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+        let file =
+            File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
         let reader = BufReader::new(file);
         let mut last: Option<CheckpointRecord<S>> = None;
         for line in reader.lines() {
@@ -106,7 +105,8 @@ impl<S: StateSchema> Checkpointer<S> for FileCheckpointer {
         if !path.exists() {
             return Ok(None);
         }
-        let file = File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+        let file =
+            File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
         let reader = BufReader::new(file);
         let mut last: Option<CheckpointRecord<S>> = None;
         for line in reader.lines() {
@@ -133,7 +133,8 @@ impl<S: StateSchema> HistoryCheckpointer<S> for FileCheckpointer {
         if !path.exists() {
             return Ok(Vec::new());
         }
-        let file = File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
+        let file =
+            File::open(&path).map_err(|err| WesichainError::CheckpointFailed(err.to_string()))?;
         let reader = BufReader::new(file);
         let mut history = Vec::new();
         for line in reader.lines() {

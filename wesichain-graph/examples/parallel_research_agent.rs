@@ -20,7 +20,9 @@ struct ResearchState {
 }
 
 impl StateSchema for ResearchState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let query = Overwrite.reduce(current.query.clone(), update.query);
         let plan = Overwrite.reduce(current.plan.clone(), update.plan);
         let findings = Append.reduce(current.findings.clone(), update.findings);

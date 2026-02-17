@@ -112,15 +112,16 @@ async fn load_docx_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionE
 }
 
 async fn load_html_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
-    let html_content = tokio::fs::read_to_string(&path)
-        .await
-        .map_err(|source| IngestionError::Read {
-            path: path.clone(),
-            source,
-        })?;
+    let html_content =
+        tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|source| IngestionError::Read {
+                path: path.clone(),
+                source,
+            })?;
 
     let document = scraper::Html::parse_document(&html_content);
-    
+
     // Extract title
     let title_selector = scraper::Selector::parse("title").unwrap();
     let title = document
@@ -139,9 +140,9 @@ async fn load_html_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionE
 
     // Extract text from body, skipping script/style/nav/header/footer
     let body_selector = scraper::Selector::parse("body").unwrap();
-    
+
     let mut text_parts = Vec::new();
-    
+
     if let Some(body) = document.select(&body_selector).next() {
         extract_text_from_html_element(body, &mut text_parts);
     } else {
@@ -171,14 +172,11 @@ async fn load_html_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionE
     }])
 }
 
-fn extract_text_from_html_element(
-    element: scraper::ElementRef,
-    text_parts: &mut Vec<String>,
-) {
+fn extract_text_from_html_element(element: scraper::ElementRef, text_parts: &mut Vec<String>) {
     use scraper::node::Node;
-    
+
     let mut current_text = String::new();
-    
+
     for child in element.children() {
         match child.value() {
             Node::Element(_) => {
@@ -212,7 +210,7 @@ fn extract_text_from_html_element(
             _ => {}
         }
     }
-    
+
     if !current_text.is_empty() {
         text_parts.push(current_text.trim().to_string());
     }
@@ -261,22 +259,23 @@ fn extract_text_from_html_element(
 /// // Access header hierarchy for splitting or filtering
 /// ```
 async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
-    let markdown_content = tokio::fs::read_to_string(&path)
-        .await
-        .map_err(|source| IngestionError::Read {
-            path: path.clone(),
-            source,
-        })?;
+    let markdown_content =
+        tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|source| IngestionError::Read {
+                path: path.clone(),
+                source,
+            })?;
 
-    use pulldown_cmark::{Event, Parser, Tag, TagEnd, HeadingLevel};
-    
+    use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
+
     let parser = Parser::new(&markdown_content);
-    
+
     let mut text_parts = Vec::new();
     let mut headers = Vec::new();
     let mut current_text = String::new();
     let mut line_number = 0;
-    
+
     for event in parser {
         match event {
             Event::Start(Tag::Heading { level: _, .. }) => {
@@ -295,12 +294,18 @@ async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, Ingest
                         HeadingLevel::H5 => 5,
                         HeadingLevel::H6 => 6,
                     };
-                    
+
                     let mut header_meta = HashMap::new();
-                    header_meta.insert("level".to_string(), Value::Number(serde_json::Number::from(level_num)));
+                    header_meta.insert(
+                        "level".to_string(),
+                        Value::Number(serde_json::Number::from(level_num)),
+                    );
                     header_meta.insert("text".to_string(), Value::String(header_text.clone()));
-                    header_meta.insert("line_start".to_string(), Value::Number(serde_json::Number::from(line_number)));
-                    
+                    header_meta.insert(
+                        "line_start".to_string(),
+                        Value::Number(serde_json::Number::from(line_number)),
+                    );
+
                     headers.push(Value::Object(header_meta.into_iter().collect()));
                     text_parts.push(header_text);
                     current_text.clear();
@@ -322,7 +327,7 @@ async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, Ingest
             _ => {}
         }
     }
-    
+
     if !current_text.is_empty() {
         text_parts.push(current_text.trim().to_string());
     }
@@ -345,7 +350,6 @@ async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, Ingest
         embedding: None,
     }])
 }
-
 
 #[cfg(feature = "pdf")]
 async fn load_pdf_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
