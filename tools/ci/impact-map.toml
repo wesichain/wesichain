@@ -2,6 +2,7 @@
 connector_examples = [
   "wesichain-qdrant:rag_integration",
   "wesichain-chroma:rag_integration",
+  "wesichain-weaviate:rag_integration",
   "wesichain-pinecone:pinecone_rag",
 ]
 
@@ -9,7 +10,8 @@ connector_examples = [
 name = "core_trait_change"
 match = [
   "wesichain-core/Cargo.toml",
+  # NOTE: detect-impact uses Python fnmatch where '*' matches '/'.
+  # Keep one explicit pattern for all Rust source paths under src/.
   "wesichain-core/src/*.rs",
-  "wesichain-core/src/**/*.rs",
 ]
 escalate_group = "connector_examples"

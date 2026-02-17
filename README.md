@@ -143,6 +143,7 @@ Wesichain is modular by default; install only the crates you need.
 | `wesichain-langsmith` | LangSmith-compatible tracing/observability integration | [link](https://crates.io/crates/wesichain-langsmith) | [link](https://docs.rs/wesichain-langsmith) |
 | `wesichain-pinecone` | Pinecone vector store integration | [link](https://crates.io/crates/wesichain-pinecone) | [link](https://docs.rs/wesichain-pinecone) |
 | `wesichain-qdrant` | Qdrant vector store integration | [link](https://crates.io/crates/wesichain-qdrant) | [link](https://docs.rs/wesichain-qdrant) |
+| `wesichain-weaviate` | Weaviate vector store integration | [link](https://crates.io/crates/wesichain-weaviate) | [link](https://docs.rs/wesichain-weaviate) |
 | `wesichain-compat` | Compatibility utilities for migration-oriented workflows | [link](https://crates.io/crates/wesichain-compat) | [link](https://docs.rs/wesichain-compat) |
 
 ---

@@ -42,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="Optional precomputed metrics JSON (overrides criterion parsing)",
     )
+    parser.add_argument(
+        "--criterion-benchmark-name",
+        default="wesichain_payload",
+        help="Criterion benchmark function directory name (default: wesichain_payload)",
+    )
     return parser.parse_args()
 
 
@@ -63,10 +68,10 @@ def load_thresholds(path: Path) -> dict[str, float]:
     return {k: float(section[k]) for k in required}
 
 
-def load_sample_times_ms(criterion_root: Path) -> list[float]:
-    candidates = list(criterion_root.rglob("wesichain_payload/new/sample.json"))
+def load_sample_times_ms(criterion_root: Path, benchmark_name: str) -> list[float]:
+    candidates = list(criterion_root.rglob(f"{benchmark_name}/new/sample.json"))
     if not candidates:
-        raise FileNotFoundError("criterion sample.json not found for wesichain_payload")
+        raise FileNotFoundError(f"criterion sample.json not found for {benchmark_name}")
 
     sample_path = max(candidates, key=lambda candidate: (candidate.stat().st_mtime, str(candidate)))
     sample = json.loads(sample_path.read_text(encoding="utf-8"))
@@ -225,7 +230,10 @@ def build_metrics(args: argparse.Namespace) -> dict[str, float]:
         payload = json.loads(Path(args.metrics_json).read_text(encoding="utf-8"))
         return {k: float(v) for k, v in payload.items()}
 
-    sample_values_ms = load_sample_times_ms(Path(args.criterion_root))
+    sample_values_ms = load_sample_times_ms(
+        Path(args.criterion_root),
+        str(args.criterion_benchmark_name),
+    )
     p50 = percentile(sample_values_ms, 0.50)
     p95 = percentile(sample_values_ms, 0.95)
     p99 = percentile(sample_values_ms, 0.99)

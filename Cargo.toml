@@ -15,6 +15,7 @@ members = [
   "wesichain-pinecone",
   "wesichain-qdrant",
   "wesichain-chroma",
+  "wesichain-weaviate",
   "wesichain-rag",
   "wesichain-compat",
   "wesichain-macros",

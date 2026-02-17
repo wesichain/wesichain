@@ -8,6 +8,10 @@ fn workspace_root() -> PathBuf {
         .to_path_buf()
 }
 
+fn contains_line(content: &str, expected: &str) -> bool {
+    content.lines().any(|line| line.trim() == expected)
+}
+
 #[test]
 fn ci_config_files_exist_and_match_locked_policy() {
     let root = workspace_root();
@@ -46,17 +50,38 @@ fn ci_config_files_exist_and_match_locked_policy() {
     assert!(impact_map.contains("connector_examples"));
     assert!(impact_map.contains("core_trait_change"));
     assert!(impact_map.contains("wesichain-core/src/*.rs"));
+    assert!(
+        impact_map.contains("wesichain-weaviate:rag_integration"),
+        "impact map must include weaviate connector example fan-out"
+    );
 
     let pr_checks = fs::read_to_string(root.join(".github/workflows/pr-checks.yml"))
         .expect("pr-checks.yml must be readable");
     assert!(
-        pr_checks.contains("cargo test -p ${{ matrix.crate }} --tests -- --nocapture"),
+        contains_line(
+            &pr_checks,
+            "run: cargo test -p ${{ matrix.crate }} --tests -- --nocapture"
+        ),
         "PR touched-crate job must run tests"
     );
     assert!(
         pr_checks.contains("connector_examples=${{ steps.detect.outputs.connector_examples }}")
             || pr_checks.contains("connector_examples={json.dumps(connector_examples)}"),
         "PR impact detection must emit connector_examples output"
+    );
+    assert!(
+        contains_line(
+            &pr_checks,
+            "run: cargo bench -p wesichain-weaviate --bench vs_langchain -- --sample-size 10",
+        ),
+        "PR checks must include weaviate advisory benchmark"
+    );
+    assert!(
+        contains_line(
+            &pr_checks,
+            "run: cargo clippy --all-targets --all-features -- -D warnings",
+        ),
+        "PR clippy job must include all-targets and all-features"
     );
 
     let nightly = fs::read_to_string(root.join(".github/workflows/nightly-bench.yml"))
@@ -65,5 +90,19 @@ fn ci_config_files_exist_and_match_locked_policy() {
     assert!(
         nightly.contains("/usr/bin/time -v"),
         "nightly benchmark must capture benchmark process RSS"
+    );
+    assert!(
+        contains_line(
+            &nightly,
+            "cargo bench -p wesichain-weaviate --bench vs_langchain -- --sample-size 10",
+        ),
+        "nightly benchmarks must include weaviate threshold-gated benchmark"
+    );
+    assert!(
+        contains_line(
+            &nightly,
+            "--criterion-benchmark-name wesichain_object_payload \\",
+        ),
+        "nightly weaviate gate must pass explicit criterion benchmark name"
     );
 }
