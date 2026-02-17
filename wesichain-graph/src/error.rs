@@ -26,4 +26,16 @@ pub enum GraphError {
     InvalidToolCallResponse(String),
     #[error("duplicate tool name: {0}")]
     DuplicateToolName(String),
+    #[error("Global execution timed out after {elapsed:?}")]
+    Timeout { node: String, elapsed: std::time::Duration },
+    #[error("Max visits exceeded for node '{node}': limit {max}")]
+    MaxVisitsExceeded { node: String, max: u32 },
+    #[error("Max loop iterations exceeded: node '{node}' visited {max} times on path {path_id}")]
+    MaxLoopIterationsExceeded {
+        node: String,
+        max: u32,
+        path_id: u64,
+    },
+    #[error("system error: {0}")]
+    System(String),
 }
