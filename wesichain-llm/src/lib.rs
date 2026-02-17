@@ -29,4 +29,5 @@ use wesichain_core::Runnable;
 #[deprecated(note = "Use Runnable<LlmRequest, LlmResponse> directly or ToolCallingLlm for advanced features")]
 pub trait Llm: Runnable<LlmRequest, LlmResponse> {}
 
+#[allow(deprecated)]
 impl<T> Llm for T where T: Runnable<LlmRequest, LlmResponse> {}

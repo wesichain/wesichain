@@ -188,19 +188,15 @@ fn extract_text_from_html_element(
                         "script" | "style" | "nav" | "header" | "footer" => continue,
                         _ => {}
                     }
-                    
+
                     // Recursively extract from children
                     extract_text_from_html_element(child_element, text_parts);
-                    
-                    // Add paragraph break after block elements
                     if matches!(
                         child_element.value().name(),
-                        "p" | "div" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" 
-                        | "li" | "blockquote" | "pre" | "br"
-                    ) {
-                        if !current_text.is_empty() {
-                            text_parts.push(std::mem::take(&mut current_text).trim().to_string());
-                        }
+                        "p" | "div" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "blockquote"
+                    ) && !current_text.is_empty()
+                    {
+                        text_parts.push(std::mem::take(&mut current_text).trim().to_string());
                     }
                 }
             }
@@ -305,7 +301,7 @@ async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, Ingest
                     header_meta.insert("text".to_string(), Value::String(header_text.clone()));
                     header_meta.insert("line_start".to_string(), Value::Number(serde_json::Number::from(line_number)));
                     
-                    headers.push(Value::Object(header_meta.into_iter().map(|(k, v)| (k, v)).collect()));
+                    headers.push(Value::Object(header_meta.into_iter().collect()));
                     text_parts.push(header_text);
                     current_text.clear();
                 }

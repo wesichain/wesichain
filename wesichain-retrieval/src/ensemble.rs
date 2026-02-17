@@ -134,10 +134,10 @@ where
             for result in results {
                 let doc_id = result.document.content.clone(); // Use content as ID
                 
-                if !doc_scores.contains_key(&doc_id) {
-                    let score = self.compute_rrf_score(&doc_id, &results_per_retriever);
-                    doc_scores.insert(doc_id, (score, result.document.clone()));
-                }
+                doc_scores.entry(doc_id).or_insert_with(|| {
+                    let score = self.compute_rrf_score(&result.document.content, &results_per_retriever);
+                    (score, result.document.clone())
+                });
             }
         }
         
