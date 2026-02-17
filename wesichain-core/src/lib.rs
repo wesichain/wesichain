@@ -20,12 +20,14 @@ pub mod serde;
 mod tool;
 mod value;
 mod vector_store;
+pub mod state;
+pub mod checkpoint;
 
 pub use agent_event::AgentEvent;
 pub use binding::{Bindable, RunnableBinding};
 pub use callbacks::{
     ensure_object, CallbackHandler, CallbackManager, LlmInput, LlmResult, RunConfig, RunContext,
-    RunType, TokenUsage, ToTraceInput, ToTraceOutput,
+    RunType, TokenUsage, ToTraceInput, ToTraceOutput, TracedRunnable,
 };
 pub use chain::{Chain, RunnableExt, RuntimeChain};
 pub use document::Document;

@@ -12,7 +12,7 @@ mod llm;
 
 pub use llm::{LlmInput, LlmResult, TokenUsage};
 
-// pub use wrappers::TracedRunnable;
+pub use wrappers::TracedRunnable;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RunType {
