@@ -9,6 +9,7 @@ members = [
   "wesichain-checkpoint-sql",
   "wesichain-checkpoint-sqlite",
   "wesichain-checkpoint-postgres",
+  "wesichain-checkpoint-redis",
   "wesichain-embeddings",
   "wesichain-retrieval",
   "wesichain-langsmith",
