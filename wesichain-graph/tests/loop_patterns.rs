@@ -1,11 +1,9 @@
-use std::time::Duration;
-use tokio::time::sleep;
-use wesichain_graph::{
-    GraphBuilder, GraphNode, GraphState, StateSchema, StateUpdate, END,
-    GraphError, ExecutionOptions, GraphContext,
-};
-use wesichain_core::{WesichainError, HasUserInput, HasFinalOutput, ScratchpadState, ReActStep};
 use serde::{Deserialize, Serialize};
+use wesichain_core::{HasFinalOutput, HasUserInput, ReActStep, ScratchpadState, WesichainError};
+use wesichain_graph::{
+    ExecutionOptions, GraphBuilder, GraphContext, GraphError, GraphNode, GraphState, StateSchema,
+    StateUpdate, END,
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct TestState {
@@ -28,13 +26,28 @@ impl StateSchema for TestState {
         }
     }
 }
-impl HasUserInput for TestState { fn user_input(&self) -> &str { "" } }
-impl HasFinalOutput for TestState { fn final_output(&self) -> Option<&str> { None } fn set_final_output(&mut self, _: String) {} }
-impl ScratchpadState for TestState { 
-    fn scratchpad(&self) -> &Vec<ReActStep> { &self.scratchpad } 
-    fn scratchpad_mut(&mut self) -> &mut Vec<ReActStep> { &mut self.scratchpad } 
-    fn iteration_count(&self) -> u32 { 0 } 
-    fn increment_iteration(&mut self) {} 
+impl HasUserInput for TestState {
+    fn user_input(&self) -> &str {
+        ""
+    }
+}
+impl HasFinalOutput for TestState {
+    fn final_output(&self) -> Option<&str> {
+        None
+    }
+    fn set_final_output(&mut self, _: String) {}
+}
+impl ScratchpadState for TestState {
+    fn scratchpad(&self) -> &Vec<ReActStep> {
+        &self.scratchpad
+    }
+    fn scratchpad_mut(&mut self) -> &mut Vec<ReActStep> {
+        &mut self.scratchpad
+    }
+    fn iteration_count(&self) -> u32 {
+        0
+    }
+    fn increment_iteration(&mut self) {}
 }
 
 struct PassNode {
@@ -43,7 +56,11 @@ struct PassNode {
 
 #[async_trait::async_trait]
 impl GraphNode<TestState> for PassNode {
-    async fn invoke_with_context(&self, _: GraphState<TestState>, _: &GraphContext) -> Result<StateUpdate<TestState>, WesichainError> {
+    async fn invoke_with_context(
+        &self,
+        _: GraphState<TestState>,
+        _: &GraphContext,
+    ) -> Result<StateUpdate<TestState>, WesichainError> {
         Ok(StateUpdate::new(TestState {
             value: vec![self.name.clone()],
             ..Default::default()
@@ -60,10 +77,30 @@ impl GraphNode<TestState> for PassNode {
 #[tokio::test]
 async fn test_diamond_pattern() {
     let builder = GraphBuilder::<TestState>::new()
-        .add_node("A", PassNode { name: "A".to_string() })
-        .add_node("B", PassNode { name: "B".to_string() })
-        .add_node("C", PassNode { name: "C".to_string() })
-        .add_node("D", PassNode { name: "D".to_string() })
+        .add_node(
+            "A",
+            PassNode {
+                name: "A".to_string(),
+            },
+        )
+        .add_node(
+            "B",
+            PassNode {
+                name: "B".to_string(),
+            },
+        )
+        .add_node(
+            "C",
+            PassNode {
+                name: "C".to_string(),
+            },
+        )
+        .add_node(
+            "D",
+            PassNode {
+                name: "D".to_string(),
+            },
+        )
         .set_entry("A")
         .add_edge("A", "B")
         .add_edge("A", "C")
@@ -85,8 +122,11 @@ async fn test_diamond_pattern() {
     };
 
     let result = graph.invoke_graph_with_options(input, options).await;
-    assert!(result.is_ok(), "Diamond pattern should succeed: with max_loop=1, D visited once per path");
-    
+    assert!(
+        result.is_ok(),
+        "Diamond pattern should succeed: with max_loop=1, D visited once per path"
+    );
+
     let state = result.unwrap();
     // A, B, C, D should be in value
     assert!(state.data.value.contains(&"D".to_string()));
@@ -98,8 +138,18 @@ async fn test_diamond_pattern() {
 #[tokio::test]
 async fn test_infinite_loop() {
     let builder = GraphBuilder::<TestState>::new()
-        .add_node("A", PassNode { name: "A".to_string() })
-        .add_node("B", PassNode { name: "B".to_string() })
+        .add_node(
+            "A",
+            PassNode {
+                name: "A".to_string(),
+            },
+        )
+        .add_node(
+            "B",
+            PassNode {
+                name: "B".to_string(),
+            },
+        )
         .set_entry("A")
         .add_edge("A", "B")
         .add_edge("B", "A");
@@ -119,7 +169,7 @@ async fn test_infinite_loop() {
     };
 
     let result = graph.invoke_graph_with_options(input, options).await;
-    
+
     match result {
         Err(GraphError::MaxLoopIterationsExceeded { node, max, .. }) => {
             assert_eq!(node, "A");

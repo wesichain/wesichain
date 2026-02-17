@@ -1,8 +1,7 @@
-use std::sync::Arc;
 use futures::StreamExt;
-use wesichain_core::{Runnable, WesichainError};
-use wesichain_graph::{GraphBuilder, GraphState, StateSchema, StateUpdate, START, END};
 use serde::{Deserialize, Serialize};
+use wesichain_core::{Runnable, WesichainError};
+use wesichain_graph::{GraphBuilder, GraphState, StateSchema, StateUpdate, END, START};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 struct TestState {
@@ -23,7 +22,10 @@ struct AppendNode {
 
 #[async_trait::async_trait]
 impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for AppendNode {
-    async fn invoke(&self, input: GraphState<TestState>) -> Result<StateUpdate<TestState>, WesichainError> {
+    async fn invoke(
+        &self,
+        _input: GraphState<TestState>,
+    ) -> Result<StateUpdate<TestState>, WesichainError> {
         Ok(StateUpdate::new(TestState {
             value: self.suffix.clone(),
         }))
@@ -41,7 +43,12 @@ impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for AppendNode {
 async fn test_subgraph_composition() {
     // 1. Build Subgraph
     let subgraph = GraphBuilder::<TestState>::new()
-        .add_node("sub_node", AppendNode { suffix: "sub".to_string() })
+        .add_node(
+            "sub_node",
+            AppendNode {
+                suffix: "sub".to_string(),
+            },
+        )
         .add_edge(START, "sub_node")
         .add_edge("sub_node", END)
         .set_entry("sub_node")
@@ -50,14 +57,16 @@ async fn test_subgraph_composition() {
     // 2. Build Parent Graph wrapping Subgraph
     // This fails to compile if ExecutableGraph doesn't implement Runnable (or GraphNode)
     let parent = GraphBuilder::<TestState>::new()
-        .add_node("subgraph_node", subgraph) 
+        .add_node("subgraph_node", subgraph)
         .add_edge(START, "subgraph_node")
         .add_edge("subgraph_node", END)
         .set_entry("subgraph_node")
         .build();
 
     // 3. Execute
-    let input = GraphState::new(TestState { value: "start".to_string() });
+    let input = GraphState::new(TestState {
+        value: "start".to_string(),
+    });
     let result = parent.invoke(input).await.expect("Execution failed");
 
     // Expected: start -> sub

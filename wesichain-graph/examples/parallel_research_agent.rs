@@ -1,11 +1,12 @@
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use serde::{Deserialize, Serialize};
 
 use wesichain_core::WesichainError;
 use wesichain_graph::{
-    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, END,
-    state::{Reducer, Append, Overwrite},
+    state::{Append, Overwrite, Reducer},
+    ExecutionConfig, GraphBuilder, GraphContext, GraphNode, GraphState, StateSchema, StateUpdate,
+    END,
 };
 
 // --- State ---
@@ -23,7 +24,7 @@ impl StateSchema for ResearchState {
         let query = Overwrite.reduce(current.query.clone(), update.query);
         let plan = Overwrite.reduce(current.plan.clone(), update.plan);
         let findings = Append.reduce(current.findings.clone(), update.findings);
-        
+
         ResearchState {
             query,
             plan,
@@ -47,14 +48,14 @@ impl GraphNode<ResearchState> for PlannerNode {
     ) -> Result<StateUpdate<ResearchState>, WesichainError> {
         println!("Planner: Analyzing query '{}'...", input.data.query);
         sleep(Duration::from_millis(50)).await; // Thinking time
-        
+
         let plan = vec![
             "search_web".to_string(),
             "search_arxiv".to_string(),
             "search_wiki".to_string(),
         ];
         println!("Planner: Decided to run: {:?}", plan);
-        
+
         // Update plan in state (optional, just for record)
         Ok(StateUpdate::new(ResearchState {
             plan,
@@ -67,7 +68,11 @@ impl GraphNode<ResearchState> for PlannerNode {
 struct WebSearchNode;
 #[async_trait::async_trait]
 impl GraphNode<ResearchState> for WebSearchNode {
-    async fn invoke_with_context(&self, _input: GraphState<ResearchState>, _: &GraphContext) -> Result<StateUpdate<ResearchState>, WesichainError> {
+    async fn invoke_with_context(
+        &self,
+        _input: GraphState<ResearchState>,
+        _: &GraphContext,
+    ) -> Result<StateUpdate<ResearchState>, WesichainError> {
         println!("  -> WebSearch: Searching...");
         sleep(Duration::from_millis(200)).await; // Latency
         println!("  <- WebSearch: Found 'Fusion breakthrough 2025'");
@@ -81,7 +86,11 @@ impl GraphNode<ResearchState> for WebSearchNode {
 struct ArxivSearchNode;
 #[async_trait::async_trait]
 impl GraphNode<ResearchState> for ArxivSearchNode {
-    async fn invoke_with_context(&self, _input: GraphState<ResearchState>, _: &GraphContext) -> Result<StateUpdate<ResearchState>, WesichainError> {
+    async fn invoke_with_context(
+        &self,
+        _input: GraphState<ResearchState>,
+        _: &GraphContext,
+    ) -> Result<StateUpdate<ResearchState>, WesichainError> {
         println!("  -> ArxivSearch: Searching...");
         sleep(Duration::from_millis(300)).await; // Slower latency
         println!("  <- ArxivSearch: Found 'Magnetic confinement stability analysis'");
@@ -95,7 +104,11 @@ impl GraphNode<ResearchState> for ArxivSearchNode {
 struct WikiSearchNode;
 #[async_trait::async_trait]
 impl GraphNode<ResearchState> for WikiSearchNode {
-    async fn invoke_with_context(&self, _input: GraphState<ResearchState>, _: &GraphContext) -> Result<StateUpdate<ResearchState>, WesichainError> {
+    async fn invoke_with_context(
+        &self,
+        _input: GraphState<ResearchState>,
+        _: &GraphContext,
+    ) -> Result<StateUpdate<ResearchState>, WesichainError> {
         println!("  -> WikiSearch: Searching...");
         sleep(Duration::from_millis(150)).await; // Fast latency
         println!("  <- WikiSearch: Found 'Fusion power overview'");
@@ -115,11 +128,14 @@ impl GraphNode<ResearchState> for EditorNode {
         input: GraphState<ResearchState>,
         _context: &GraphContext,
     ) -> Result<StateUpdate<ResearchState>, WesichainError> {
-        println!("Editor: Reviewing {} findings...", input.data.findings.len());
+        println!(
+            "Editor: Reviewing {} findings...",
+            input.data.findings.len()
+        );
         // Simple aggregation logic
         let summary = format!("Comparison of {} sources.", input.data.findings.len());
         println!("Editor: Final summary: {}", summary);
-        
+
         // In a real agent, this would be the final answer.
         Ok(StateUpdate::new(ResearchState::default()))
     }
@@ -140,9 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .add_node("search_arxiv", ArxivSearchNode)
         .add_node("search_wiki", WikiSearchNode)
         .add_node("editor", EditorNode)
-        
         .set_entry("planner")
-        
         // Conditional Edge from Planner -> [Web, Arxiv, Wiki]
         .add_conditional_edge("planner", |state: &GraphState<ResearchState>| {
             // In a real app, this would read state.plan
@@ -158,12 +172,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 vec![END.to_string()]
             }
         })
-        
         // Fan-in: All tools -> Editor
         .add_edge("search_web", "editor")
         .add_edge("search_arxiv", "editor")
         .add_edge("search_wiki", "editor")
-        
         .add_edge("editor", END);
 
     let graph = builder.build();
@@ -175,7 +187,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Starting execution...");
     let start = Instant::now();
-    let result = graph.invoke(GraphState::new(initial_state)).await.expect("Graph failed");
+    let result = graph
+        .invoke(GraphState::new(initial_state))
+        .await
+        .expect("Graph failed");
     let duration = start.elapsed();
 
     println!("\n=== Results ===");
@@ -194,11 +209,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         println!("\n❌ FAILURE: Execution was SEQUENTIAL (took >= 500ms).");
     }
-    
+
     if result.data.findings.len() == 3 {
         println!("✅ SUCCESS: All 3 findings merged correctly.");
     } else {
-        println!("❌ FAILURE: Missing findings. Expected 3, got {}.", result.data.findings.len());
+        println!(
+            "❌ FAILURE: Missing findings. Expected 3, got {}.",
+            result.data.findings.len()
+        );
     }
 
     Ok(())

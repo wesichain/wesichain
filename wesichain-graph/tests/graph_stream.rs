@@ -41,5 +41,5 @@ async fn stream_emits_node_events() {
     let state = GraphState::new(DemoState { count: 0 });
     let mut events = graph.stream_invoke(state);
     let first = events.next().await.unwrap().unwrap();
-    assert!(matches!(first, GraphEvent::NodeEnter { node } if node == "inc"));
+    assert!(matches!(first, GraphEvent::NodeEnter { node, .. } if node == "inc"));
 }

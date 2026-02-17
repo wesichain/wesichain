@@ -1,14 +1,11 @@
-
+use futures::stream::{self, BoxStream, StreamExt};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use wesichain_core::{
-    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep,
-    ScratchpadState, Tool, ToolCallingLlm, WesichainError, Value, Runnable, ToolError, StreamEvent
+    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, ReActStep, Runnable, ScratchpadState,
+    StreamEvent, Tool, ToolCallingLlm, ToolError, Value, WesichainError,
 };
-use wesichain_graph::{
-    GraphState, StateSchema, ReActGraphBuilder,
-};
-use serde::{Deserialize, Serialize};
-use futures::stream::{self, BoxStream, StreamExt};
+use wesichain_graph::{GraphState, ReActGraphBuilder, StateSchema};
 
 // --- Mock State ---
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
@@ -27,17 +24,17 @@ impl StateSchema for MockState {
         }
         // Append scratchpad steps
         new_state.scratchpad.extend(update.scratchpad);
-        
+
         if update.final_output.is_some() {
             new_state.final_output = update.final_output;
         }
-        
+
         // Take max iteration count? Or purely local?
-        // Usually iteration count is kept in the loop context, 
-        // but StateSchema can merge it if needed. 
+        // Usually iteration count is kept in the loop context,
+        // but StateSchema can merge it if needed.
         // For ReAct, we usually just want to track it.
         new_state.iteration_count = update.iteration_count.max(current.iteration_count);
-        
+
         new_state
     }
 }
@@ -52,7 +49,7 @@ impl HasFinalOutput for MockState {
     fn final_output(&self) -> Option<&str> {
         self.final_output.as_deref()
     }
-    
+
     fn set_final_output(&mut self, output: String) {
         self.final_output = Some(output);
     }
@@ -66,7 +63,7 @@ impl ScratchpadState for MockState {
     fn scratchpad_mut(&mut self) -> &mut Vec<ReActStep> {
         &mut self.scratchpad
     }
-    
+
     fn iteration_count(&self) -> u32 {
         self.iteration_count
     }
@@ -173,13 +170,16 @@ async fn test_react_subgraph_execution() {
         input: "Hello".to_string(),
         ..Default::default()
     };
-    
-    let result = graph.invoke(GraphState::new(initial_state)).await.expect("Execution failed");
+
+    let result = graph
+        .invoke(GraphState::new(initial_state))
+        .await
+        .expect("Execution failed");
 
     // Verify trace
     let steps = &result.data.scratchpad;
     assert_eq!(steps.len(), 4); // Thought, Action, Observation, FinalAnswer
-    
+
     match &steps[0] {
         ReActStep::Thought(text) => assert_eq!(text, "Thinking..."),
         _ => panic!("Expected Thought"),

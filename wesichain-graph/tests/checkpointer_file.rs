@@ -40,7 +40,7 @@ async fn file_checkpointer_appends_and_loads_latest() {
     let loaded: Checkpoint<DemoState> = checkpointer.load("thread-1").await.unwrap().unwrap();
     assert_eq!(loaded.state.data.count, 2);
 
-    let path = dir.path().join("thread_1.jsonl");
+    let path = dir.path().join("thread-1.jsonl");
     assert!(path.exists());
 }
 

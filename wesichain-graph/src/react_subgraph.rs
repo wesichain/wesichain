@@ -2,17 +2,17 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
 use wesichain_core::{
-    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, Message, ReActStep, Role,
-    ScratchpadState, Tool, ToolCall, ToolCallingLlm, ToolSpec, Value, WesichainError, Runnable
+    HasFinalOutput, HasUserInput, LlmRequest, LlmResponse, Message, ReActStep, Role, Runnable,
+    ScratchpadState, Tool, ToolCall, ToolCallingLlm, ToolSpec, Value, WesichainError,
 };
 use wesichain_prompt::PromptTemplate;
 
 use crate::config::ExecutionConfig;
 use crate::error::GraphError;
-use crate::graph::{GraphContext, GraphNode, GraphBuilder, ExecutableGraph};
+use crate::graph::{ExecutableGraph, GraphBuilder, GraphContext, GraphNode};
 
 use crate::state::{GraphState, StateSchema, StateUpdate};
-use crate::{START, END};
+use crate::{END, START};
 
 const DEFAULT_SYSTEM_PROMPT: &str = "You are a helpful assistant. Use tools when helpful. If a tool is used, wait for the tool result before answering.";
 
@@ -37,12 +37,11 @@ impl AgentNode {
         Self { llm, tools, prompt }
     }
 
-
     fn build_messages_robust<S>(&self, state: &S) -> Result<Vec<Message>, WesichainError>
     where
         S: ScratchpadState + HasUserInput,
     {
-         let mut messages = Vec::new();
+        let mut messages = Vec::new();
         let prompt = self.prompt.render(&HashMap::new())?;
         messages.push(Message {
             role: Role::System,
@@ -142,7 +141,7 @@ impl AgentNode {
                 tool_calls: Vec::new(),
             });
         }
-        
+
         Ok(messages)
     }
 }
@@ -162,7 +161,7 @@ where
 
         // Build messages from current scratchpad history
         let messages = self.build_messages_robust(&data)?;
-        
+
         let response = self
             .llm
             .invoke(LlmRequest {
@@ -171,7 +170,7 @@ where
                 tools: self.tools.clone(),
             })
             .await?;
-            
+
         let LlmResponse {
             content,
             tool_calls,
@@ -185,7 +184,8 @@ where
         // Update scratchpad based on LLM output
         if tool_calls.is_empty() {
             // No tools -> Final Answer
-            delta.scratchpad_mut()
+            delta
+                .scratchpad_mut()
                 .push(ReActStep::FinalAnswer(content.clone()));
             delta.set_final_output(content);
         } else {
@@ -202,7 +202,6 @@ where
     }
 }
 
-
 /// Node that executes tools based on pending Actions in the scratchpad.
 /// It finds the last Action(s) that do not have a following Observation,
 /// executes them, and appends the Observation.
@@ -213,7 +212,10 @@ pub struct ReActToolNode {
 
 impl ReActToolNode {
     pub fn new(tools: HashMap<String, Arc<dyn Tool>>, failure_policy: ToolFailurePolicy) -> Self {
-        Self { tools, failure_policy }
+        Self {
+            tools,
+            failure_policy,
+        }
     }
 }
 
@@ -228,38 +230,36 @@ where
         context: &GraphContext,
     ) -> Result<StateUpdate<S>, WesichainError> {
         let data = input.data;
-        
+
         let mut actions_to_execute = Vec::new();
         let scratchpad = data.scratchpad();
-        
+
         for step in scratchpad.iter().rev() {
             match step {
                 ReActStep::Action(call) => actions_to_execute.push(call.clone()),
-                ReActStep::Observation(_) => break, 
-                ReActStep::FinalAnswer(_) => break, 
+                ReActStep::Observation(_) => break,
+                ReActStep::FinalAnswer(_) => break,
                 ReActStep::Error(_) => break,
-                ReActStep::Thought(_) => continue, 
+                ReActStep::Thought(_) => continue,
             }
         }
         actions_to_execute.reverse();
-        
+
         if actions_to_execute.is_empty() {
-             return Ok(StateUpdate::new(S::default())); 
+            return Ok(StateUpdate::new(S::default()));
         }
 
         let mut delta = S::default();
         delta.ensure_scratchpad();
 
         let mut join_set = tokio::task::JoinSet::new();
-        
+
         for (index, call) in actions_to_execute.into_iter().enumerate() {
             let tool = match self.tools.get(&call.name) {
                 Some(tool) => tool.clone(),
                 None => {
-                    let error = GraphError::InvalidToolCallResponse(format!(
-                        "unknown tool: {}",
-                        call.name
-                    ));
+                    let error =
+                        GraphError::InvalidToolCallResponse(format!("unknown tool: {}", call.name));
                     // We can't really fail fast easily in parallel without aborting all.
                     // For now, let's treat unknown tool as an immediate error result.
                     // But to respect sequential ordering, we just return error.
@@ -269,63 +269,68 @@ where
                     // Wait, original logic returned Err.
                     // We'll spawn a task that returns Err.
                     join_set.spawn(async move {
-                         (index, call, Err(WesichainError::Custom(error.to_string())))
+                        (index, call, Err(WesichainError::Custom(error.to_string())))
                     });
                     continue;
                 }
             };
-            
+
             if let Some(observer) = &context.observer {
                 observer
                     .on_tool_call(&context.node_id, &call.name, &call.args)
                     .await;
             }
-            
+
             let node_id = context.node_id.clone();
             let observer = context.observer.clone();
             let _failure_policy = self.failure_policy;
-            
+
             join_set.spawn(async move {
-                let result = tool.invoke(call.args.clone()).await.map_err(|e| WesichainError::Custom(e.to_string()));
+                let result = tool
+                    .invoke(call.args.clone())
+                    .await
+                    .map_err(|e| WesichainError::Custom(e.to_string()));
                 // Side effects like observer can happen here or after join.
                 // Doing here is fine.
-                 if let Some(observer) = &observer {
+                if let Some(observer) = &observer {
                     match &result {
                         Ok(res) => observer.on_tool_result(&node_id, &call.name, res).await,
                         Err(_err) => {
-                             // Assuming FailFast for observer notification, or we can notify error
-                             // Actually the original code notified on error depending on policy.
+                            // Assuming FailFast for observer notification, or we can notify error
+                            // Actually the original code notified on error depending on policy.
                         }
                     }
                 }
                 (index, call, result)
             });
         }
-        
+
         // Collect results
         let mut results = Vec::new();
         while let Some(res) = join_set.join_next().await {
             match res {
                 Ok(val) => results.push(val),
-                Err(err) => return Err(WesichainError::Custom(format!("Tool task failed: {}", err))),
+                Err(err) => {
+                    return Err(WesichainError::Custom(format!("Tool task failed: {}", err)))
+                }
             }
         }
-        
+
         // Sort by index to maintain order
         results.sort_by_key(|(i, _, _)| *i);
-        
+
         for (_, call, result) in results {
             match result {
                 Ok(output) => {
-                    delta.scratchpad_mut()
-                        .push(ReActStep::Observation(output));
+                    delta.scratchpad_mut().push(ReActStep::Observation(output));
                 }
                 Err(err) => {
                     let reason = err.to_string();
                     match self.failure_policy {
                         ToolFailurePolicy::FailFast => {
                             let error = GraphError::ToolCallFailed(call.name.clone(), reason);
-                            delta.scratchpad_mut()
+                            delta
+                                .scratchpad_mut()
                                 .push(ReActStep::Error(error.to_string()));
                             if let Some(observer) = &context.observer {
                                 observer.on_error(&context.node_id, &error).await;
@@ -335,9 +340,10 @@ where
                         ToolFailurePolicy::AppendErrorAndContinue => {
                             let message = format!("[TOOL ERROR] {}: {}", call.name, reason);
                             let value = Value::String(message);
-                            delta.scratchpad_mut()
+                            delta
+                                .scratchpad_mut()
                                 .push(ReActStep::Observation(value.clone()));
-                             if let Some(observer) = &context.observer {
+                            if let Some(observer) = &context.observer {
                                 observer
                                     .on_tool_result(&context.node_id, &call.name, &value)
                                     .await;
@@ -384,7 +390,7 @@ impl ReActGraphBuilder {
         self.tools = tools;
         self
     }
-    
+
     pub fn prompt(mut self, prompt: PromptTemplate) -> Self {
         self.prompt = prompt;
         self
@@ -399,12 +405,13 @@ impl ReActGraphBuilder {
     where
         S: StateSchema + ScratchpadState + HasUserInput + HasFinalOutput + Default + Send + Sync,
     {
+        let llm = self
+            .llm
+            .ok_or_else(|| GraphError::Checkpoint("Missing LLM".into()))?;
 
-        let llm = self.llm.ok_or_else(|| GraphError::Checkpoint("Missing LLM".into()))?;
-        
         let mut tool_map = HashMap::new();
         let mut tool_specs = Vec::new();
-        
+
         for tool in &self.tools {
             if tool_map.contains_key(tool.name()) {
                 return Err(GraphError::DuplicateToolName(tool.name().to_string()));
@@ -438,7 +445,7 @@ impl ReActGraphBuilder {
                         _ => vec![END.to_string()],
                     }
                 } else {
-                    // Start or empty? Should not happen after agent. 
+                    // Start or empty? Should not happen after agent.
                     // But if agent produced nothing, maybe end?
                     vec![END.to_string()]
                 }

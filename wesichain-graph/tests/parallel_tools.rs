@@ -4,27 +4,14 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 use wesichain_core::{
-    HasFinalOutput, HasUserInput, ScratchpadState, Message, ReActStep, Tool, ToolCall, Value, WesichainError, Runnable
+    HasFinalOutput, HasUserInput, ReActStep, ScratchpadState, Tool, ToolCall, Value,
 };
-// ToolError is likely in wesichain_core or wesichain_agent. 
-// Since I cannot ensure where it is, I will try to look at compilation error again or use Box<dyn Error>.
-// Actually, I should use `wesichain_core::ToolError` if available.
-// Let's assume it is available as `wesichain_core::ToolError`.
-// But wait, the previous error said `found WesichainError` in my impl.
-// Let's guess it is `wesichain_core::error::ToolError` or just `wesichain_core::ToolError`.
-// If I can't find it, I will use `anyhow::Result` if trait allows, but trait is strict.
-// I'll try to find it via grep or just implement `invoke` to return what trait wants using `Box`.
-// Error said: `expected ToolError`.
-// I will attempt to alias it if generic, or find where it is imported.
-// `wesichain_agent` defines `Tool`? `wesichain_core` defines `Tool`?
-// `wesichain-graph` imports `wesichain_core::{..., Tool, ...}`.
-// Let's assume `ToolError` is also in `wesichain_core`.
 
-use wesichain_graph::{
-    GraphContext, GraphState, StateSchema, StateUpdate, GraphNode,
-    react_subgraph::{ReActToolNode, ToolFailurePolicy},
-};
 use serde::{Deserialize, Serialize};
+use wesichain_graph::{
+    react_subgraph::{ReActToolNode, ToolFailurePolicy},
+    GraphContext, GraphNode, GraphState, StateSchema,
+};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 struct TestState {
@@ -82,7 +69,10 @@ impl Tool for SlowTool {
     async fn invoke(&self, args: Value) -> Result<Value, wesichain_core::ToolError> {
         sleep(Duration::from_millis(self.delay_ms)).await;
         // Return arg as string
-        Ok(Value::String(format!("Slept {}ms with {:?}", self.delay_ms, args)))
+        Ok(Value::String(format!(
+            "Slept {}ms with {:?}",
+            self.delay_ms, args
+        )))
     }
 }
 
@@ -120,26 +110,33 @@ async fn test_parallel_tool_node() {
     };
 
     let start = std::time::Instant::now();
-    let result = node.invoke_with_context(input, &context).await.expect("Tool execution failed");
+    let result = node
+        .invoke_with_context(input, &context)
+        .await
+        .expect("Tool execution failed");
     let duration = start.elapsed();
 
     println!("Total tool execution time: {:?}", duration);
 
     // Verify duration: should be ~200ms, definitely < 600ms
-    assert!(duration < Duration::from_millis(400), "Tools ran sequentially! Took {:?}", duration);
+    assert!(
+        duration < Duration::from_millis(400),
+        "Tools ran sequentially! Took {:?}",
+        duration
+    );
     assert!(duration > Duration::from_millis(150));
 
     // Verify ordering
     let steps = result.data.scratchpad;
     assert_eq!(steps.len(), 3);
-    
+
     // Original actions: id1, id2, id3
     // Observations should correspond to these.
-    // ReActToolNode logic: 
+    // ReActToolNode logic:
     // It pushes observations.
     // The outputs should match the inputs.
     // "Slept 200ms with String(\"call1\")"
-    
+
     match &steps[0] {
         ReActStep::Observation(val) => assert!(val.to_string().contains("call1")),
         _ => panic!("Expected observation 1"),

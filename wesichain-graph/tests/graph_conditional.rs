@@ -39,9 +39,9 @@ async fn graph_conditional_routes_by_state() {
         .add_node("stop", Inc)
         .add_conditional_edge("inc", |state: &GraphState<DemoState>| {
             if state.data.count > 1 {
-                "stop".to_string()
+                vec!["stop".to_string()]
             } else {
-                "inc2".to_string()
+                vec!["inc2".to_string()]
             }
         })
         .set_entry("inc")

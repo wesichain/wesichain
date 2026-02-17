@@ -314,7 +314,8 @@ where
                 if enable_projections {
                     let state_json =
                         serde_json::to_value(state).map_err(CheckpointSqlError::Serialization)?;
-                    let projection_rows = map_state_to_projection_rows(&state_json, seq, created_at)?;
+                    let projection_rows =
+                        map_state_to_projection_rows(&state_json, seq, created_at)?;
                     if let Err(error) =
                         apply_projection_rows_in_transaction(&mut tx, thread_id, &projection_rows)
                             .await

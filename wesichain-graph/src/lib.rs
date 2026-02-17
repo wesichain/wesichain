@@ -28,7 +28,9 @@ pub use react_agent::{ReActAgentNode, ToolFailurePolicy};
 pub use react_subgraph::ReActGraphBuilder;
 pub use reducer::{AddCounter, AppendVec, MergeMap, Override};
 pub use retriever_node::RetrieverNode;
-pub use state::{Append, GraphState, Overwrite, Reducer, StateReducer, StateSchema, StateUpdate, Union};
+pub use state::{
+    Append, GraphState, Overwrite, Reducer, StateReducer, StateSchema, StateUpdate, Union,
+};
 pub use stream::GraphEvent;
 pub use tool_node::{HasToolCalls, ToolNode};
 

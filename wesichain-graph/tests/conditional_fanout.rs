@@ -1,8 +1,7 @@
-use wesichain_core::{
-    Runnable, WesichainError,
-};
+use wesichain_core::WesichainError;
 use wesichain_graph::{
-    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, START, END,
+    ExecutionConfig, GraphBuilder, GraphContext, GraphNode, GraphState, StateSchema, StateUpdate,
+    END,
 };
 
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -48,10 +47,30 @@ async fn test_conditional_fanout() {
 
     let builder = GraphBuilder::<FanoutState>::new()
         .with_default_config(config)
-        .add_node("A", LoggerNode { id: "A".to_string() })
-        .add_node("B", LoggerNode { id: "B".to_string() })
-        .add_node("C", LoggerNode { id: "C".to_string() })
-        .add_node("D", LoggerNode { id: "D".to_string() })
+        .add_node(
+            "A",
+            LoggerNode {
+                id: "A".to_string(),
+            },
+        )
+        .add_node(
+            "B",
+            LoggerNode {
+                id: "B".to_string(),
+            },
+        )
+        .add_node(
+            "C",
+            LoggerNode {
+                id: "C".to_string(),
+            },
+        )
+        .add_node(
+            "D",
+            LoggerNode {
+                id: "D".to_string(),
+            },
+        )
         .set_entry("A")
         // Conditional edge from A returns both B and C
         .add_conditional_edge("A", |state: &GraphState<FanoutState>| {
@@ -66,23 +85,23 @@ async fn test_conditional_fanout() {
         .add_edge("D", END);
 
     let graph = builder.build();
-    
+
     let initial_state = GraphState::new(FanoutState::default());
     let result = graph.invoke(initial_state).await.expect("Graph failed");
-    
+
     let logs = result.data.logs;
     println!("Logs: {:?}", logs);
-    
+
     // A runs first.
     assert_eq!(logs[0], "A");
-    
+
     // B and C run next (order undefined).
     assert!(logs.contains(&"B".to_string()));
     assert!(logs.contains(&"C".to_string()));
-    
+
     // D runs twice (merge from B and C)
     let d_count = logs.iter().filter(|&l| l == "D").count();
     assert_eq!(d_count, 2);
-    
+
     assert_eq!(logs.len(), 5);
 }
