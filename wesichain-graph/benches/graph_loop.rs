@@ -63,15 +63,16 @@ fn build_graph(
         .add_node("done", Done)
         .add_conditional_edge("inc", |state: &GraphState<LoopState>| {
             if state.data.count >= 10 {
-                "done".to_string()
+                vec!["done".to_string()]
             } else {
-                "inc".to_string()
+                vec!["inc".to_string()]
             }
         })
         .with_default_config(ExecutionConfig {
             max_steps: Some(25),
             cycle_detection: false,
             cycle_window: 10,
+            ..ExecutionConfig::default()
         })
         .set_entry("inc");
 

@@ -2,6 +2,7 @@ use sqlx::Row;
 use wesichain_checkpoint_sql::migrations::{run_migrations, run_migrations_in_transaction};
 use wesichain_checkpoint_sql::ops::{
     load_latest_checkpoint, save_checkpoint, save_checkpoint_in_transaction,
+    save_checkpoint_with_queue,
 };
 
 #[test]
@@ -252,4 +253,32 @@ async fn ops_sqlite_load_returns_latest_checkpoint_only() {
     assert_eq!(latest.step, Some(2));
     assert_eq!(latest.created_at, "2026-02-06T00:00:01Z");
     assert_eq!(latest.state_json, serde_json::json!({"rev": 2}));
+}
+
+#[tokio::test]
+async fn ops_sqlite_queue_roundtrips_with_checkpoint() {
+    let pool = sqlite_pool().await;
+
+    run_migrations(&pool)
+        .await
+        .expect("migrations should bootstrap schema");
+
+    save_checkpoint_with_queue(
+        &pool,
+        "thread-q",
+        "n1",
+        1,
+        "2026-02-06T00:00:00Z",
+        &serde_json::json!({"count": 1}),
+        &vec![("next-node".to_string(), 7_u64)],
+    )
+    .await
+    .expect("checkpoint with queue should save");
+
+    let latest = load_latest_checkpoint(&pool, "thread-q")
+        .await
+        .expect("load should succeed")
+        .expect("latest checkpoint should exist");
+
+    assert_eq!(latest.queue_json, serde_json::json!([["next-node", 7]]));
 }

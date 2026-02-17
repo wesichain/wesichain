@@ -16,26 +16,31 @@ async fn file_checkpointer_appends_and_loads_latest() {
     let dir = tempdir().unwrap();
     let checkpointer = FileCheckpointer::new(dir.path());
 
+    let mut state = GraphState::new(DemoState { count: 1 });
     let first = Checkpoint::new(
-        "thread/1".to_string(),
-        GraphState::new(DemoState { count: 1 }),
+        "thread-1".to_string(),
+        state.clone(),
         1,
-        "inc".to_string(),
+        "node-1".to_string(),
+        vec![],
     );
+    checkpointer.save(&first).await.unwrap();
+
+    state.data.count = 2;
     let second = Checkpoint::new(
-        "thread/1".to_string(),
-        GraphState::new(DemoState { count: 2 }),
+        "thread-1".to_string(),
+        state.clone(),
         2,
-        "inc".to_string(),
+        "node-2".to_string(),
+        vec![],
     );
 
-    checkpointer.save(&first).await.unwrap();
     checkpointer.save(&second).await.unwrap();
 
-    let loaded: Checkpoint<DemoState> = checkpointer.load("thread/1").await.unwrap().unwrap();
+    let loaded: Checkpoint<DemoState> = checkpointer.load("thread-1").await.unwrap().unwrap();
     assert_eq!(loaded.state.data.count, 2);
 
-    let path = dir.path().join("thread_1.jsonl");
+    let path = dir.path().join("thread-1.jsonl");
     assert!(path.exists());
 }
 
@@ -49,12 +54,14 @@ async fn file_checkpointer_lists_metadata() {
         GraphState::new(DemoState { count: 1 }),
         1,
         "inc".to_string(),
+        vec![],
     );
     let second = Checkpoint::new(
         "thread-2".to_string(),
         GraphState::new(DemoState { count: 2 }),
         2,
         "inc".to_string(),
+        vec![],
     );
 
     checkpointer.save(&first).await.unwrap();

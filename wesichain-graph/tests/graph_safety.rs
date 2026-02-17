@@ -45,11 +45,7 @@ async fn graph_enforces_max_steps() {
     let options = ExecutionOptions {
         max_steps: Some(2),
         cycle_detection: Some(false),
-        cycle_window: None,
-        run_config: None,
-        observer: None,
-        agent_event_sender: None,
-        agent_event_thread_id: None,
+        ..ExecutionOptions::default()
     };
     let err = graph.invoke_with_options(state, options).await.unwrap_err();
     assert!(err.to_string().contains("Max steps exceeded"));
@@ -68,10 +64,7 @@ async fn graph_detects_cycle_in_recent_window() {
         max_steps: Some(10),
         cycle_detection: Some(true),
         cycle_window: Some(2),
-        run_config: None,
-        observer: None,
-        agent_event_sender: None,
-        agent_event_thread_id: None,
+        ..ExecutionOptions::default()
     };
     let err = graph.invoke_with_options(state, options).await.unwrap_err();
     assert!(err.to_string().contains("Cycle detected"));
@@ -84,6 +77,7 @@ async fn graph_options_override_defaults() {
             max_steps: Some(1),
             cycle_detection: true,
             cycle_window: 2,
+            ..ExecutionConfig::default()
         })
         .add_node("one", Inc)
         .add_node("two", Inc)
@@ -95,11 +89,7 @@ async fn graph_options_override_defaults() {
     let options = ExecutionOptions {
         max_steps: Some(5),
         cycle_detection: Some(false),
-        cycle_window: None,
-        run_config: None,
-        observer: None,
-        agent_event_sender: None,
-        agent_event_thread_id: None,
+        ..ExecutionOptions::default()
     };
     let out = graph.invoke_with_options(state, options).await.unwrap();
     assert_eq!(out.data.count, 2);

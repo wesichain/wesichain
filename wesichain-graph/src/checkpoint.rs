@@ -13,16 +13,24 @@ pub struct Checkpoint<S: StateSchema> {
     pub state: GraphState<S>,
     pub step: u64,
     pub node: String,
+    pub queue: Vec<(String, u64)>,
     pub created_at: String,
 }
 
 impl<S: StateSchema> Checkpoint<S> {
-    pub fn new(thread_id: String, state: GraphState<S>, step: u64, node: String) -> Self {
+    pub fn new(
+        thread_id: String,
+        state: GraphState<S>,
+        step: u64,
+        node: String,
+        queue: Vec<(String, u64)>,
+    ) -> Self {
         Self {
             thread_id,
             state,
             step,
             node,
+            queue,
             created_at: Utc::now().to_rfc3339(),
         }
     }

@@ -20,7 +20,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .await?;
 
     let state = GraphState::new(DemoState { count: 0 });
-    let checkpoint = Checkpoint::new("example-thread".to_string(), state, 1, "node-1".to_string());
+    let checkpoint = Checkpoint::new(
+        "example-thread".to_string(),
+        state,
+        1,
+        "node-a".to_string(),
+        vec![],
+    );
 
     checkpointer.save(&checkpoint).await?;
     println!(

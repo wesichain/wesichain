@@ -35,6 +35,7 @@ async fn checkpointer_trait_round_trip_save_and_load() {
         GraphState::new(DemoState { count: 7 }),
         3,
         "node-a".to_string(),
+        vec![("node-b".to_string(), 4)],
     );
 
     checkpointer
@@ -52,6 +53,7 @@ async fn checkpointer_trait_round_trip_save_and_load() {
     assert_eq!(loaded.step, 3);
     assert_eq!(loaded.node, "node-a");
     assert_eq!(loaded.state.data.count, 7);
+    assert_eq!(loaded.queue, vec![("node-b".to_string(), 4)]);
 }
 
 #[tokio::test]

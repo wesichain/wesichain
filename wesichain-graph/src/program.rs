@@ -6,9 +6,11 @@ use petgraph::visit::EdgeRef;
 use crate::graph::GraphNode;
 use crate::StateSchema;
 
+use std::sync::Arc;
+
 pub struct NodeData<S: StateSchema> {
     pub name: String,
-    pub runnable: Box<dyn GraphNode<S>>,
+    pub runnable: Arc<dyn GraphNode<S>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
