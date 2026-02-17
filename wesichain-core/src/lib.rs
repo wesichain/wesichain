@@ -24,8 +24,8 @@ mod vector_store;
 pub use agent_event::AgentEvent;
 pub use binding::{Bindable, RunnableBinding};
 pub use callbacks::{
-    ensure_object, CallbackHandler, CallbackManager, RunConfig, RunContext, RunType, ToTraceInput,
-    ToTraceOutput,
+    ensure_object, CallbackHandler, CallbackManager, LlmInput, LlmResult, RunConfig, RunContext,
+    RunType, TokenUsage, ToTraceInput, ToTraceOutput,
 };
 pub use chain::{Chain, RunnableExt, RuntimeChain};
 pub use document::Document;

@@ -8,6 +8,9 @@ use uuid::Uuid;
 use crate::Value;
 
 mod wrappers;
+mod llm;
+
+pub use llm::{LlmInput, LlmResult, TokenUsage};
 
 // pub use wrappers::TracedRunnable;
 
