@@ -98,4 +98,11 @@ fn ci_config_files_exist_and_match_locked_policy() {
         ),
         "nightly benchmarks must include weaviate threshold-gated benchmark"
     );
+    assert!(
+        contains_line(
+            &nightly,
+            "--criterion-benchmark-name wesichain_object_payload \\",
+        ),
+        "nightly weaviate gate must pass explicit criterion benchmark name"
+    );
 }
