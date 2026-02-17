@@ -1,6 +1,15 @@
 use crate::error::CheckpointSqlError;
-use crate::schema::MIGRATION_STATEMENTS_SQL;
+use crate::schema::{ADD_CHECKPOINT_QUEUE_COLUMN_SQL, MIGRATION_STATEMENTS_SQL};
 use sqlx::{Database, Pool};
+
+fn is_duplicate_column_error(error: &sqlx::Error) -> bool {
+    let Some(db_error) = error.as_database_error() else {
+        return false;
+    };
+
+    let message = db_error.message().to_ascii_lowercase();
+    message.contains("duplicate column") || message.contains("already exists")
+}
 
 pub async fn run_migrations_with_connection<DB>(
     conn: &mut DB::Connection,
@@ -11,10 +20,12 @@ where
     for<'c> &'c mut DB::Connection: sqlx::Executor<'c, Database = DB>,
 {
     for statement in MIGRATION_STATEMENTS_SQL {
-        sqlx::query::<DB>(statement)
-            .execute(&mut *conn)
-            .await
-            .map_err(CheckpointSqlError::Migration)?;
+        if let Err(error) = sqlx::query::<DB>(statement).execute(&mut *conn).await {
+            if statement == ADD_CHECKPOINT_QUEUE_COLUMN_SQL && is_duplicate_column_error(&error) {
+                continue;
+            }
+            return Err(CheckpointSqlError::Migration(error));
+        }
     }
 
     Ok(())

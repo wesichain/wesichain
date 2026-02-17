@@ -283,7 +283,7 @@ where
             
             let node_id = context.node_id.clone();
             let observer = context.observer.clone();
-            let failure_policy = self.failure_policy;
+            let _failure_policy = self.failure_policy;
             
             join_set.spawn(async move {
                 let result = tool.invoke(call.args.clone()).await.map_err(|e| WesichainError::Custom(e.to_string()));
@@ -292,7 +292,7 @@ where
                  if let Some(observer) = &observer {
                     match &result {
                         Ok(res) => observer.on_tool_result(&node_id, &call.name, res).await,
-                        Err(err) => {
+                        Err(_err) => {
                              // Assuming FailFast for observer notification, or we can notify error
                              // Actually the original code notified on error depending on policy.
                         }
@@ -357,6 +357,12 @@ pub struct ReActGraphBuilder {
     tools: Vec<Arc<dyn Tool>>,
     prompt: PromptTemplate,
     tool_failure_policy: ToolFailurePolicy,
+}
+
+impl Default for ReActGraphBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ReActGraphBuilder {

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, VecDeque, HashSet};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::hash::{Hash, Hasher};
 use std::collections::hash_map::DefaultHasher;
 
@@ -139,13 +139,13 @@ impl<S: StateSchema> GraphBuilder<S> {
     pub fn add_edge(mut self, from: &str, to: &str) -> Self {
         self.edges
             .entry(from.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(to.to_string());
         self
     }
 
     pub fn add_edges(mut self, from: &str, targets: &[&str]) -> Self {
-        let entry = self.edges.entry(from.to_string()).or_insert_with(Vec::new);
+        let entry = self.edges.entry(from.to_string()).or_default();
         for target in targets {
             entry.push(target.to_string());
         }
@@ -582,17 +582,32 @@ impl<S: StateSchema> ExecutableGraph<S> {
         mut state: GraphState<S>,
         options: ExecutionOptions,
     ) -> Result<GraphState<S>, GraphError> {
+        let checkpoint_thread_id = options.checkpoint_thread_id.clone().or_else(|| {
+            self.checkpointer
+                .as_ref()
+                .map(|(_, thread_id)| thread_id.clone())
+        });
         let agent_event_sender = options.agent_event_sender.clone();
         let agent_event_thread_id = options
             .agent_event_thread_id
             .clone()
-            .or_else(|| {
-                self.checkpointer
-                    .as_ref()
-                    .map(|(_, thread_id)| thread_id.clone())
-            })
+            .or_else(|| checkpoint_thread_id.clone())
             .unwrap_or_else(|| "graph".to_string());
         let mut agent_event_step = 0usize;
+
+        if options.auto_resume {
+            if let (Some((checkpointer, _)), Some(thread_id)) =
+                (self.checkpointer.as_ref(), checkpoint_thread_id.as_deref())
+            {
+                match checkpointer.load(thread_id).await {
+                    Ok(Some(saved)) => {
+                        state = saved.state;
+                    }
+                    Ok(None) => {}
+                    Err(error) => return Err(error),
+                }
+            }
+        }
 
         if !self.nodes.contains_key(&self.entry) {
             let error = GraphError::MissingNode {
@@ -754,7 +769,9 @@ impl<S: StateSchema> ExecutableGraph<S> {
                         manager.on_error(root, &error_value, duration_ms).await;
                     }
                     
-                    if let Some((checkpointer, thread_id)) = &self.checkpointer {
+                    if let (Some((checkpointer, _)), Some(thread_id)) =
+                        (self.checkpointer.as_ref(), checkpoint_thread_id.as_deref())
+                    {
                          // Push current back to queue (it hasn't run)
                          let mut full_queue = queue.iter().cloned().collect::<Vec<_>>();
                          full_queue.push((current.clone(), path_id));
@@ -762,7 +779,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
                          full_queue.extend(active_tasks.iter().cloned());
                          
                          let checkpoint = Checkpoint::new(
-                             thread_id.clone(),
+                             thread_id.to_string(),
                              state.clone(),
                              step_count as u64,
                              current.clone(), 
@@ -1002,13 +1019,15 @@ impl<S: StateSchema> ExecutableGraph<S> {
                         }
                     }
 
-                    if let Some((checkpointer, thread_id)) = &self.checkpointer {
+                    if let (Some((checkpointer, _)), Some(thread_id)) =
+                        (self.checkpointer.as_ref(), checkpoint_thread_id.as_deref())
+                    {
                          let full_queue: Vec<_> = queue.iter().cloned()
                              .chain(active_tasks.iter().cloned())
                              .collect();
-                             
+
                          let checkpoint = Checkpoint::new(
-                             thread_id.clone(),
+                             thread_id.to_string(),
                              state.clone(),
                              step_count as u64,
                              current.clone(),
@@ -1161,4 +1180,3 @@ impl<S: StateSchema> Runnable<GraphState<S>, StateUpdate<S>> for ExecutableGraph
             .boxed()
     }
 }
-

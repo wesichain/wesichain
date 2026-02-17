@@ -1,11 +1,10 @@
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
 use serde::{Deserialize, Serialize};
 
-use wesichain_core::{Runnable, WesichainError};
+use wesichain_core::WesichainError;
 use wesichain_graph::{
-    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, START, END,
+    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, END,
     state::{Reducer, Append, Overwrite},
 };
 

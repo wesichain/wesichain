@@ -1,8 +1,6 @@
-use wesichain_core::{
-    Runnable, WesichainError,
-};
+use wesichain_core::WesichainError;
 use wesichain_graph::{
-    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, START, END,
+    ExecutionConfig, GraphBuilder, GraphNode, GraphContext, GraphState, StateSchema, StateUpdate, END,
     state::{Reducer, Append, Overwrite},
 };
 use std::time::Duration;

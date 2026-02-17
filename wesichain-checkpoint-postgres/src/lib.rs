@@ -2,7 +2,9 @@ use std::convert::TryFrom;
 
 use wesichain_checkpoint_sql::error::CheckpointSqlError;
 use wesichain_checkpoint_sql::migrations::run_migrations;
-use wesichain_checkpoint_sql::ops::{load_latest_checkpoint, save_checkpoint_with_projections};
+use wesichain_checkpoint_sql::ops::{
+    load_latest_checkpoint, save_checkpoint_with_projections_and_queue,
+};
 use wesichain_graph::{Checkpoint, Checkpointer, GraphError, GraphState, StateSchema};
 
 #[derive(Debug, Clone)]
@@ -91,13 +93,14 @@ impl<S: StateSchema> Checkpointer<S> for PostgresCheckpointer {
             let step = i64::try_from(checkpoint.step)
                 .map_err(|_| graph_checkpoint_error("checkpoint step does not fit into i64"))?;
 
-            save_checkpoint_with_projections(
+            save_checkpoint_with_projections_and_queue(
                 &self.pool,
                 &checkpoint.thread_id,
                 &checkpoint.node,
                 step,
                 &checkpoint.created_at,
                 &checkpoint.state,
+                &checkpoint.queue,
                 self.enable_projections,
             )
             .await
@@ -148,11 +151,19 @@ impl<S: StateSchema> Checkpointer<S> for PostgresCheckpointer {
                     ))
                 })?;
 
+            let queue: Vec<(String, u64)> =
+                serde_json::from_value(stored.queue_json).map_err(|error| {
+                    graph_checkpoint_error(format!(
+                        "failed to deserialize checkpoint queue: {error}"
+                    ))
+                })?;
+
             Ok(Some(Checkpoint {
                 thread_id: stored.thread_id,
                 state,
                 step,
                 node,
+                queue,
                 created_at: stored.created_at,
             }))
         })

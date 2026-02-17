@@ -106,8 +106,7 @@ async fn test_streaming_parallel() {
     assert!(active_nodes.contains(&"B".to_string()));
     
     // Check timestamps exist
-    match &events[0] {
-        GraphEvent::NodeEnter { timestamp, .. } => assert!(*timestamp > 0),
-        _ => {}
+    if let GraphEvent::NodeEnter { timestamp, .. } = &events[0] {
+        assert!(*timestamp > 0);
     }
 }

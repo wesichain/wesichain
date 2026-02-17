@@ -70,6 +70,8 @@ pub struct ExecutionOptions {
     pub interrupt_after: Vec<String>,
     pub initial_queue: Option<Vec<(String, u64)>>,
     pub initial_step: Option<usize>,
+    pub checkpoint_thread_id: Option<String>,
+    pub auto_resume: bool,
     pub run_config: Option<RunConfig>,
     pub observer: Option<Arc<dyn Observer>>,
     pub agent_event_sender: Option<mpsc::Sender<AgentEvent>>,
@@ -89,7 +91,12 @@ impl std::fmt::Debug for ExecutionOptions {
             .field("interrupt_before", &self.interrupt_before)
             .field("interrupt_after", &self.interrupt_after)
             // Skip queue in debug output to avoid clutter, or summarize
-            .field("initial_queue_len", &self.initial_queue.as_ref().map(|q| q.len()))
+            .field(
+                "initial_queue_len",
+                &self.initial_queue.as_ref().map(|q| q.len()),
+            )
+            .field("checkpoint_thread_id", &self.checkpoint_thread_id)
+            .field("auto_resume", &self.auto_resume)
             .field("run_config", &self.run_config.is_some())
             .field("observer", &self.observer.is_some())
             .field("agent_event_sender", &self.agent_event_sender.is_some())

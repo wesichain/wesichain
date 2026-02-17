@@ -153,9 +153,9 @@ async fn main() -> Result<(), GraphError> {
         .add_node("final", Final)
         .add_conditional_edge("agent", |state: &GraphState<AgentState>| {
             if state.data.tool_calls.is_empty() {
-                "final".to_string()
+                vec!["final".to_string()]
             } else {
-                "tools".to_string()
+                vec!["tools".to_string()]
             }
         })
         .add_edge("tools", "agent")
@@ -163,6 +163,7 @@ async fn main() -> Result<(), GraphError> {
             max_steps: Some(5),
             cycle_detection: false,
             cycle_window: 5,
+            ..Default::default()
         })
         .set_entry("agent")
         .build();
