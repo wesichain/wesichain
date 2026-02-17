@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use futures::StreamExt;
 use serde_json::{json, Value};
 use std::sync::{Arc, Mutex};
-use wesichain_agent::{create_tool_calling_agent, ActionAgent, AgentStep};
+use wesichain_agent::{create_tool_calling_agent, AgentStep};
 use wesichain_core::{
     LlmRequest, LlmResponse, Message, Role, Runnable, Tool, ToolCall, ToolCallingLlm, ToolError,
-    ToolSpec, WesichainError,
+    WesichainError,
 };
 use wesichain_prompt::ChatPromptTemplate;
 

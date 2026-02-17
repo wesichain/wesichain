@@ -1,6 +1,6 @@
 use serde_json::json;
 use std::collections::HashMap;
-use wesichain_core::{Role, Value};
+use wesichain_core::Role;
 use wesichain_prompt::{ChatPromptTemplate, MessagePromptTemplate};
 
 #[tokio::test]

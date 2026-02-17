@@ -422,7 +422,7 @@ pub fn load_json_parser<T>(path: impl AsRef<Path>) -> Result<JsonOutputParser<T>
 mod tests {
     use super::*;
     use crate::output_parsers::StrOutputParser;
-    use crate::{LlmResponse, ToolCall};
+    use crate::LlmResponse;
     use tempfile::NamedTempFile;
 
     #[test]
@@ -433,7 +433,7 @@ mod tests {
 
         save_runnable::<LlmResponse, String>(path, &parser).unwrap();
 
-        let loaded = load_str_parser(path).unwrap();
+        let _loaded = load_str_parser(path).unwrap();
 
         // Verify loaded works (mock invoke not easy here without async runtime in test, but deserialization success is key)
         // We can inspect the file content to verify tag

@@ -1,5 +1,5 @@
 use serde_json::json;
-use wesichain_core::{Bindable, LlmRequest, Tool, ToolError, ToolSpec, Value};
+use wesichain_core::{Bindable, LlmRequest, Tool, Value};
 use wesichain_macros::tool;
 
 // Define a test tool using the macro

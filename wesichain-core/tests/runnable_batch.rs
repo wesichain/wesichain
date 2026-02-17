@@ -2,7 +2,7 @@ use futures::stream::BoxStream;
 use futures::StreamExt;
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 
-struct Number(i32);
+struct Number;
 
 #[async_trait::async_trait]
 impl Runnable<i32, i32> for Number {
@@ -14,14 +14,14 @@ impl Runnable<i32, i32> for Number {
         }
     }
 
-    fn stream(&self, input: i32) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
+    fn stream(&self, _input: i32) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
         futures::stream::empty().boxed()
     }
 }
 
 #[tokio::test]
 async fn batch_processes_concurrently_and_returns_results() {
-    let runner = Number(0);
+    let runner = Number;
     let inputs = vec![1, 2, -1, 4];
 
     let results = runner.batch(inputs).await;
@@ -35,7 +35,7 @@ async fn batch_processes_concurrently_and_returns_results() {
 
 #[tokio::test]
 async fn abatch_is_alias_for_batch() {
-    let runner = Number(0);
+    let runner = Number;
     let inputs = vec![10, 20];
     let results = runner.abatch(inputs).await;
 

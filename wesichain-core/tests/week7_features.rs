@@ -18,7 +18,7 @@ struct MockRunnable {
 #[async_trait]
 impl Runnable<String, String> for MockRunnable {
     async fn invoke(&self, _input: String) -> Result<String, WesichainError> {
-        self.response.clone().map_err(|e| WesichainError::Custom(e))
+        self.response.clone().map_err(WesichainError::Custom)
     }
 
     fn stream(
@@ -76,7 +76,7 @@ async fn test_runnable_fallbacks() {
     #[async_trait]
     impl Runnable<String, String> for ClonableRunnable {
         async fn invoke(&self, _input: String) -> Result<String, WesichainError> {
-            self.response.clone().map_err(|e| WesichainError::Custom(e))
+            self.response.clone().map_err(WesichainError::Custom)
         }
         fn stream(
             &self,
