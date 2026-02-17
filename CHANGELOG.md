@@ -44,6 +44,10 @@ All notable changes to Wesichain will be documented in this file.
 - Qdrant metadata filter translation for `Eq`, `In`, `Range`, `All`, and `Any`
 - Migration artifacts for LangChain-to-Wesichain Qdrant parity (guide, example, parity test)
 - Benchmark harness and threshold tooling for Qdrant slice validation
+- `wesichain-weaviate` crate with Weaviate `VectorStore` integration
+- Weaviate GraphQL metadata filter translation for `Eq`, `In`, `Range`, `All`, and `Any`
+- Migration artifacts for LangChain-to-Wesichain Weaviate parity (guide, example, parity test)
+- Benchmark harness and CI threshold-gate coverage for Weaviate slice validation
 
 ### Planned
 - Triples projection extraction from graph state

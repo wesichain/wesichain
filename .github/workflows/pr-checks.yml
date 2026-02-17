@@ -30,7 +30,7 @@ jobs:
       - name: Install protoc
         run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
       - name: Run clippy
-        run: cargo clippy --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
   detect-impact:
     name: Detect Changed Crates
@@ -133,6 +133,17 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run advisory benchmark
         run: cargo bench -p wesichain-qdrant --bench vs_langchain -- --sample-size 10
+
+  weaviate-bench-advisory:
+    name: Weaviate Benchmark (Advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run advisory benchmark
+        run: cargo bench -p wesichain-weaviate --bench vs_langchain -- --sample-size 10
 
   core-trait-fanout:
     name: Core Trait Fan-Out Compile

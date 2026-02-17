@@ -7,6 +7,20 @@ import argparse
 from pathlib import Path
 
 
+SLICE_CONFIG: dict[str, dict[str, str]] = {
+    "qdrant": {
+        "scoreboard_done_row": "| Qdrant | DONE |",
+        "benchmark_artifact": "docs/benchmarks/data/qdrant-2026-02-16.json",
+        "migration_guide": "docs/migration/langchain-to-wesichain-qdrant.md",
+    },
+    "weaviate": {
+        "scoreboard_done_row": "| Weaviate | DONE |",
+        "benchmark_artifact": "docs/benchmarks/data/weaviate-2026-02-16.json",
+        "migration_guide": "docs/migration/langchain-to-wesichain-weaviate.md",
+    },
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate migration slice readiness evidence")
     parser.add_argument("--slice", required=True, help="Slice key, e.g. qdrant")
@@ -16,14 +30,16 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     slice_key = args.slice.strip().lower()
-    if slice_key != "qdrant":
-        print(f"error: unsupported slice '{slice_key}', expected 'qdrant'")
+    if slice_key not in SLICE_CONFIG:
+        expected = ", ".join(sorted(SLICE_CONFIG.keys()))
+        print(f"error: unsupported slice '{slice_key}', expected one of: {expected}")
         return 2
 
+    config = SLICE_CONFIG[slice_key]
     root = Path(__file__).resolve().parents[2]
     scoreboard = root / "docs/migration/scoreboard.md"
-    benchmark_artifact = root / "docs/benchmarks/data/qdrant-2026-02-16.json"
-    migration_guide = root / "docs/migration/langchain-to-wesichain-qdrant.md"
+    benchmark_artifact = root / config["benchmark_artifact"]
+    migration_guide = root / config["migration_guide"]
 
     failures: list[str] = []
 
@@ -31,8 +47,8 @@ def main() -> int:
         failures.append(f"missing scoreboard: {scoreboard}")
     else:
         scoreboard_text = scoreboard.read_text(encoding="utf-8")
-        if "| Qdrant | DONE |" not in scoreboard_text:
-            failures.append("scoreboard row is not DONE yet")
+        if config["scoreboard_done_row"] not in scoreboard_text:
+            failures.append(f"scoreboard row for '{slice_key}' is not DONE yet")
         if "<nightly-build-url>" in scoreboard_text:
             failures.append("nightly evidence placeholder has not been replaced")
         if "<issue-url>" in scoreboard_text:

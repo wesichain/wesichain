@@ -1,0 +1,40 @@
+{
+  "run_id": "local-2026-02-16-vs-langchain-sample10",
+  "commit": "a62e369-dirty-worktree",
+  "date": "2026-02-16",
+  "status": "single_local_run_synthetic_non_network",
+  "benchmark_scope": "local_payload_construction",
+  "network": "none",
+  "baseline_impl": "langchain_style_rust_shape_emulation",
+  "dataset": {
+    "name": "weaviate-synthetic-1k-shared",
+    "path": "docs/benchmarks/datasets/qdrant-synthetic-1k.jsonl",
+    "commit_hash": "4f6d2b74239dca8de7c6e8e183571d729b005a63",
+    "kind": "synthetic",
+    "size": 1000,
+    "embedding_dim": 128
+  },
+  "hardware": {
+    "cpu": "Apple M1",
+    "memory_gb": 8,
+    "os": "Darwin 24.3.0 arm64",
+    "rustc": "rustc 1.92.0 (ded5c06cf 2025-12-08)"
+  },
+  "results": {
+    "wesichain_object_payload": {
+      "mean_ns": 1098900,
+      "ci_low_ns": 1052000,
+      "ci_high_ns": 1205600,
+      "stddev_ns": null,
+      "status": "measured_ci_only"
+    },
+    "langchain_style_rust_object_payload": {
+      "mean_ns": 1449900,
+      "ci_low_ns": 1385400,
+      "ci_high_ns": 1515400,
+      "stddev_ns": null,
+      "status": "measured_ci_only"
+    }
+  },
+  "notes": "Synthetic dataset benchmark for local payload construction only; baseline is Rust shape emulation (no Python runtime execution), and no live Weaviate network calls."
+}

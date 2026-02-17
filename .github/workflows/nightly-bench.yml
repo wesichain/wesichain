@@ -31,3 +31,26 @@ jobs:
             --rss-file target/bench/rss.txt \
             --waivers WAIVERS.yml \
             --dataset-size 1000
+
+  weaviate-nightly-bench:
+    name: Weaviate Benchmark Threshold Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run weaviate benchmark and capture peak memory
+        run: |
+          mkdir -p target/bench
+          /usr/bin/time -v -o target/bench/rss.txt \
+            cargo bench -p wesichain-weaviate --bench vs_langchain -- --sample-size 10
+
+      - name: Evaluate benchmark thresholds
+        run: |
+          python3 tools/bench/evaluate_thresholds.py \
+            --thresholds tools/bench/thresholds.toml \
+            --criterion-root target/criterion \
+            --rss-file target/bench/rss.txt \
+            --waivers WAIVERS.yml \
+            --dataset-size 1000
