@@ -77,7 +77,7 @@ pub struct ToolSetBuilder {
 }
 
 impl ToolSetBuilder {
-    pub fn register<T>(mut self, _tool: T) -> Self
+    pub fn register<T>(mut self) -> Self
     where
         T: TypedTool,
     {
@@ -96,6 +96,12 @@ impl ToolSetBuilder {
         let mut catalog = BTreeMap::new();
 
         for entry in &self.entries {
+            if entry.name.trim().is_empty() {
+                return Err(ToolSetBuildError::InvalidName {
+                    name: entry.name.clone(),
+                });
+            }
+
             if !seen.insert(entry.name.clone()) {
                 return Err(ToolSetBuildError::DuplicateName {
                     name: entry.name.clone(),
@@ -120,12 +126,16 @@ struct ToolMetadata {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ToolSetBuildError {
+    InvalidName { name: String },
     DuplicateName { name: String },
 }
 
 impl std::fmt::Display for ToolSetBuildError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            ToolSetBuildError::InvalidName { name } => {
+                write!(f, "tool name must not be empty or whitespace: {name:?}")
+            }
             ToolSetBuildError::DuplicateName { name } => {
                 write!(f, "duplicate tool name: {name}")
             }

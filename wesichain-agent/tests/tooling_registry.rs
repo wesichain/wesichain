@@ -38,11 +38,24 @@ impl TypedTool for EchoToolDuplicate {
     }
 }
 
+struct InvalidNameTool;
+
+impl TypedTool for InvalidNameTool {
+    type Args = EchoArgs;
+    type Output = EchoOutput;
+
+    const NAME: &'static str = "   ";
+
+    async fn run(&self, args: Self::Args, _ctx: ToolContext) -> Result<Self::Output, wesichain_agent::ToolError> {
+        Ok(EchoOutput { echoed: args.text })
+    }
+}
+
 #[test]
 fn build_rejects_duplicate_tool_names() {
     let err = ToolSet::new()
-        .register(EchoTool)
-        .register(EchoToolDuplicate)
+        .register::<EchoTool>()
+        .register::<EchoToolDuplicate>()
         .build()
         .unwrap_err();
 
@@ -52,18 +65,26 @@ fn build_rejects_duplicate_tool_names() {
 
 #[test]
 fn typed_registration_path_compiles() {
-    let toolset = ToolSet::new().register(EchoTool).build().unwrap();
+    let toolset = ToolSet::new().register::<EchoTool>().build().unwrap();
     assert_eq!(toolset.names(), ["echo"]);
 }
 
 #[test]
 fn schema_catalog_contains_typed_args_and_output() {
-    let toolset = ToolSet::new().register(EchoTool).build().unwrap();
+    let toolset = ToolSet::new().register::<EchoTool>().build().unwrap();
     let catalog = toolset.schema_catalog();
 
     let schema = catalog.get("echo").expect("schema entry for echo");
     assert!(schema.args_schema.schema.object.is_some());
     assert!(schema.output_schema.schema.object.is_some());
+}
+
+#[test]
+fn build_rejects_empty_or_whitespace_tool_names() {
+    let err = ToolSet::new().register::<InvalidNameTool>().build().unwrap_err();
+
+    assert!(err.to_string().contains("tool name"));
+    assert!(err.to_string().contains("empty"));
 }
 
 #[test]
