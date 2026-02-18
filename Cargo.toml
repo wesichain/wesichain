@@ -19,6 +19,7 @@ members = [
   "wesichain-weaviate",
   "wesichain-rag",
   "wesichain-compat",
+  "wesichain-agent",
   "wesichain-macros", "wesichain-memory",
   "examples",
 ]
