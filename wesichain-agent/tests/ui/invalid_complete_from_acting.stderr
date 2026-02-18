@@ -1,0 +1,8 @@
+error[E0599]: no method named `complete` found for struct `AgentRuntime<(), (), NoopPolicy, Acting>` in the current scope
+ --> tests/ui/invalid_complete_from_acting.rs:6:20
+  |
+6 |     let _ = acting.complete();
+  |                    ^^^^^^^^ method not found in `AgentRuntime<(), (), NoopPolicy, Acting>`
+  |
+  = note: the method was found for
+          - `AgentRuntime<S, T, P, Thinking>`
