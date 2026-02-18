@@ -401,3 +401,5 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
             .boxed()
     }
 }
+
+impl wesichain_core::ToolCallingLlm for OpenAiCompatibleClient {}

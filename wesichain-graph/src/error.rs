@@ -41,4 +41,6 @@ pub enum GraphError {
     },
     #[error("system error: {0}")]
     System(String),
+    #[error(transparent)]
+    Wesichain(#[from] wesichain_core::WesichainError),
 }

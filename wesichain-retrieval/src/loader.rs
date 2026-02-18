@@ -45,6 +45,8 @@ pub async fn load_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionEr
     match extension.as_str() {
         "txt" => load_text_file_async(path).await,
         "docx" => load_docx_file_async(path).await,
+        "html" | "htm" => load_html_file_async(path).await,
+        "md" | "markdown" => load_markdown_file_async(path).await,
         #[cfg(feature = "pdf")]
         "pdf" => load_pdf_file_async(path).await,
         _ => Err(IngestionError::UnsupportedExtension { path, extension }),
@@ -100,6 +102,246 @@ async fn load_docx_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionE
         "source".to_string(),
         Value::String(path.to_string_lossy().to_string()),
     );
+
+    Ok(vec![Document {
+        id: path.to_string_lossy().to_string(),
+        content,
+        metadata,
+        embedding: None,
+    }])
+}
+
+async fn load_html_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
+    let html_content =
+        tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|source| IngestionError::Read {
+                path: path.clone(),
+                source,
+            })?;
+
+    let document = scraper::Html::parse_document(&html_content);
+
+    // Extract title
+    let title_selector = scraper::Selector::parse("title").unwrap();
+    let title = document
+        .select(&title_selector)
+        .next()
+        .map(|el| el.text().collect::<String>())
+        .unwrap_or_default();
+
+    // Extract lang attribute
+    let html_selector = scraper::Selector::parse("html").unwrap();
+    let lang = document
+        .select(&html_selector)
+        .next()
+        .and_then(|el| el.value().attr("lang"))
+        .map(String::from);
+
+    // Extract text from body, skipping script/style/nav/header/footer
+    let body_selector = scraper::Selector::parse("body").unwrap();
+
+    let mut text_parts = Vec::new();
+
+    if let Some(body) = document.select(&body_selector).next() {
+        extract_text_from_html_element(body, &mut text_parts);
+    } else {
+        // Fallback: extract from entire document if no body
+        extract_text_from_html_element(document.root_element(), &mut text_parts);
+    }
+
+    let content = text_parts.join("\n\n").trim().to_string();
+
+    let mut metadata = HashMap::new();
+    metadata.insert(
+        "source".to_string(),
+        Value::String(path.to_string_lossy().to_string()),
+    );
+    if !title.is_empty() {
+        metadata.insert("title".to_string(), Value::String(title));
+    }
+    if let Some(lang_value) = lang {
+        metadata.insert("lang".to_string(), Value::String(lang_value));
+    }
+
+    Ok(vec![Document {
+        id: path.to_string_lossy().to_string(),
+        content,
+        metadata,
+        embedding: None,
+    }])
+}
+
+fn extract_text_from_html_element(element: scraper::ElementRef, text_parts: &mut Vec<String>) {
+    use scraper::node::Node;
+
+    let mut current_text = String::new();
+
+    for child in element.children() {
+        match child.value() {
+            Node::Element(_) => {
+                if let Some(child_element) = scraper::ElementRef::wrap(child) {
+                    // Skip script, style, nav, header, footer
+                    match child_element.value().name() {
+                        "script" | "style" | "nav" | "header" | "footer" => continue,
+                        _ => {}
+                    }
+
+                    // Recursively extract from children
+                    extract_text_from_html_element(child_element, text_parts);
+                    if matches!(
+                        child_element.value().name(),
+                        "p" | "div" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "blockquote"
+                    ) && !current_text.is_empty()
+                    {
+                        text_parts.push(std::mem::take(&mut current_text).trim().to_string());
+                    }
+                }
+            }
+            Node::Text(text) => {
+                let text_content = text.trim();
+                if !text_content.is_empty() {
+                    if !current_text.is_empty() && !current_text.ends_with(' ') {
+                        current_text.push(' ');
+                    }
+                    current_text.push_str(text_content);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !current_text.is_empty() {
+        text_parts.push(current_text.trim().to_string());
+    }
+}
+
+/// Load a Markdown file and extract content with header metadata.
+///
+/// # Metadata Schema
+///
+/// The loader preserves header structure in the `metadata` field for future use
+/// by text splitters like `MarkdownHeaderTextSplitter`.
+///
+/// ## `headers` Field
+///
+/// An array of header objects with the following schema:
+///
+/// ```json
+/// {
+///   "headers": [
+///     {
+///       "level": 1,
+///       "text": "Main Title",
+///       "line_start": 1
+///     },
+///     {
+///       "level": 2,
+///       "text": "Subsection",
+///       "line_start": 15
+///     }
+///   ]
+/// }
+/// ```
+///
+/// - `level`: Header level (1-6)
+/// - `text`: Header text content (without leading `#` symbols)
+/// - `line_start`: Approximate line number where the header appears
+///
+/// ## Example Usage
+///
+/// ```rust,ignore
+/// use wesichain_retrieval::load_file_async;
+/// use std::path::PathBuf;
+///
+/// let docs = load_file_async(PathBuf::from("readme.md")).await?;
+/// let headers = docs[0].metadata.get("headers").unwrap();
+/// // Access header hierarchy for splitting or filtering
+/// ```
+async fn load_markdown_file_async(path: PathBuf) -> Result<Vec<Document>, IngestionError> {
+    let markdown_content =
+        tokio::fs::read_to_string(&path)
+            .await
+            .map_err(|source| IngestionError::Read {
+                path: path.clone(),
+                source,
+            })?;
+
+    use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
+
+    let parser = Parser::new(&markdown_content);
+
+    let mut text_parts = Vec::new();
+    let mut headers = Vec::new();
+    let mut current_text = String::new();
+    let mut line_number = 0;
+
+    for event in parser {
+        match event {
+            Event::Start(Tag::Heading { level: _, .. }) => {
+                if !current_text.is_empty() {
+                    text_parts.push(std::mem::take(&mut current_text));
+                }
+            }
+            Event::End(TagEnd::Heading(level)) => {
+                let header_text = current_text.trim().to_string();
+                if !header_text.is_empty() {
+                    let level_num = match level {
+                        HeadingLevel::H1 => 1,
+                        HeadingLevel::H2 => 2,
+                        HeadingLevel::H3 => 3,
+                        HeadingLevel::H4 => 4,
+                        HeadingLevel::H5 => 5,
+                        HeadingLevel::H6 => 6,
+                    };
+
+                    let mut header_meta = HashMap::new();
+                    header_meta.insert(
+                        "level".to_string(),
+                        Value::Number(serde_json::Number::from(level_num)),
+                    );
+                    header_meta.insert("text".to_string(), Value::String(header_text.clone()));
+                    header_meta.insert(
+                        "line_start".to_string(),
+                        Value::Number(serde_json::Number::from(line_number)),
+                    );
+
+                    headers.push(Value::Object(header_meta.into_iter().collect()));
+                    text_parts.push(header_text);
+                    current_text.clear();
+                }
+            }
+            Event::Text(text) | Event::Code(text) => {
+                current_text.push_str(&text);
+                line_number += text.matches('\n').count();
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                current_text.push(' ');
+                line_number += 1;
+            }
+            Event::Start(Tag::Paragraph) | Event::End(TagEnd::Paragraph) => {
+                if !current_text.is_empty() {
+                    text_parts.push(std::mem::take(&mut current_text).trim().to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !current_text.is_empty() {
+        text_parts.push(current_text.trim().to_string());
+    }
+
+    let content = text_parts.join("\n\n");
+
+    let mut metadata = HashMap::new();
+    metadata.insert(
+        "source".to_string(),
+        Value::String(path.to_string_lossy().to_string()),
+    );
+    if !headers.is_empty() {
+        metadata.insert("headers".to_string(), Value::Array(headers));
+    }
 
     Ok(vec![Document {
         id: path.to_string_lossy().to_string(),

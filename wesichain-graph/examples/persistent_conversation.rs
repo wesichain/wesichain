@@ -16,7 +16,9 @@ struct ConversationState {
 }
 
 impl StateSchema for ConversationState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let mut messages = current.messages.clone();
         messages.extend(update.messages);
         let turn = if update.turn == 0 {

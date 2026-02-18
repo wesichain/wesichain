@@ -7,8 +7,8 @@ use uuid::Uuid;
 
 use crate::Value;
 
-mod wrappers;
 mod llm;
+mod wrappers;
 
 pub use llm::{LlmInput, LlmResult, TokenUsage};
 
@@ -93,13 +93,19 @@ pub trait CallbackHandler: Send + Sync {
     /// Called when an LLM call starts. Override for structured LLM observability.
     /// Default implementation calls `on_start` with serialized input.
     async fn on_llm_start(&self, ctx: &RunContext, input: &LlmInput) {
-        self.on_start(ctx, &serde_json::to_value(input).unwrap_or_default()).await
+        self.on_start(ctx, &serde_json::to_value(input).unwrap_or_default())
+            .await
     }
 
     /// Called when an LLM call ends. Override for structured LLM observability.
     /// Default implementation calls `on_end` with serialized result.
     async fn on_llm_end(&self, ctx: &RunContext, result: &LlmResult, duration_ms: u128) {
-        self.on_end(ctx, &serde_json::to_value(result).unwrap_or_default(), duration_ms).await
+        self.on_end(
+            ctx,
+            &serde_json::to_value(result).unwrap_or_default(),
+            duration_ms,
+        )
+        .await
     }
 }
 

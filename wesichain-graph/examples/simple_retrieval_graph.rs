@@ -14,7 +14,9 @@ struct RagState {
 }
 
 impl StateSchema for RagState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let query = if update.query.is_empty() {
             current.query.clone()
         } else {

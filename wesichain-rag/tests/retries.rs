@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
-use wesichain_core::{AgentEvent, Document};
-use wesichain_graph::{Checkpoint, Checkpointer, GraphError, InMemoryCheckpointer};
+use wesichain_core::{AgentEvent, Document, WesichainError};
+use wesichain_graph::{Checkpoint, Checkpointer, InMemoryCheckpointer};
 use wesichain_rag::{RagQueryRequest, RagRuntimeState, WesichainRag};
 
 #[derive(Clone)]
@@ -22,12 +22,12 @@ impl FlakyCheckpointer {
 
 #[async_trait::async_trait]
 impl Checkpointer<RagRuntimeState> for FlakyCheckpointer {
-    async fn save(&self, checkpoint: &Checkpoint<RagRuntimeState>) -> Result<(), GraphError> {
+    async fn save(&self, checkpoint: &Checkpoint<RagRuntimeState>) -> Result<(), WesichainError> {
         let should_fail = {
             let mut guard = self
                 .remaining_failures
                 .lock()
-                .map_err(|_| GraphError::Checkpoint("retry lock poisoned".to_string()))?;
+                .map_err(|_| WesichainError::Custom("retry lock poisoned".to_string()))?;
 
             if *guard > 0 {
                 *guard -= 1;
@@ -38,7 +38,7 @@ impl Checkpointer<RagRuntimeState> for FlakyCheckpointer {
         };
 
         if should_fail {
-            return Err(GraphError::Checkpoint(
+            return Err(WesichainError::Custom(
                 "simulated transient checkpoint failure".to_string(),
             ));
         }
@@ -49,7 +49,7 @@ impl Checkpointer<RagRuntimeState> for FlakyCheckpointer {
     async fn load(
         &self,
         thread_id: &str,
-    ) -> Result<Option<Checkpoint<RagRuntimeState>>, GraphError> {
+    ) -> Result<Option<Checkpoint<RagRuntimeState>>, WesichainError> {
         self.inner.load(thread_id).await
     }
 }

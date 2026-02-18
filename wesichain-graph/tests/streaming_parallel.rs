@@ -16,7 +16,9 @@ struct TestState {
 }
 
 impl StateSchema for TestState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self::Update) -> Self {
         let mut new_val = current.value.clone();
         new_val.extend(update.value);
         TestState {

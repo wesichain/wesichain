@@ -9,7 +9,9 @@ struct TestState {
 }
 
 impl StateSchema for TestState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         TestState {
             value: format!("{} -> {}", current.value, update.value),
         }

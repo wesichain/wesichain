@@ -2,6 +2,7 @@ mod agent_event;
 mod binding;
 mod callbacks;
 mod chain;
+pub mod checkpoint;
 mod document;
 mod embedding;
 mod error;
@@ -10,6 +11,7 @@ mod llm;
 mod metadata_filter;
 mod output_parsers;
 pub mod persistence;
+pub mod prelude;
 mod react;
 pub mod registry;
 mod retrieval_state;
@@ -17,17 +19,16 @@ mod retry;
 pub mod runnable;
 mod runnable_parallel;
 pub mod serde;
+pub mod state;
 mod tool;
 mod value;
 mod vector_store;
-pub mod state;
-pub mod checkpoint;
 
 pub use agent_event::AgentEvent;
 pub use binding::{Bindable, RunnableBinding};
 pub use callbacks::{
     ensure_object, CallbackHandler, CallbackManager, LlmInput, LlmResult, RunConfig, RunContext,
-    RunType, TokenUsage, ToTraceInput, ToTraceOutput, TracedRunnable,
+    RunType, ToTraceInput, ToTraceOutput, TokenUsage, TracedRunnable,
 };
 pub use chain::{Chain, RunnableExt, RuntimeChain};
 pub use document::Document;
@@ -39,7 +40,7 @@ pub use llm::{
 };
 pub use metadata_filter::MetadataFilter;
 pub use output_parsers::{
-    BaseOutputParser, JsonOutputParser, StrOutputParser, StructuredOutputParser,
+    BaseOutputParser, JsonOutputParser, OutputFixingParser, StrOutputParser, StructuredOutputParser,
 };
 pub use persistence::{load_runnable, reconstruct, save_runnable};
 pub use react::{HasFinalOutput, HasUserInput, ReActStep, ScratchpadState};

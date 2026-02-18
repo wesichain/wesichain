@@ -13,7 +13,12 @@ struct LoopState {
     count: i32,
 }
 
-impl StateSchema for LoopState {}
+impl StateSchema for LoopState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 struct Inc;
 

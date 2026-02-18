@@ -260,7 +260,7 @@ pub struct ExecutableGraph<S: StateSchema> {
     interrupt_after: Vec<String>,
 }
 
-impl<S: StateSchema> ExecutableGraph<S> {
+impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
     pub async fn invoke_graph(&self, state: GraphState<S>) -> Result<GraphState<S>, GraphError> {
         self.invoke_graph_with_options(state, ExecutionOptions::default())
             .await
@@ -473,8 +473,9 @@ impl<S: StateSchema> ExecutableGraph<S> {
                                                 ctx.queue.iter().cloned().collect(),
                                             );
                                             if let Err(err) = checkpointer.save(&checkpoint).await {
-                                                ctx.pending_events
-                                                    .push_back(GraphEvent::Error(err));
+                                                ctx.pending_events.push_back(GraphEvent::Error(
+                                                    GraphError::from(err),
+                                                ));
                                                 ctx.join_set.shutdown().await;
                                                 continue;
                                             }
@@ -648,7 +649,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
                         state = saved.state;
                     }
                     Ok(None) => {}
-                    Err(error) => return Err(error),
+                    Err(error) => return Err(error.into()),
                 }
             }
         }
@@ -1132,16 +1133,18 @@ impl<S: StateSchema> ExecutableGraph<S> {
                             full_queue,
                         );
                         if let Err(err) = checkpointer.save(&checkpoint).await {
+                            let graph_err = GraphError::from(err);
                             if let Some(obs) = &observer {
-                                obs.on_error(&current, &err).await;
+                                obs.on_error(&current, &graph_err).await;
                             }
                             if let Some((manager, root)) = &callbacks {
-                                let error_value = ensure_object(err.to_string().to_trace_output());
+                                let error_value =
+                                    ensure_object(graph_err.to_string().to_trace_output());
                                 let duration_ms = root.start_instant.elapsed().as_millis();
                                 manager.on_error(root, &error_value, duration_ms).await;
                             }
                             join_set.abort_all();
-                            return Err(err);
+                            return Err(graph_err);
                         }
                         if let Some(obs) = &observer {
                             obs.on_checkpoint_saved(&current).await;
@@ -1251,7 +1254,7 @@ impl<S: StateSchema> ExecutableGraph<S> {
 }
 
 #[async_trait::async_trait]
-impl<S: StateSchema> Runnable<GraphState<S>, StateUpdate<S>> for ExecutableGraph<S> {
+impl<S: StateSchema<Update = S>> Runnable<GraphState<S>, StateUpdate<S>> for ExecutableGraph<S> {
     async fn invoke(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError> {
         let result = self
             .invoke_graph(input)

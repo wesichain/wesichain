@@ -1,8 +1,8 @@
-use wesichain_graph::GraphError;
+use wesichain_core::WesichainError;
 
-pub fn safe_thread_id(thread_id: &str) -> Result<&str, GraphError> {
+pub fn safe_thread_id(thread_id: &str) -> Result<&str, WesichainError> {
     if thread_id.is_empty() {
-        return Err(GraphError::Checkpoint(
+        return Err(WesichainError::CheckpointFailed(
             "thread_id must not be empty".to_string(),
         ));
     }
@@ -11,7 +11,7 @@ pub fn safe_thread_id(thread_id: &str) -> Result<&str, GraphError> {
         .chars()
         .any(|c| matches!(c, '{' | '}' | '*' | '?' | '\n' | '\r'))
     {
-        return Err(GraphError::Checkpoint(format!(
+        return Err(WesichainError::CheckpointFailed(format!(
             "thread_id contains characters invalid in Redis keys: {thread_id:?}"
         )));
     }

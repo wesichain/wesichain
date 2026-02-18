@@ -10,7 +10,9 @@ struct FanoutState {
 }
 
 impl StateSchema for FanoutState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self::Update) -> Self {
         let mut logs = current.logs.clone();
         logs.extend(update.logs);
         FanoutState { logs }

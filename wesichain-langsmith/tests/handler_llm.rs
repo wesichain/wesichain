@@ -2,10 +2,10 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use secrecy::SecretString;
-use wiremock::matchers::{header, method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
 use wesichain_core::{CallbackHandler, LlmInput, LlmResult, RunContext, RunType, TokenUsage};
 use wesichain_langsmith::{LangSmithCallbackHandler, LangSmithConfig};
+use wiremock::matchers::{header, method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[tokio::test]
 async fn handler_emits_llm_start_event() {
@@ -31,7 +31,12 @@ async fn handler_emits_llm_start_event() {
 
     let handler = LangSmithCallbackHandler::new(config);
 
-    let ctx = RunContext::root(RunType::Llm, "test-llm".to_string(), vec![], BTreeMap::new());
+    let ctx = RunContext::root(
+        RunType::Llm,
+        "test-llm".to_string(),
+        vec![],
+        BTreeMap::new(),
+    );
     let input = LlmInput {
         model: "gpt-4".to_string(),
         prompt: "Hello".to_string(),
@@ -76,7 +81,12 @@ async fn handler_emits_llm_end_with_token_usage() {
     let handler = LangSmithCallbackHandler::new(config);
 
     // First call on_llm_start
-    let ctx = RunContext::root(RunType::Llm, "test-llm".to_string(), vec![], BTreeMap::new());
+    let ctx = RunContext::root(
+        RunType::Llm,
+        "test-llm".to_string(),
+        vec![],
+        BTreeMap::new(),
+    );
     let input = LlmInput {
         model: "gpt-4".to_string(),
         prompt: "Hello".to_string(),

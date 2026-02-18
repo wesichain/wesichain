@@ -5,7 +5,9 @@ use wesichain_checkpoint_sql::migrations::run_migrations;
 use wesichain_checkpoint_sql::ops::{
     load_latest_checkpoint, save_checkpoint_with_projections_and_queue,
 };
-use wesichain_graph::{Checkpoint, Checkpointer, GraphError, GraphState, StateSchema};
+use wesichain_core::checkpoint::{Checkpoint, Checkpointer};
+use wesichain_core::state::{GraphState, StateSchema};
+use wesichain_core::WesichainError;
 
 #[derive(Debug, Clone)]
 pub struct SqliteCheckpointer {
@@ -61,11 +63,11 @@ impl SqliteCheckpointerBuilder {
     }
 }
 
-fn graph_checkpoint_error(message: impl Into<String>) -> GraphError {
-    GraphError::Checkpoint(message.into())
+fn graph_checkpoint_error(message: impl Into<String>) -> WesichainError {
+    WesichainError::CheckpointFailed(message.into())
 }
 
-fn map_sql_error(error: CheckpointSqlError) -> GraphError {
+fn map_sql_error(error: CheckpointSqlError) -> WesichainError {
     graph_checkpoint_error(error.to_string())
 }
 
@@ -74,7 +76,7 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
         &'life0 self,
         checkpoint: &'life1 Checkpoint<S>,
     ) -> core::pin::Pin<
-        Box<dyn core::future::Future<Output = Result<(), GraphError>> + Send + 'async_trait>,
+        Box<dyn core::future::Future<Output = Result<(), WesichainError>> + Send + 'async_trait>,
     >
     where
         'life0: 'async_trait,
@@ -107,7 +109,7 @@ impl<S: StateSchema> Checkpointer<S> for SqliteCheckpointer {
         thread_id: &'life1 str,
     ) -> core::pin::Pin<
         Box<
-            dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, GraphError>>
+            dyn core::future::Future<Output = Result<Option<Checkpoint<S>>, WesichainError>>
                 + Send
                 + 'async_trait,
         >,

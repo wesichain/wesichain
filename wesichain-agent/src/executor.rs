@@ -5,12 +5,20 @@ use serde_json::Value;
 use std::collections::HashMap;
 use wesichain_core::{LlmRequest, Message, Role, Runnable, Tool, ToolCall, WesichainError};
 
+/// Legacy agent executor with known issues (hardcoded tool IDs, no ReAct loop).
+///
+/// Use `ReActAgentNode` from `wesichain-graph` for production use.
+#[deprecated(
+    since = "0.3.0",
+    note = "Use ReActAgentNode from wesichain-graph for proper ReAct Thought/Action/Observation loop. Will be removed in v0.4.0."
+)]
 pub struct AgentExecutor<A> {
     agent: A,
     tools: HashMap<String, Box<dyn Tool>>,
     max_iterations: Option<usize>,
 }
 
+#[allow(deprecated)]
 impl<A> AgentExecutor<A>
 where
     A: ActionAgent,
@@ -33,6 +41,7 @@ where
     }
 }
 
+#[allow(deprecated)]
 #[async_trait]
 impl<A> Runnable<LlmRequest, String> for AgentExecutor<A>
 where
@@ -104,11 +113,12 @@ where
                     // LlmRequest messages are standard Human/AI/System/Tool.
 
                     // Add ToolCall (AI message)
+                    let call_id = uuid::Uuid::new_v4().to_string();
                     current_input.messages.push(Message {
                         role: Role::Assistant,
-                        content: "".to_string(), // Tool calls usually in dedicated field or content
+                        content: "".to_string(),
                         tool_calls: vec![ToolCall {
-                            id: "call_id".to_string(), // We don't have ID from AgentAction easily, generate one?
+                            id: call_id.clone(),
                             name: tool_name,
                             args: action.tool_input,
                         }],
@@ -120,7 +130,7 @@ where
                         role: Role::Tool,
                         content: output.to_string(),
                         tool_calls: vec![],
-                        tool_call_id: Some("call_id".to_string()),
+                        tool_call_id: Some(call_id),
                     });
                 }
             }

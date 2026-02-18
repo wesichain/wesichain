@@ -5,13 +5,14 @@ mod script;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::keys::{index_key, safe_thread_id, ThreadKeys};
+use crate::script::LUA_SAVE;
 use fred::interfaces::{KeysInterface, LuaInterface, SortedSetsInterface};
 use fred::prelude::*;
 use tokio::sync::RwLock;
-use wesichain_graph::{Checkpoint, Checkpointer, GraphError, StateSchema};
-
-use crate::keys::{index_key, safe_thread_id, ThreadKeys};
-use crate::script::LUA_SAVE;
+use wesichain_core::checkpoint::{Checkpoint, Checkpointer};
+use wesichain_core::state::StateSchema;
+use wesichain_core::WesichainError;
 
 pub use keys::{index_key as redis_index_key, safe_thread_id as validate_thread_id};
 
@@ -32,16 +33,16 @@ impl std::fmt::Debug for RedisCheckpointer {
     }
 }
 
-pub(crate) fn checkpoint_error(message: impl Into<String>) -> GraphError {
-    GraphError::Checkpoint(message.into())
+pub(crate) fn checkpoint_error(message: impl Into<String>) -> WesichainError {
+    WesichainError::CheckpointFailed(message.into())
 }
 
-pub(crate) fn map_redis_error(error: RedisError) -> GraphError {
+pub(crate) fn map_redis_error(error: RedisError) -> WesichainError {
     checkpoint_error(error.to_string())
 }
 
 impl RedisCheckpointer {
-    pub async fn new(url: &str, namespace: impl Into<String>) -> Result<Self, GraphError> {
+    pub async fn new(url: &str, namespace: impl Into<String>) -> Result<Self, WesichainError> {
         let config = RedisConfig::from_url(url).map_err(map_redis_error)?;
         let client = RedisClient::new(config, None, None, None);
         client.init().await.map_err(map_redis_error)?;
@@ -64,7 +65,7 @@ impl RedisCheckpointer {
         self
     }
 
-    async fn eval_save(&self, keys: Vec<String>, args: Vec<String>) -> Result<u64, GraphError> {
+    async fn eval_save(&self, keys: Vec<String>, args: Vec<String>) -> Result<u64, WesichainError> {
         let existing_sha = self.script_sha.read().await.clone();
 
         match self
@@ -96,7 +97,7 @@ impl<S> Checkpointer<S> for RedisCheckpointer
 where
     S: StateSchema,
 {
-    async fn save(&self, checkpoint: &Checkpoint<S>) -> Result<(), GraphError> {
+    async fn save(&self, checkpoint: &Checkpoint<S>) -> Result<(), WesichainError> {
         let thread_id = safe_thread_id(&checkpoint.thread_id)?;
         let keys = ThreadKeys::new(&self.namespace, thread_id);
 
@@ -132,7 +133,7 @@ where
         Ok(())
     }
 
-    async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, GraphError> {
+    async fn load(&self, thread_id: &str) -> Result<Option<Checkpoint<S>>, WesichainError> {
         let thread_id = safe_thread_id(thread_id)?;
         let keys = ThreadKeys::new(&self.namespace, thread_id);
 

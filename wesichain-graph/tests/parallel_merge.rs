@@ -16,7 +16,9 @@ struct MergeState {
 }
 
 impl StateSchema for MergeState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         // Here we demonstrate how a user would use the Reducers
         let messages = Append.reduce(current.messages.clone(), update.messages);
         let last_node = Overwrite.reduce(current.last_node.clone(), update.last_node);

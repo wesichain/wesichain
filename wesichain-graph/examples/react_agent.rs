@@ -21,7 +21,9 @@ struct AgentState {
 }
 
 impl StateSchema for AgentState {
-    fn merge(current: &Self, update: Self) -> Self {
+    type Update = Self;
+
+    fn apply(current: &Self, update: Self) -> Self {
         let input = if update.input.is_empty() {
             current.input.clone()
         } else {

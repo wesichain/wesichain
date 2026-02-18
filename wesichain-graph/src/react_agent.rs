@@ -225,7 +225,7 @@ impl ReActAgentNodeBuilder {
 #[async_trait::async_trait]
 impl<S> GraphNode<S> for ReActAgentNode
 where
-    S: StateSchema + ScratchpadState + HasUserInput + HasFinalOutput,
+    S: StateSchema<Update = S> + ScratchpadState + HasUserInput + HasFinalOutput,
 {
     async fn invoke_with_context(
         &self,

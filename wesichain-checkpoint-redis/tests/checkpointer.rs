@@ -11,7 +11,12 @@ struct DemoState {
     count: i32,
 }
 
-impl StateSchema for DemoState {}
+impl StateSchema for DemoState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 fn redis_test_url() -> String {
     std::env::var("REDIS_TEST_URL")

@@ -24,7 +24,12 @@ struct DemoState {
     iterations: u32,
 }
 
-impl StateSchema for DemoState {}
+impl StateSchema for DemoState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 impl ScratchpadState for DemoState {
     fn scratchpad(&self) -> &Vec<ReActStep> {
