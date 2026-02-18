@@ -1,0 +1,136 @@
+use std::collections::{BTreeMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use schemars::{schema::RootSchema, JsonSchema};
+use serde::de::DeserializeOwned;
+
+pub type ToolError = wesichain_core::ToolError;
+
+#[derive(Clone, Debug, Default)]
+pub struct CancellationToken {
+    cancelled: Arc<AtomicBool>,
+}
+
+impl CancellationToken {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn cancel(&self) {
+        self.cancelled.store(true, Ordering::SeqCst);
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.cancelled.load(Ordering::SeqCst)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ToolContext {
+    pub correlation_id: String,
+    pub step_id: u32,
+    pub cancellation: CancellationToken,
+}
+
+#[allow(async_fn_in_trait)]
+pub trait TypedTool {
+    type Args: DeserializeOwned + JsonSchema;
+    type Output: serde::Serialize + JsonSchema;
+
+    const NAME: &'static str;
+
+    async fn run(&self, args: Self::Args, ctx: ToolContext) -> Result<Self::Output, ToolError>;
+}
+
+#[derive(Clone, Debug)]
+pub struct ToolSchema {
+    pub args_schema: RootSchema,
+    pub output_schema: RootSchema,
+}
+
+#[derive(Clone, Debug)]
+pub struct ToolSet {
+    entries: Vec<ToolMetadata>,
+    schema_catalog: BTreeMap<String, ToolSchema>,
+}
+
+impl ToolSet {
+    pub fn new() -> ToolSetBuilder {
+        ToolSetBuilder {
+            entries: Vec::new(),
+        }
+    }
+
+    pub fn names(&self) -> Vec<&str> {
+        self.entries.iter().map(|entry| entry.name.as_str()).collect()
+    }
+
+    pub fn schema_catalog(&self) -> &BTreeMap<String, ToolSchema> {
+        &self.schema_catalog
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct ToolSetBuilder {
+    entries: Vec<ToolMetadata>,
+}
+
+impl ToolSetBuilder {
+    pub fn register<T>(mut self, _tool: T) -> Self
+    where
+        T: TypedTool,
+    {
+        self.entries.push(ToolMetadata {
+            name: T::NAME.to_string(),
+            schema: ToolSchema {
+                args_schema: schemars::schema_for!(T::Args),
+                output_schema: schemars::schema_for!(T::Output),
+            },
+        });
+        self
+    }
+
+    pub fn build(self) -> Result<ToolSet, ToolSetBuildError> {
+        let mut seen = HashSet::new();
+        let mut catalog = BTreeMap::new();
+
+        for entry in &self.entries {
+            if !seen.insert(entry.name.clone()) {
+                return Err(ToolSetBuildError::DuplicateName {
+                    name: entry.name.clone(),
+                });
+            }
+
+            catalog.insert(entry.name.clone(), entry.schema.clone());
+        }
+
+        Ok(ToolSet {
+            entries: self.entries,
+            schema_catalog: catalog,
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ToolMetadata {
+    name: String,
+    schema: ToolSchema,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ToolSetBuildError {
+    DuplicateName { name: String },
+}
+
+impl std::fmt::Display for ToolSetBuildError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ToolSetBuildError::DuplicateName { name } => {
+                write!(f, "duplicate tool name: {name}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ToolSetBuildError {}

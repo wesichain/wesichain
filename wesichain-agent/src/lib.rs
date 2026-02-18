@@ -5,6 +5,7 @@ mod phase;
 mod policy;
 mod runtime;
 mod state;
+mod tooling;
 mod validation;
 
 pub use error::AgentError;
@@ -14,4 +15,7 @@ pub use phase::{Acting, Completed, Failed, Idle, Interrupted, Observing, Thinkin
 pub use policy::{NoopPolicy, PolicyDecision, RepromptStrategy};
 pub use runtime::AgentRuntime;
 pub use state::AgentState;
+pub use tooling::{
+    CancellationToken, ToolContext, ToolError, ToolSchema, ToolSet, ToolSetBuildError, TypedTool,
+};
 pub use validation::{validate_model_action, ModelAction};
