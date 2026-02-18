@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 use wesichain_core::checkpoint::{Checkpoint, Checkpointer};
-use wesichain_core::state::{GraphState, StateSchema};
+use wesichain_core::state::StateSchema;
 use wesichain_core::WesichainError;
 use wesichain_llm::{Message, Role};
 

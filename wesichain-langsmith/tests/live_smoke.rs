@@ -13,7 +13,12 @@ struct DemoState {
     value: usize,
 }
 
-impl StateSchema for DemoState {}
+impl StateSchema for DemoState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self {
+        update
+    }
+}
 
 struct IncrNode;
 

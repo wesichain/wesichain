@@ -11,7 +11,7 @@ use fred::interfaces::{KeysInterface, LuaInterface, SortedSetsInterface};
 use fred::prelude::*;
 use tokio::sync::RwLock;
 use wesichain_core::checkpoint::{Checkpoint, Checkpointer};
-use wesichain_core::state::{StateSchema};
+use wesichain_core::state::StateSchema;
 use wesichain_core::WesichainError;
 
 pub use keys::{index_key as redis_index_key, safe_thread_id as validate_thread_id};
