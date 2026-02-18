@@ -6,7 +6,7 @@ use wesichain_core::{
 };
 use wesichain_graph::{ExecutionOptions, GraphBuilder, GraphState, StateSchema, StateUpdate};
 
-#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug)]
 struct DemoState {
     value: usize,
 }

@@ -10,6 +10,11 @@ use wesichain_retrieval::Retriever;
 
 use crate::{GraphState, StateSchema, StateUpdate};
 
+/// Newtype wrapper to implement `Embedding` for `Arc<dyn Embedding>`.
+///
+/// Required by Rust's orphan rule: we can't implement a foreign trait (`Embedding`)
+/// on a foreign type (`Arc<dyn Embedding>`) directly. This wrapper delegates all
+/// methods and is used internally by [`RetrieverNode`].
 struct DynEmbedding(Arc<dyn Embedding>);
 
 #[async_trait]
@@ -27,6 +32,11 @@ impl Embedding for DynEmbedding {
     }
 }
 
+/// Newtype wrapper to implement `VectorStore` for `Arc<dyn VectorStore>`.
+///
+/// Same orphan-rule workaround as [`DynEmbedding`]. Used internally by
+/// [`RetrieverNode`] to bridge the `Arc<dyn VectorStore>` constructor parameter
+/// into the concrete `Retriever<E, V>` type.
 struct DynVectorStore(Arc<dyn VectorStore>);
 
 #[async_trait]

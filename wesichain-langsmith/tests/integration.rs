@@ -11,7 +11,7 @@ use wesichain_core::{CallbackManager, RunConfig, Runnable, WesichainError};
 use wesichain_graph::{ExecutionOptions, GraphBuilder, GraphState, StateSchema, StateUpdate};
 use wesichain_langsmith::{LangSmithCallbackHandler, LangSmithConfig};
 
-#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize, Debug)]
 struct DemoState {
     value: usize,
 }

@@ -1,6 +1,6 @@
-use std::collections::hash_map::DefaultHasher;
+use ahash::RandomState;
 use std::fs::{self, File, OpenOptions};
-use std::hash::{Hash, Hasher};
+
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 
@@ -40,9 +40,9 @@ impl FileCheckpointer {
         }
         let trimmed = out.trim_matches(|c: char| c == '.' || c.is_whitespace() || c == '_');
         if trimmed.is_empty() {
-            let mut hasher = DefaultHasher::new();
-            thread_id.hash(&mut hasher);
-            return format!("thread-{:08x}", hasher.finish());
+            let hash = RandomState::with_seeds(0x517cc1b727220a95, 0x6ed9eba1999cd92d, 0, 0)
+                .hash_one(thread_id);
+            return format!("thread-{:08x}", hash);
         }
         trimmed.to_string()
     }

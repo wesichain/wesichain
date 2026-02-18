@@ -4,7 +4,7 @@ members = [
   "wesichain-core",
   "wesichain-prompt",
   "wesichain-llm",
-  "wesichain-agent",
+
   "wesichain-graph",
   "wesichain-checkpoint-sql",
   "wesichain-checkpoint-sqlite",
@@ -20,6 +20,7 @@ members = [
   "wesichain-rag",
   "wesichain-compat",
   "wesichain-macros", "wesichain-memory",
+  "examples",
 ]
 resolver = "2"
 

@@ -1,0 +1,37 @@
+[package]
+name = "wesichain-examples"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+wesichain-core = { path = "../wesichain-core" }
+wesichain-graph = { path = "../wesichain-graph" }
+wesichain-llm = { path = "../wesichain-llm" }
+wesichain-memory = { path = "../wesichain-memory" }
+wesichain-retrieval = { path = "../wesichain-retrieval" }
+wesichain-prompt = { path = "../wesichain-prompt" }
+wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite" }
+
+tokio = { version = "1.35", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+dotenv = "0.15"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+uuid = { version = "1.6", features = ["v4", "serde"] }
+futures = "0.3"
+
+[[bin]]
+name = "react_agent_subgraph"
+path = "src/bin/react_agent_subgraph.rs"
+
+[[bin]]
+name = "rag_basic"
+path = "src/bin/rag_basic.rs"
+
+[[bin]]
+name = "resumable_workflow"
+path = "src/bin/resumable_workflow.rs"
