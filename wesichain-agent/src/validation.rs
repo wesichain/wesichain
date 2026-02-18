@@ -18,6 +18,16 @@ pub fn validate_model_action(
     allowed_tools: &[String],
 ) -> Result<ModelAction, AgentError> {
     let raw_response = format!("{response:?}");
+    let tool_call_count = response.tool_calls.len();
+
+    if tool_call_count > 1 {
+        return Err(AgentError::InvalidModelAction {
+            step_id,
+            tool_name: None,
+            received_args: format!("tool_calls_len={tool_call_count}"),
+            raw_response,
+        });
+    }
 
     if let Some(tool_call) = response.tool_calls.into_iter().next() {
         if allowed_tools.iter().any(|name| name == &tool_call.name) {
