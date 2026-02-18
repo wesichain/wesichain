@@ -18,9 +18,21 @@ fn invalid_model_action_carries_debug_payload() {
     let err = AgentError::InvalidModelAction {
         step_id: 2,
         tool_name: Some("calculator".to_string()),
-        received_args: serde_json::json!({"bad": true}),
-        raw_response: serde_json::json!({"tool_calls": []}),
+        received_args: "{\"bad\":true}".to_string(),
+        raw_response: "{\"tool_calls\":[]}".to_string(),
     };
+
+    match &err {
+        AgentError::InvalidModelAction {
+            received_args,
+            raw_response,
+            ..
+        } => {
+            assert!(received_args.contains("bad"));
+            assert!(raw_response.contains("tool_calls"));
+        }
+        _ => unreachable!(),
+    }
 
     assert!(err.to_string().contains("Invalid model action"));
 }

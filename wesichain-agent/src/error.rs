@@ -1,24 +1,33 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum AgentError {
-    #[error("Model transport")]
     ModelTransport,
-    #[error("Invalid model action at step {step_id}")]
     InvalidModelAction {
         step_id: u32,
         tool_name: Option<String>,
-        received_args: serde_json::Value,
-        raw_response: serde_json::Value,
+        received_args: String,
+        raw_response: String,
     },
-    #[error("Tool dispatch")]
     ToolDispatch,
-    #[error("Budget exceeded")]
     BudgetExceeded,
-    #[error("Policy config invalid")]
     PolicyConfigInvalid,
-    #[error("Policy runtime violation")]
     PolicyRuntimeViolation,
-    #[error("Internal invariant")]
     InternalInvariant,
 }
+
+impl std::fmt::Display for AgentError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AgentError::ModelTransport => f.write_str("Model transport"),
+            AgentError::InvalidModelAction { step_id, .. } => {
+                write!(f, "Invalid model action at step {step_id}")
+            }
+            AgentError::ToolDispatch => f.write_str("Tool dispatch"),
+            AgentError::BudgetExceeded => f.write_str("Budget exceeded"),
+            AgentError::PolicyConfigInvalid => f.write_str("Policy config invalid"),
+            AgentError::PolicyRuntimeViolation => f.write_str("Policy runtime violation"),
+            AgentError::InternalInvariant => f.write_str("Internal invariant"),
+        }
+    }
+}
+
+impl std::error::Error for AgentError {}
