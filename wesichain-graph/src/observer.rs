@@ -25,7 +25,12 @@ impl wesichain_core::CallbackHandler for ObserverCallbackAdapter {
         }
     }
 
-    async fn on_end(&self, ctx: &wesichain_core::RunContext, outputs: &serde_json::Value, duration_ms: u128) {
+    async fn on_end(
+        &self,
+        ctx: &wesichain_core::RunContext,
+        outputs: &serde_json::Value,
+        duration_ms: u128,
+    ) {
         if matches!(
             ctx.run_type,
             wesichain_core::RunType::Runnable
@@ -34,11 +39,18 @@ impl wesichain_core::CallbackHandler for ObserverCallbackAdapter {
                 | wesichain_core::RunType::Retriever
         ) {
             let output_value = outputs.clone();
-            self.0.on_node_end(&ctx.name, &output_value, duration_ms).await;
+            self.0
+                .on_node_end(&ctx.name, &output_value, duration_ms)
+                .await;
         }
     }
 
-    async fn on_error(&self, ctx: &wesichain_core::RunContext, error: &serde_json::Value, _duration_ms: u128) {
+    async fn on_error(
+        &self,
+        ctx: &wesichain_core::RunContext,
+        error: &serde_json::Value,
+        _duration_ms: u128,
+    ) {
         if matches!(
             ctx.run_type,
             wesichain_core::RunType::Runnable
@@ -53,13 +65,19 @@ impl wesichain_core::CallbackHandler for ObserverCallbackAdapter {
         }
     }
 
-    async fn on_event(&self, ctx: &wesichain_core::RunContext, event: &str, data: &serde_json::Value) {
+    async fn on_event(
+        &self,
+        ctx: &wesichain_core::RunContext,
+        event: &str,
+        data: &serde_json::Value,
+    ) {
         if event == "checkpoint_saved" {
-             // For checkpoint saved, prefer node_id from data if present
-             let node_id = data.get("node_id")
-                 .and_then(|v| v.as_str())
-                 .unwrap_or(&ctx.name);
-             self.0.on_checkpoint_saved(node_id).await;
+            // For checkpoint saved, prefer node_id from data if present
+            let node_id = data
+                .get("node_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&ctx.name);
+            self.0.on_checkpoint_saved(node_id).await;
         }
     }
 }

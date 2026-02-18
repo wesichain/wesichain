@@ -24,6 +24,7 @@ pub use graph::{ExecutableGraph, GraphBuilder, GraphContext, GraphNode};
 pub use interrupt::GraphInterrupt;
 pub use observer::Observer;
 pub use program::{EdgeKind, GraphProgram, NodeData};
+#[allow(deprecated)]
 pub use react_agent::{ReActAgentNode, ToolFailurePolicy};
 pub use react_subgraph::ReActGraphBuilder;
 pub use reducer::{AddCounter, AppendVec, MergeMap, Override};

@@ -55,8 +55,8 @@ where
 
                     // Exponential backoff: base 100ms * 2^(attempt-1)
                     // Cap at ~10s (attempt 7+) to avoid excessive delays in interactive apps
-                    let base_delay_ms = 100u64 * (1u64 << (attempt - 1).min(7)); 
-                    let jitter_ms = rand::thread_rng().gen_range(0..100); 
+                    let base_delay_ms = 100u64 * (1u64 << (attempt - 1).min(7));
+                    let jitter_ms = rand::thread_rng().gen_range(0..100);
                     let delay = std::time::Duration::from_millis(base_delay_ms + jitter_ms);
 
                     tokio::time::sleep(delay).await;
@@ -106,13 +106,13 @@ mod tests {
             count: count.clone(),
         };
         let retrying = Retrying::new(runnable, 3);
-        
+
         let start = std::time::Instant::now();
         retrying.invoke(()).await.unwrap();
         let elapsed = start.elapsed();
 
         assert_eq!(count.load(Ordering::SeqCst), 3); // 2 fails + 1 success
-        // Base delays: 100ms (attempt 1) + 200ms (attempt 2) = 300ms minimum
+                                                     // Base delays: 100ms (attempt 1) + 200ms (attempt 2) = 300ms minimum
         assert!(elapsed.as_millis() >= 300);
     }
 
@@ -124,9 +124,12 @@ mod tests {
             count: count.clone(),
         };
         let retrying = Retrying::new(runnable, 3);
-        
+
         let result = retrying.invoke(()).await;
-        assert!(matches!(result, Err(WesichainError::MaxRetriesExceeded { max: 3 })));
+        assert!(matches!(
+            result,
+            Err(WesichainError::MaxRetriesExceeded { max: 3 })
+        ));
         assert_eq!(count.load(Ordering::SeqCst), 3);
     }
 }

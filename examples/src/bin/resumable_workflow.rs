@@ -1,13 +1,9 @@
-use wesichain_core::{
-    Runnable, WesichainError,
-};
-use wesichain_core::state::{StateSchema, StateUpdate};
-use wesichain_graph::{
-    GraphBuilder, GraphState, InMemoryCheckpointer,
-};
-use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use tokio::time::{sleep, Duration};
+use wesichain_core::state::{StateSchema, StateUpdate};
+use wesichain_core::{Runnable, WesichainError};
+use wesichain_graph::{GraphBuilder, GraphState, InMemoryCheckpointer};
 
 // --- 1. Define State ---
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -39,10 +35,13 @@ struct StepNode {
 
 #[async_trait]
 impl Runnable<GraphState<WorkflowState>, StateUpdate<WorkflowState>> for StepNode {
-    async fn invoke(&self, input: GraphState<WorkflowState>) -> Result<StateUpdate<WorkflowState>, WesichainError> {
+    async fn invoke(
+        &self,
+        input: GraphState<WorkflowState>,
+    ) -> Result<StateUpdate<WorkflowState>, WesichainError> {
         println!("[{}] Processing step {}", self.name, input.data.step);
         sleep(Duration::from_millis(100)).await;
-        
+
         Ok(StateUpdate::new(WorkflowState {
             step: input.data.step + 1,
             data: vec![format!("Processed by {}", self.name)],
@@ -52,7 +51,13 @@ impl Runnable<GraphState<WorkflowState>, StateUpdate<WorkflowState>> for StepNod
     fn stream<'a>(
         &'a self,
         _input: GraphState<WorkflowState>,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(futures::stream::empty())
     }
 }
@@ -64,9 +69,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Setup Graph with Checkpointer
     let checkpointer = InMemoryCheckpointer::default();
 
-    let node_a = StepNode { name: "A".to_string() };
-    let node_b = StepNode { name: "B".to_string() };
-    let node_c = StepNode { name: "C".to_string() };
+    let node_a = StepNode {
+        name: "A".to_string(),
+    };
+    let node_b = StepNode {
+        name: "B".to_string(),
+    };
+    let node_c = StepNode {
+        name: "C".to_string(),
+    };
 
     // We want to interrupt BEFORE node B to simulate human approval
     let builder = GraphBuilder::<WorkflowState>::new()
@@ -102,20 +113,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n--- Inspecting Checkpoint ---");
     // Verify state at interruption
     use wesichain_core::checkpoint::HistoryCheckpointer;
-    let history = checkpointer.list_checkpoints("thread_1").await.unwrap_or_default();
-    
+    let history = checkpointer
+        .list_checkpoints("thread_1")
+        .await
+        .unwrap_or_default();
+
     if let Some(latest_meta) = history.first() {
         println!("Latest checkpoint metadata: {:?}", latest_meta);
     }
 
     // 4. Resume
     println!("\n--- Run 2: Resume (Should execute B and C) ---");
-    
+
     // Load latest checkpoint
     use wesichain_core::checkpoint::Checkpointer;
     let latest_opt = checkpointer.load("thread_1").await?;
     let latest = latest_opt.expect("Checkpoint should exist");
-    
+
     let resume_state = latest.state;
     let resume_queue = latest.queue; // Fixed field name "queue" vs "next_node_queue"
 
@@ -126,7 +140,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         initial_step: Some(latest.step as usize),
         ..Default::default()
     };
-    
+
     // Rebuild graph for resume
     let builder_resume = GraphBuilder::<WorkflowState>::new()
         .add_node("A", node_a)
@@ -139,12 +153,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let graph_resume = builder_resume.build();
 
-    let result_2 = graph_resume.invoke_graph_with_options(
-        resume_state,
-        resume_options
-    ).await?;
-    
+    let result_2 = graph_resume
+        .invoke_graph_with_options(resume_state, resume_options)
+        .await?;
+
     println!("Run 2 Finished: {:?}", result_2.data.data);
-    
+
     Ok(())
 }

@@ -1,15 +1,12 @@
-use std::sync::Arc;
-use wesichain_core::{
-    CallbackHandler, CallbackManager, RunContext,
-    Runnable, WesichainError, RunConfig,
-};
-use wesichain_core::state::{StateSchema, StateUpdate};
-use wesichain_graph::{
-    GraphBuilder, GraphState,
-};
-use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::sync::Arc;
+use wesichain_core::state::{StateSchema, StateUpdate};
+use wesichain_core::{
+    CallbackHandler, CallbackManager, RunConfig, RunContext, Runnable, WesichainError,
+};
+use wesichain_graph::{GraphBuilder, GraphState};
 
 // --- 1. Define State ---
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -43,7 +40,10 @@ struct MockRetriever;
 
 #[async_trait]
 impl Runnable<GraphState<RagState>, StateUpdate<RagState>> for MockRetriever {
-    async fn invoke(&self, input: GraphState<RagState>) -> Result<StateUpdate<RagState>, WesichainError> {
+    async fn invoke(
+        &self,
+        input: GraphState<RagState>,
+    ) -> Result<StateUpdate<RagState>, WesichainError> {
         println!("Retrieving docs for query: {}", input.data.query);
         // Mock retrieval
         let docs = vec![
@@ -59,7 +59,13 @@ impl Runnable<GraphState<RagState>, StateUpdate<RagState>> for MockRetriever {
     fn stream<'a>(
         &'a self,
         _input: GraphState<RagState>,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(futures::stream::empty())
     }
 }
@@ -69,13 +75,19 @@ struct MockGenerator;
 
 #[async_trait]
 impl Runnable<GraphState<RagState>, StateUpdate<RagState>> for MockGenerator {
-    async fn invoke(&self, input: GraphState<RagState>) -> Result<StateUpdate<RagState>, WesichainError> {
+    async fn invoke(
+        &self,
+        input: GraphState<RagState>,
+    ) -> Result<StateUpdate<RagState>, WesichainError> {
         let context = input.data.docs.join("\n");
         println!("Generating answer based on context len: {}", context.len());
-        
+
         // Mock generation
-        let answer = format!("Based on {}, Wesichain v0.2 has unified observability.", context);
-        
+        let answer = format!(
+            "Based on {}, Wesichain v0.2 has unified observability.",
+            context
+        );
+
         Ok(StateUpdate::new(RagState {
             answer: Some(answer),
             ..Default::default()
@@ -85,7 +97,13 @@ impl Runnable<GraphState<RagState>, StateUpdate<RagState>> for MockGenerator {
     fn stream<'a>(
         &'a self,
         _input: GraphState<RagState>,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(futures::stream::empty())
     }
 }
@@ -139,13 +157,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ..Default::default()
     });
 
-    let result = graph.invoke_graph_with_options(
-        initial,
-        wesichain_graph::ExecutionOptions {
-            run_config: Some(run_config),
-            ..Default::default()
-        }
-    ).await?;
+    let result = graph
+        .invoke_graph_with_options(
+            initial,
+            wesichain_graph::ExecutionOptions {
+                run_config: Some(run_config),
+                ..Default::default()
+            },
+        )
+        .await?;
 
     println!("\n\nFinal Answer: {:?}", result.data.answer);
 

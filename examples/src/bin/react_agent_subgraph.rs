@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 use wesichain_core::{
     CallbackHandler, CallbackManager, LlmRequest, LlmResponse, ReActStep, Role, RunContext,
     Runnable, ScratchpadState, Tool, ToolCall, ToolCallingLlm, Value, WesichainError,
 };
 use wesichain_graph::{
-    GraphState, ReActGraphBuilder, StateSchema, react_subgraph::ToolFailurePolicy,
+    react_subgraph::ToolFailurePolicy, GraphState, ReActGraphBuilder, StateSchema,
 };
-use serde::{Deserialize, Serialize};
-use async_trait::async_trait;
 
 // --- 1. Define State ---
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
@@ -72,7 +72,6 @@ impl ScratchpadState for AgentState {
     }
 }
 
-
 // --- 2. Define Tools ---
 
 #[derive(Clone)]
@@ -131,7 +130,7 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
     async fn invoke(&self, input: LlmRequest) -> Result<LlmResponse, WesichainError> {
         // Simple deterministic logic based on last message
         let last_msg = input.messages.last().unwrap();
-        
+
         match last_msg.role {
             Role::User => {
                 // First turn: call time tool
@@ -151,9 +150,9 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
                     tool_calls: vec![],
                 })
             }
-            _ => { 
+            _ => {
                 // Fallback
-                 Ok(LlmResponse {
+                Ok(LlmResponse {
                     content: "I don't know.".to_string(),
                     tool_calls: vec![],
                 })
@@ -164,7 +163,13 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
     fn stream<'a>(
         &'a self,
         _input: LlmRequest,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(futures::stream::empty())
     }
 }
@@ -172,18 +177,24 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
 #[async_trait]
 impl ToolCallingLlm for MockAgentLlm {}
 
-
 // --- 4. Custom Callback Handler for Observability ---
 struct StdoutCallbackHandler;
 
 #[async_trait]
 impl CallbackHandler for StdoutCallbackHandler {
     async fn on_start(&self, ctx: &RunContext, _inputs: &Value) {
-        println!("[CALLBACK] Starting node: {} (Type: {:?})", ctx.name, ctx.run_type);
+        println!(
+            "[CALLBACK] Starting node: {} (Type: {:?})",
+            ctx.name, ctx.run_type
+        );
     }
     async fn on_end(&self, ctx: &RunContext, outputs: &Value, duration_ms: u128) {
-        println!("[CALLBACK] Finished node: {} in {}ms. Output len: {}", 
-            ctx.name, duration_ms, outputs.to_string().len());
+        println!(
+            "[CALLBACK] Finished node: {} in {}ms. Output len: {}",
+            ctx.name,
+            duration_ms,
+            outputs.to_string().len()
+        );
     }
     async fn on_event(&self, _ctx: &RunContext, event: &str, data: &Value) {
         println!("[CALLBACK] Event: {} -> {}", event, data);
@@ -193,16 +204,12 @@ impl CallbackHandler for StdoutCallbackHandler {
     }
 }
 
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Wesichain ReAct Agent Example ===");
 
     // Setup Tools
-    let tools: Vec<Arc<dyn Tool>> = vec![
-        Arc::new(CalculatorTool),
-        Arc::new(TimeTool),
-    ];
+    let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(CalculatorTool), Arc::new(TimeTool)];
 
     // Setup Builder
     let llm = Arc::new(MockAgentLlm);
@@ -217,12 +224,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut manager = CallbackManager::default();
 
     manager.add_handler(Arc::new(StdoutCallbackHandler));
-    
+
     let run_config = wesichain_core::RunConfig {
         callbacks: Some(manager),
         ..Default::default()
     };
-    
+
     // Initial State
     let initial = GraphState::new(AgentState {
         input: "What time is it?".to_string(),
@@ -232,13 +239,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     });
 
     println!("\nInvoking graph...");
-    let result = graph.invoke_graph_with_options(
-        initial, 
-        wesichain_graph::ExecutionOptions {
-            run_config: Some(run_config),
-            ..Default::default()
-        }
-    ).await?;
+    let result = graph
+        .invoke_graph_with_options(
+            initial,
+            wesichain_graph::ExecutionOptions {
+                run_config: Some(run_config),
+                ..Default::default()
+            },
+        )
+        .await?;
 
     println!("\nFinal Result: {:?}", result.data.final_output);
     println!("Scratchpad steps: {}", result.data.scratchpad.len());

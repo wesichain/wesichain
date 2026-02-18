@@ -1,12 +1,10 @@
-use std::sync::{Arc, Mutex};
-use wesichain_graph::{
-    GraphBuilder, GraphError, Observer, StateSchema, GraphState, StateUpdate,
-};
-use wesichain_core::{Runnable, WesichainError};
-use serde_json::Value;
-use serde::{Serialize, Deserialize};
 use async_trait::async_trait;
-use futures;
+
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use std::sync::{Arc, Mutex};
+use wesichain_core::{Runnable, WesichainError};
+use wesichain_graph::{GraphBuilder, GraphError, GraphState, Observer, StateSchema, StateUpdate};
 
 #[derive(Clone, Default, Debug, Serialize, Deserialize)]
 struct TestState {
@@ -50,7 +48,10 @@ impl Observer for MockObserver {
     }
 
     async fn on_checkpoint_saved(&self, thread_id: &str) {
-        self.events.lock().unwrap().push(format!("checkpoint:{}", thread_id));
+        self.events
+            .lock()
+            .unwrap()
+            .push(format!("checkpoint:{}", thread_id));
     }
 }
 
@@ -59,14 +60,25 @@ struct TestNode;
 
 #[async_trait]
 impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for TestNode {
-    async fn invoke(&self, _input: GraphState<TestState>) -> Result<StateUpdate<TestState>, WesichainError> {
-        Ok(StateUpdate::new(TestState { data: "_n1".to_string() }))
+    async fn invoke(
+        &self,
+        _input: GraphState<TestState>,
+    ) -> Result<StateUpdate<TestState>, WesichainError> {
+        Ok(StateUpdate::new(TestState {
+            data: "_n1".to_string(),
+        }))
     }
 
     fn stream<'a>(
         &'a self,
         _input: GraphState<TestState>,
-    ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+    ) -> std::pin::Pin<
+        Box<
+            dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                + Send
+                + 'a,
+        >,
+    > {
         Box::pin(futures::stream::empty())
     }
 }
@@ -74,7 +86,7 @@ impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for TestNode {
 #[tokio::test]
 async fn test_unified_observability() {
     let observer = Arc::new(MockObserver::new());
-    
+
     let node1 = TestNode;
 
     let builder = GraphBuilder::<TestState>::new()
@@ -84,15 +96,17 @@ async fn test_unified_observability() {
 
     let graph = builder.build();
 
-    let initial = GraphState::new(TestState { data: "init".to_string() });
-    
+    let initial = GraphState::new(TestState {
+        data: "init".to_string(),
+    });
+
     // Run using Runnable trait
     let _ = Runnable::invoke(&graph, initial).await.unwrap();
 
     // Verify events
     let events = observer.events.lock().unwrap().clone();
     println!("Events: {:?}", events);
-    
+
     assert!(events.contains(&"start:node1".to_string()));
     assert!(events.contains(&"end:node1".to_string()));
 }
@@ -110,13 +124,24 @@ async fn test_observer_backward_compat() {
 
     #[async_trait]
     impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for NodeA {
-        async fn invoke(&self, _input: GraphState<TestState>) -> Result<StateUpdate<TestState>, WesichainError> {
-            Ok(StateUpdate::new(TestState { data: "_a".to_string() }))
+        async fn invoke(
+            &self,
+            _input: GraphState<TestState>,
+        ) -> Result<StateUpdate<TestState>, WesichainError> {
+            Ok(StateUpdate::new(TestState {
+                data: "_a".to_string(),
+            }))
         }
         fn stream<'a>(
             &'a self,
             _input: GraphState<TestState>,
-        ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+        ) -> std::pin::Pin<
+            Box<
+                dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                    + Send
+                    + 'a,
+            >,
+        > {
             Box::pin(futures::stream::empty())
         }
     }
@@ -126,13 +151,24 @@ async fn test_observer_backward_compat() {
 
     #[async_trait]
     impl Runnable<GraphState<TestState>, StateUpdate<TestState>> for NodeB {
-        async fn invoke(&self, _input: GraphState<TestState>) -> Result<StateUpdate<TestState>, WesichainError> {
-            Ok(StateUpdate::new(TestState { data: "_b".to_string() }))
+        async fn invoke(
+            &self,
+            _input: GraphState<TestState>,
+        ) -> Result<StateUpdate<TestState>, WesichainError> {
+            Ok(StateUpdate::new(TestState {
+                data: "_b".to_string(),
+            }))
         }
         fn stream<'a>(
             &'a self,
             _input: GraphState<TestState>,
-        ) -> std::pin::Pin<Box<dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>> + Send + 'a>> {
+        ) -> std::pin::Pin<
+            Box<
+                dyn futures::Stream<Item = Result<wesichain_core::StreamEvent, WesichainError>>
+                    + Send
+                    + 'a,
+            >,
+        > {
             Box::pin(futures::stream::empty())
         }
     }
@@ -149,7 +185,9 @@ async fn test_observer_backward_compat() {
         .with_checkpointer(checkpointer, "test_thread");
 
     let graph = builder.build();
-    let initial = GraphState::new(TestState { data: "init".to_string() });
+    let initial = GraphState::new(TestState {
+        data: "init".to_string(),
+    });
 
     let result = Runnable::invoke(&graph, initial).await.unwrap();
     assert_eq!(result.data.data, "init_a_b");
@@ -159,16 +197,32 @@ async fn test_observer_backward_compat() {
     println!("Backward-compat events: {:?}", events);
 
     // Node events
-    assert!(events.contains(&"start:node_a".to_string()), "Missing start:node_a");
-    assert!(events.contains(&"end:node_a".to_string()), "Missing end:node_a");
-    assert!(events.contains(&"start:node_b".to_string()), "Missing start:node_b");
-    assert!(events.contains(&"end:node_b".to_string()), "Missing end:node_b");
+    assert!(
+        events.contains(&"start:node_a".to_string()),
+        "Missing start:node_a"
+    );
+    assert!(
+        events.contains(&"end:node_a".to_string()),
+        "Missing end:node_a"
+    );
+    assert!(
+        events.contains(&"start:node_b".to_string()),
+        "Missing start:node_b"
+    );
+    assert!(
+        events.contains(&"end:node_b".to_string()),
+        "Missing end:node_b"
+    );
 
     // Checkpoint events (one per node completion)
-    let checkpoint_events: Vec<_> = events.iter().filter(|e| e.starts_with("checkpoint:")).collect();
+    let checkpoint_events: Vec<_> = events
+        .iter()
+        .filter(|e| e.starts_with("checkpoint:"))
+        .collect();
     assert!(
         !checkpoint_events.is_empty(),
-        "Observer should receive on_checkpoint_saved events, got: {:?}", events
+        "Observer should receive on_checkpoint_saved events, got: {:?}",
+        events
     );
 
     // Verify ordering: start:node_a must come before end:node_a
@@ -176,7 +230,16 @@ async fn test_observer_backward_compat() {
     let end_a_pos = events.iter().position(|e| e == "end:node_a").unwrap();
     let start_b_pos = events.iter().position(|e| e == "start:node_b").unwrap();
     let end_b_pos = events.iter().position(|e| e == "end:node_b").unwrap();
-    assert!(start_a_pos < end_a_pos, "start:node_a should come before end:node_a");
-    assert!(end_a_pos < start_b_pos, "end:node_a should come before start:node_b");
-    assert!(start_b_pos < end_b_pos, "start:node_b should come before end:node_b");
+    assert!(
+        start_a_pos < end_a_pos,
+        "start:node_a should come before end:node_a"
+    );
+    assert!(
+        end_a_pos < start_b_pos,
+        "end:node_a should come before start:node_b"
+    );
+    assert!(
+        start_b_pos < end_b_pos,
+        "start:node_b should come before end:node_b"
+    );
 }

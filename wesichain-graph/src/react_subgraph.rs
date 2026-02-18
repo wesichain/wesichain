@@ -449,7 +449,7 @@ impl ReActGraphBuilder {
         let tool_node = ReActToolNode::new(tool_map, self.tool_failure_policy);
 
         let builder = GraphBuilder::<S>::new()
-            .with_config(ExecutionConfig {
+            .with_default_config(ExecutionConfig {
                 cycle_detection: false,
                 ..Default::default()
             })
