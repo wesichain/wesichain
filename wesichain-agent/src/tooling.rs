@@ -56,6 +56,7 @@ pub struct ToolSet {
 }
 
 impl ToolSet {
+    #[allow(clippy::new_ret_no_self, reason = "ToolSet::new intentionally starts a builder-first registration API")]
     pub fn new() -> ToolSetBuilder {
         ToolSetBuilder {
             entries: Vec::new(),
