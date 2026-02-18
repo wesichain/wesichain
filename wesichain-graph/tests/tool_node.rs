@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
-use wesichain_agent::Tool;
+use wesichain_core::Tool;
 use wesichain_core::{ToolError, Value};
 use wesichain_graph::{GraphState, HasToolCalls, StateSchema, ToolNode};
 use wesichain_llm::{Message, Role, ToolCall};

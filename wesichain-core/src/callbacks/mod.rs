@@ -107,6 +107,9 @@ pub trait CallbackHandler: Send + Sync {
         )
         .await
     }
+
+    /// Generic event hook for custom events (e.g. checkpoint saved)
+    async fn on_event(&self, _ctx: &RunContext, _event: &str, _data: &Value) {}
 }
 
 #[derive(Clone, Default)]
@@ -133,6 +136,10 @@ impl CallbackManager {
 
     pub fn is_noop(&self) -> bool {
         self.handlers.is_empty()
+    }
+
+    pub fn add_handler(&mut self, handler: std::sync::Arc<dyn CallbackHandler>) {
+        self.handlers.push(handler);
     }
 
     pub async fn on_start(&self, ctx: &RunContext, inputs: &Value) {
@@ -168,6 +175,12 @@ impl CallbackManager {
     pub async fn on_llm_end(&self, ctx: &RunContext, result: &LlmResult, duration_ms: u128) {
         for handler in &self.handlers {
             handler.on_llm_end(ctx, result, duration_ms).await;
+        }
+    }
+
+    pub async fn on_event(&self, ctx: &RunContext, event: &str, data: &Value) {
+        for handler in &self.handlers {
+            handler.on_event(ctx, event, data).await;
         }
     }
 }

@@ -1,8 +1,8 @@
-use crate::GraphError;
+use crate::{GraphError, StateSchema, StateUpdate};
 use wesichain_core::StreamEvent;
 
 #[derive(Debug)]
-pub enum GraphEvent {
+pub enum GraphEvent<S: StateSchema> {
     NodeEnter {
         node: String,
         timestamp: u64,
@@ -20,6 +20,7 @@ pub enum GraphEvent {
         node: String,
         timestamp: u64,
     },
+    StateUpdate(StateUpdate<S>),
     StreamEvent(StreamEvent),
     Error(GraphError),
 }

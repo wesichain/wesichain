@@ -34,9 +34,9 @@ impl<T: Eq + Hash> Reducer<HashSet<T>> for Union {
 }
 
 pub trait StateSchema:
-    Serialize + DeserializeOwned + Clone + Default + Send + Sync + 'static
+    Serialize + DeserializeOwned + Clone + Default + Send + Sync + std::fmt::Debug + 'static
 {
-    type Update: Serialize + DeserializeOwned + Clone + Default + Send + Sync + 'static;
+    type Update: Serialize + DeserializeOwned + Clone + Default + Send + Sync + std::fmt::Debug + 'static;
 
     fn apply(current: &Self, update: Self::Update) -> Self;
 

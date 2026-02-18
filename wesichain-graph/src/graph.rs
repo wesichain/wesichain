@@ -1,8 +1,8 @@
-use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::sync::Arc;
-use std::time::Instant;
+use ahash::RandomState;
+
 
 use chrono::Utc;
 use futures::stream::{self, BoxStream, StreamExt};
@@ -18,6 +18,8 @@ use wesichain_core::{
     ensure_object, AgentEvent, CallbackManager, RunContext, RunType, Runnable, ToTraceInput,
     ToTraceOutput, WesichainError,
 };
+use crate::observer::ObserverCallbackAdapter;
+use serde_json::json;
 
 pub type Condition<S> = Box<dyn Fn(&GraphState<S>) -> Vec<String> + Send + Sync>;
 
@@ -160,6 +162,7 @@ impl<S: StateSchema> GraphBuilder<S> {
             .insert(from.to_string(), Box::new(condition));
         self
     }
+    #[deprecated(since = "0.3.0", note = "Use `with_default_config` instead")]
     pub fn with_config(mut self, config: ExecutionConfig) -> Self {
         self.default_config = config;
         self
@@ -248,6 +251,12 @@ impl<S: StateSchema> GraphBuilder<S> {
     }
 }
 
+fn stable_hash<T: Hash + ?Sized>(t: &T) -> u64 {
+    let mut hasher = RandomState::with_seeds(0x517cc1b727220a95, 0x6ed9eba1999cd92d, 0, 0).build_hasher();
+    t.hash(&mut hasher);
+    hasher.finish()
+}
+
 pub struct ExecutableGraph<S: StateSchema> {
     nodes: HashMap<String, Arc<dyn GraphNode<S>>>,
     edges: HashMap<String, Vec<String>>,
@@ -269,7 +278,71 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
     pub fn stream_invoke(
         &self,
         state: GraphState<S>,
-    ) -> BoxStream<'_, Result<GraphEvent, GraphError>> {
+    ) -> BoxStream<'_, Result<GraphEvent<S>, GraphError>> {
+        self.stream_invoke_with_options(state, ExecutionOptions::default())
+    }
+
+    pub fn stream_invoke_with_options(
+        &self,
+        state: GraphState<S>,
+        options: ExecutionOptions,
+    ) -> BoxStream<'_, Result<GraphEvent<S>, GraphError>> {
+        let checkpoint_thread_id = options.checkpoint_thread_id.clone().or_else(|| {
+            self.checkpointer
+                .as_ref()
+                .map(|(_, thread_id)| thread_id.clone())
+        });
+
+
+
+        // Initialize Callbacks and Observer (Unified)
+        let observer = options.observer.clone().or_else(|| self.observer.clone());
+        let mut run_config = options.run_config.clone().unwrap_or_default();
+        
+        if let Some(obs) = observer {
+            let adapter = Arc::new(ObserverCallbackAdapter(obs));
+            let handlers = if let Some(mut manager) = run_config.callbacks.take() {
+                // Merge the adapter into the existing CallbackManager
+                manager.add_handler(adapter);
+                manager
+            } else {
+                CallbackManager::new(vec![adapter])
+            };
+            run_config.callbacks = Some(handlers);
+        }
+        
+        let run_config_option = Some(run_config);
+
+        
+        // We need to run initialization async to call on_start
+        // Since stream::unfold expects an initial state, we'll use a wrapper enum or 
+        // handle initialization in the first step of the loop.
+        // Or better yet, we can't easily do async setup *outside* the stream if we return a stream immediately.
+        // So we'll trigger the start events in the first iteration.
+
+        struct StreamState<S: StateSchema> {
+            state: GraphState<S>,
+            step_count: usize,
+            recent: VecDeque<String>,
+            pending_events: VecDeque<GraphEvent<S>>,
+            effective: ExecutionConfig,
+            queue: VecDeque<(String, u64)>,
+            join_set: JoinSet<(String, Result<StateUpdate<S>, WesichainError>, u64)>,
+            start_time: std::time::Instant,
+            visit_counts: HashMap<String, u32>,
+            path_visits: HashMap<(String, u64), u32>,
+            // Unified fields
+            active_tasks: HashSet<(String, u64)>,
+            callbacks: Option<(CallbackManager, RunContext)>,
+            callback_nodes: HashMap<(String, u64), RunContext>,
+            agent_event_sender: Option<mpsc::Sender<AgentEvent>>,
+            agent_event_thread_id: String,
+            agent_event_step: usize,
+            checkpoint_thread_id: Option<String>,
+            initialized: bool,
+            run_config: Option<wesichain_core::RunConfig>, // Store for delayed init
+        }
+
         if !self.nodes.contains_key(&self.entry) {
             return stream::iter(vec![Ok(GraphEvent::Error(GraphError::MissingNode {
                 node: self.entry.clone(),
@@ -277,101 +350,156 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
             .boxed();
         }
 
-        struct StreamState<S: StateSchema> {
-            state: GraphState<S>,
-            step_count: usize,
-            recent: VecDeque<String>,
-            pending_events: VecDeque<GraphEvent>,
-            effective: ExecutionConfig,
-            queue: VecDeque<(String, u64)>,
-            join_set: JoinSet<(String, Result<StateUpdate<S>, WesichainError>, u64)>,
-            start_time: std::time::Instant,
-            visit_counts: HashMap<String, u32>,
-            path_visits: HashMap<(String, u64), u32>,
-        }
+        let effective = self.default_config.merge(&options);
+        
+        let agent_event_thread_id = options
+            .agent_event_thread_id
+            .clone()
+            .or_else(|| checkpoint_thread_id.clone())
+            .unwrap_or_else(|| "graph".to_string());
 
-        let state = StreamState {
+        let initial_queue = options
+            .initial_queue
+            .clone()
+            .map(VecDeque::from)
+            .unwrap_or_else(|| VecDeque::from([(self.entry.clone(), 0)]));
+
+        let initial_step = options.initial_step.unwrap_or(0);
+
+        let stream_state = StreamState {
             state,
-            step_count: 0,
+            step_count: initial_step,
             recent: VecDeque::new(),
             pending_events: VecDeque::new(),
-            effective: self.default_config.merge(&ExecutionOptions::default()),
-            queue: VecDeque::from([(self.entry.clone(), 0)]),
+            effective,
+            queue: initial_queue,
             join_set: JoinSet::new(),
             start_time: std::time::Instant::now(),
             visit_counts: HashMap::new(),
             path_visits: HashMap::new(),
+            active_tasks: HashSet::new(),
+            callbacks: None, // Will init in loop
+            callback_nodes: HashMap::new(),
+            agent_event_sender: options.agent_event_sender,
+            agent_event_thread_id,
+            agent_event_step: 0,
+            checkpoint_thread_id,
+            initialized: false,
+            run_config: run_config_option,
         };
 
-        stream::unfold(state, move |mut ctx| async move {
+        stream::unfold(stream_state, move |mut ctx| async move {
             loop {
+                // 1. delayed initialization (on first poll)
+                if !ctx.initialized {
+                    ctx.initialized = true;
+
+                    // Initialize callbacks
+                    if let Some(run_config) = ctx.run_config.take() {
+                         if let Some(manager) = run_config.callbacks {
+                            if !manager.is_noop() {
+                                let name = run_config
+                                    .name_override
+                                    .unwrap_or_else(|| "graph_execution".to_string());
+                                let root = RunContext::root(
+                                    RunType::Graph,
+                                    name,
+                                    run_config.tags,
+                                    run_config.metadata,
+                                );
+                                let inputs = ensure_object(ctx.state.to_trace_input());
+                                manager.on_start(&root, &inputs).await;
+                                ctx.callbacks = Some((manager, root));
+                            }
+                        }
+                    }
+                }
+
+                // 2. Emit pending events
                 if let Some(event) = ctx.pending_events.pop_front() {
                     return Some((Ok(event), ctx));
                 }
 
+                // 3. Process Queue
                 if let Some((current, path_id)) = ctx.queue.pop_front() {
-                    // Global Duration Check
+                    // Safety Checks
+                    // Global Timer
                     if let Some(duration) = ctx.effective.max_duration {
-                        if ctx.start_time.elapsed() > duration {
-                            ctx.pending_events
-                                .push_back(GraphEvent::Error(GraphError::Timeout {
-                                    node: "global".to_string(),
-                                    elapsed: ctx.start_time.elapsed(),
-                                }));
+                         if ctx.start_time.elapsed() > duration {
+                            let error = GraphError::Timeout {
+                                 node: "global".to_string(),
+                                elapsed: ctx.start_time.elapsed(),
+                            };
+                            // callbacks error
+                            if let Some((manager, root)) = &ctx.callbacks {
+                                let error_value = ensure_object(error.to_string().to_trace_output());
+                                let duration_ms = root.start_instant.elapsed().as_millis();
+                                manager.on_error(root, &error_value, duration_ms).await;
+                            }
+                            
                             ctx.join_set.shutdown().await;
+                            ctx.pending_events.push_back(GraphEvent::Error(error));
                             continue;
                         }
                     }
 
+                    // Max Steps
                     if let Some(max) = ctx.effective.max_steps {
                         if ctx.step_count >= max {
-                            ctx.pending_events.push_back(GraphEvent::Error(
-                                GraphError::MaxStepsExceeded {
-                                    max,
-                                    reached: ctx.step_count,
-                                },
-                            ));
+                            let error = GraphError::MaxStepsExceeded { max, reached: ctx.step_count };
+                             if let Some((manager, root)) = &ctx.callbacks {
+                                let error_value = ensure_object(error.to_string().to_trace_output());
+                                let duration_ms = root.start_instant.elapsed().as_millis();
+                                manager.on_error(root, &error_value, duration_ms).await;
+                            }
                             ctx.join_set.shutdown().await;
+                            ctx.pending_events.push_back(GraphEvent::Error(error));
                             continue;
                         }
                     }
 
-                    // Max Visits Check
+                    // Max Visits
                     if let Some(max_visits) = ctx.effective.max_visits {
-                        let count = ctx.visit_counts.entry(current.clone()).or_insert(0);
+                         let count = ctx.visit_counts.entry(current.clone()).or_insert(0);
                         *count += 1;
                         if *count > max_visits {
-                            ctx.pending_events.push_back(GraphEvent::Error(
-                                GraphError::MaxVisitsExceeded {
-                                    node: current.clone(),
-                                    max: max_visits,
-                                },
-                            ));
+                            let error = GraphError::MaxVisitsExceeded { node: current.clone(), max: max_visits };
+                             if let Some((manager, root)) = &ctx.callbacks {
+                                let error_value = ensure_object(error.to_string().to_trace_output());
+                                let duration_ms = root.start_instant.elapsed().as_millis();
+                                manager.on_error(root, &error_value, duration_ms).await;
+                            }
                             ctx.join_set.shutdown().await;
+                            ctx.pending_events.push_back(GraphEvent::Error(error));
                             continue;
                         }
                     }
-
-                    // Path-sensitive loop check
-                    if let Some(max_loops) = ctx.effective.max_loop_iterations {
+                    
+                    // Path loops
+                     if let Some(max_loops) = ctx.effective.max_loop_iterations {
                         let key = (current.clone(), path_id);
                         let count = ctx.path_visits.entry(key).or_insert(0);
                         *count += 1;
                         if *count > max_loops {
-                            ctx.pending_events.push_back(GraphEvent::Error(
-                                GraphError::MaxLoopIterationsExceeded {
-                                    node: current.clone(),
-                                    max: max_loops,
-                                    path_id,
-                                },
-                            ));
+                            let error = GraphError::MaxLoopIterationsExceeded {
+                                node: current.clone(),
+                                max: max_loops,
+                                path_id,
+                            };
+                             if let Some((manager, root)) = &ctx.callbacks {
+                                let error_value = ensure_object(error.to_string().to_trace_output());
+                                let duration_ms = root.start_instant.elapsed().as_millis();
+                                manager.on_error(root, &error_value, duration_ms).await;
+                            }
                             ctx.join_set.shutdown().await;
+                             ctx.pending_events.push_back(GraphEvent::Error(error));
                             continue;
                         }
                     }
 
                     ctx.step_count += 1;
 
+                    // Cycle detection
                     if ctx.effective.cycle_detection {
                         if ctx.recent.len() == ctx.effective.cycle_window {
                             ctx.recent.pop_front();
@@ -379,244 +507,331 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
                         ctx.recent.push_back(current.clone());
                         let count = ctx.recent.iter().filter(|node| **node == current).count();
                         if count >= 2 {
-                            ctx.pending_events.push_back(GraphEvent::Error(
-                                GraphError::CycleDetected {
-                                    node: current.clone(),
-                                    recent: ctx.recent.iter().cloned().collect(),
-                                },
-                            ));
+                             let error = GraphError::CycleDetected {
+                                node: current.clone(),
+                                recent: ctx.recent.iter().cloned().collect(),
+                            };
+                            if let Some((manager, root)) = &ctx.callbacks {
+                                let error_value = ensure_object(error.to_string().to_trace_output());
+                                let duration_ms = root.start_instant.elapsed().as_millis();
+                                manager.on_error(root, &error_value, duration_ms).await;
+                            }
                             ctx.join_set.shutdown().await;
+                            ctx.pending_events.push_back(GraphEvent::Error(error));
                             continue;
                         }
                     }
 
-                    if self.interrupt_before.contains(&current) {
-                        ctx.pending_events
-                            .push_back(GraphEvent::Error(GraphError::Interrupted));
+                    // Interrupt Before
+                    if ctx.effective.interrupt_before.contains(&current) || self.interrupt_before.contains(&current) {
+                        let error = GraphError::Interrupted;
+                         if let Some((manager, root)) = &ctx.callbacks {
+                            let error_value = ensure_object(error.to_string().to_trace_output());
+                            let duration_ms = root.start_instant.elapsed().as_millis();
+                            manager.on_error(root, &error_value, duration_ms).await;
+                        }
+
+                        // Save checkpoint on interrupt
+                        if let (Some((checkpointer, _)), Some(thread_id)) =
+                            (self.checkpointer.as_ref(), ctx.checkpoint_thread_id.as_deref())
+                        {
+                            let mut full_queue = ctx.queue.iter().cloned().collect::<Vec<_>>();
+                            full_queue.push((current.clone(), path_id));
+                            full_queue.extend(ctx.active_tasks.iter().cloned());
+
+                            let checkpoint = Checkpoint::new(
+                                thread_id.to_string(),
+                                ctx.state.clone(),
+                                ctx.step_count as u64,
+                                current.clone(),
+                                full_queue,
+                            );
+                            if let Err(e) = checkpointer.save(&checkpoint).await {
+                                let graph_err = GraphError::from(e);
+                                if let Some((manager, root)) = &ctx.callbacks {
+                                    let error_value = ensure_object(graph_err.to_string().to_trace_output());
+                                    let duration_ms = root.start_instant.elapsed().as_millis();
+                                    manager.on_error(root, &error_value, duration_ms).await;
+                                }
+                                ctx.pending_events.push_back(GraphEvent::Error(graph_err));
+                            } else {
+                                ctx.pending_events.push_back(GraphEvent::CheckpointSaved { node: current.clone(), timestamp: Utc::now().timestamp_millis() as u64 });
+                                if let Some((manager, root)) = &ctx.callbacks {
+                                    // Checkpoint saved event
+                                    manager.on_event(root, "checkpoint_saved", &json!({"node_id": current})).await;
+                                }
+                            }
+                        }
+
                         ctx.join_set.shutdown().await;
+                        ctx.pending_events.push_back(GraphEvent::Error(error));
                         continue;
                     }
 
+                    // Get Node
                     let node = match self.nodes.get(&current) {
                         Some(node) => node.clone(),
-                        None => {
-                            ctx.pending_events.push_back(GraphEvent::Error(
-                                GraphError::InvalidEdge {
-                                    node: current.clone(),
-                                },
-                            ));
-                            continue;
-                        }
+                         None => {
+                            let error = GraphError::InvalidEdge {
+                                node: current.clone(),
+                            };
+                             // observers...
+                             ctx.pending_events.push_back(GraphEvent::Error(error));
+                             continue;
+                         }
                     };
+
+                    // Side Effects: Node Start
+                    emit_status_event(
+                        &ctx.agent_event_sender,
+                        &mut ctx.agent_event_step,
+                        &ctx.agent_event_thread_id,
+                        "node_start",
+                        format!("Starting node {current}"),
+                    )
+                    .await;
+                    
+                    if let Some((manager, root)) = &ctx.callbacks {
+                         let node_ctx = root.child(RunType::Chain, current.clone());
+                        let node_inputs = ensure_object(ctx.state.to_trace_input());
+                        manager.on_start(&node_ctx, &node_inputs).await;
+                        ctx.callback_nodes.insert((current.clone(), path_id), node_ctx);
+                    }
 
                     ctx.pending_events.push_back(GraphEvent::NodeEnter {
                         node: current.clone(),
                         timestamp: Utc::now().timestamp_millis() as u64,
                     });
 
-                    let effective_config = ctx.effective.clone();
+                    // Prepare Node Execution
+                    let input_state = ctx.state.clone();
+                    // We need a node-specific context
+                    let node_ctx_obs = None; // Observer removed from StreamState
+                    let node_id = current.clone();
+                    let effective_config_spawn = ctx.effective.clone();
+                    let remaining = effective_config_spawn.max_steps
+                        .map(|m| m.saturating_sub(ctx.step_count)); // approximate
+                    
                     let context = GraphContext {
-                        remaining_steps: ctx
-                            .effective
-                            .max_steps
-                            .map(|max| max.saturating_sub(ctx.step_count.saturating_sub(1))),
-                        observer: None,
-                        node_id: current.clone(),
+                        remaining_steps: remaining,
+                        observer: node_ctx_obs,
+                        node_id: node_id.clone(),
                     };
 
-                    let input_state = ctx.state.clone();
+                    ctx.active_tasks.insert((current.clone(), path_id));
 
+                    // Spawn
                     ctx.join_set.spawn(async move {
-                        let future = node.invoke_with_context(input_state, &context);
-                        let result = if let Some(timeout) = effective_config.node_timeout {
-                            match tokio::time::timeout(timeout, future).await {
+                         let future = node.invoke_with_context(input_state, &context);
+                        let result = if let Some(timeout) = effective_config_spawn.node_timeout {
+                             match tokio::time::timeout(timeout, future).await {
                                 Ok(res) => res,
                                 Err(_) => Err(WesichainError::Custom(format!(
                                     "Node {} timed out after {:?}",
-                                    current, timeout
+                                    node_id, timeout
                                 ))),
                             }
                         } else {
                             future.await
                         };
-                        (current, result, path_id)
+                         (current, result, path_id)
                     });
 
-                    continue;
+                    continue; // Loop back to pick up next event or task
                 }
-
+                
+                // 4. Process Completed Tasks
                 if !ctx.join_set.is_empty() {
-                    if let Some(res) = ctx.join_set.join_next().await {
-                        match res {
-                            Ok((node_id, result, path_id)) => {
-                                match result {
-                                    Ok(update) => {
-                                        let output_debug = serde_json::to_string(&update)
-                                            .unwrap_or_else(|_| {
-                                                "Error serializing update".to_string()
-                                            });
-                                        ctx.state = ctx.state.apply_update(update);
+                     if let Some(join_res) = ctx.join_set.join_next().await {
+                        let (current, invoke_res, path_id) = match join_res {
+                            Ok(r) => r,
+                            Err(err) => {
+                                 let error = GraphError::System(err.to_string());
+                                ctx.join_set.shutdown().await;
+                                ctx.pending_events.push_back(GraphEvent::Error(error));
+                                continue;
+                            }
+                        };
 
-                                        ctx.pending_events.push_back(GraphEvent::NodeFinished {
-                                            node: node_id.clone(),
-                                            output: output_debug,
-                                            timestamp: Utc::now().timestamp_millis() as u64,
-                                        });
+                        ctx.active_tasks.remove(&(current.clone(), path_id));
 
-                                        if let Some((checkpointer, thread_id)) = &self.checkpointer
-                                        {
-                                            let checkpoint = Checkpoint::new(
-                                                thread_id.clone(),
-                                                ctx.state.clone(),
-                                                ctx.step_count as u64,
-                                                node_id.clone(),
-                                                ctx.queue.iter().cloned().collect(),
-                                            );
-                                            if let Err(err) = checkpointer.save(&checkpoint).await {
-                                                ctx.pending_events.push_back(GraphEvent::Error(
-                                                    GraphError::from(err),
-                                                ));
-                                                ctx.join_set.shutdown().await;
-                                                continue;
+                        match invoke_res {
+                            Ok(update) => {
+                                // Node Success
+                                let output_debug = serde_json::to_string(&update).unwrap_or_default();
+                                ctx.state = ctx.state.apply_update(update.clone());
+                                
+                                ctx.pending_events.push_back(GraphEvent::NodeFinished {
+                                    node: current.clone(),
+                                    output: output_debug,
+                                    timestamp: Utc::now().timestamp_millis() as u64,
+                                });
+
+                                // CRITICAL: Emit StateUpdate for invoke_graph consumers
+                                ctx.pending_events.push_back(GraphEvent::StateUpdate(update));
+
+                                // Callbacks end
+                                if let Some((manager, _root)) = &ctx.callbacks {
+                                     if let Some(node_ctx) = ctx.callback_nodes.remove(&(current.clone(), path_id)) {
+                                          let node_outputs = ensure_object(ctx.state.to_trace_output());
+                                        let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                                        manager.on_end(&node_ctx, &node_outputs, duration_ms).await;
+                                     }
+                                }
+                                // Observer end (handled by callbacks)
+                                emit_status_event(
+                                    &ctx.agent_event_sender,
+                                    &mut ctx.agent_event_step,
+                                    &ctx.agent_event_thread_id,
+                                    "node_end",
+                                    format!("Completed node {current}"),
+                                )
+                                .await;
+                                
+                                ctx.pending_events.push_back(GraphEvent::NodeExit {
+                                    node: current.clone(),
+                                    timestamp: Utc::now().timestamp_millis() as u64,
+                                });
+
+
+                                // 4c. Route Next (moved before Checkpoint)
+                                if let Some(condition) = self.conditional.get(&current) {
+                                    let targets = condition(&ctx.state);
+                                    let next_paths: Vec<(String, u64)> = if targets.len() > 1 {
+                                        targets.into_iter().map(|t| {
+                                            if t == END { (t, path_id) } else {
+                                                let h = stable_hash(&(path_id, &t));
+                                                (t, h)
                                             }
-                                            ctx.pending_events.push_back(
-                                                GraphEvent::CheckpointSaved {
-                                                    node: node_id.clone(),
-                                                    timestamp: Utc::now().timestamp_millis() as u64,
-                                                },
-                                            );
+                                        }).collect()
+                                    } else {
+                                        targets.into_iter().map(|t| (t, path_id)).collect()
+                                    };
+                                    
+                                    for (next, next_path_id) in next_paths {
+                                        if next == END { continue; }
+                                        if !self.nodes.contains_key(&next) {
+                                            // Error
+                                            let error = GraphError::InvalidEdge { node: next.clone() };
+                                            ctx.pending_events.push_back(GraphEvent::Error(error));
+                                            ctx.join_set.shutdown().await;
+                                            continue; // Outer loop continues, catches next event
                                         }
+                                        ctx.queue.push_back((next, next_path_id));
+                                    }
+                                } else if let Some(targets) = self.edges.get(&current) {
+                                     let next_paths: Vec<(String, u64)> = if targets.len() > 1 {
+                                        targets.iter().map(|t| {
+                                            if *t == END { (t.clone(), path_id) } else {
+                                                (t.clone(), stable_hash(&(path_id, t)))
+                                            }
+                                        }).collect()
+                                    } else {
+                                        targets.iter().cloned().map(|t| (t, path_id)).collect()
+                                    };
 
-                                        ctx.pending_events.push_back(GraphEvent::NodeExit {
-                                            node: node_id.clone(),
-                                            timestamp: Utc::now().timestamp_millis() as u64,
-                                        });
-
-                                        if self.interrupt_after.contains(&node_id) {
-                                            ctx.pending_events.push_back(GraphEvent::Error(
-                                                GraphError::Interrupted,
-                                            ));
+                                    for (next, next_path_id) in next_paths {
+                                        if next == END { continue; }
+                                         if !self.nodes.contains_key(&next) {
+                                             let error = GraphError::InvalidEdge { node: next.clone() };
+                                            ctx.pending_events.push_back(GraphEvent::Error(error));
                                             ctx.join_set.shutdown().await;
                                             continue;
                                         }
-
-                                        if let Some(condition) = self.conditional.get(&node_id) {
-                                            let targets = condition(&ctx.state);
-                                            let next_paths: Vec<(String, u64)> = if targets.len()
-                                                > 1
-                                            {
-                                                targets
-                                                    .into_iter()
-                                                    .map(|t| {
-                                                        if t == END {
-                                                            (t, path_id)
-                                                        } else {
-                                                            let mut s = DefaultHasher::new();
-                                                            path_id.hash(&mut s);
-                                                            t.hash(&mut s);
-                                                            (t, s.finish())
-                                                        }
-                                                    })
-                                                    .collect()
-                                            } else {
-                                                targets.into_iter().map(|t| (t, path_id)).collect()
-                                            };
-
-                                            for (next, next_path_id) in next_paths {
-                                                if next == END {
-                                                    continue;
-                                                }
-                                                if self.nodes.contains_key(&next) {
-                                                    ctx.queue.push_back((next, next_path_id));
-                                                } else if let Some(edges) = self.edges.get(&next) {
-                                                    // Subgraph flattening / implicit edges?
-                                                    // existing code had this logic... I should preserve it but add hashing?
-                                                    // Actually existing code:
-                                                    /*
-                                                    } else if let Some(edges) = self.edges.get(&next) {
-                                                         for edge in edges {
-                                                             ctx.queue.push_back(edge.clone());
-                                                         }
-                                                    */
-                                                    // This looks like it handles "group" nodes or aliases?
-                                                    // If "next" is not a node but has edges... it's a "pass-through"?
-                                                    // I'll assume standard hashing logic for now.
-                                                    // If it fans out here, it should hash.
-                                                    for edge in edges {
-                                                        // Forking from a ghost node?
-                                                        // Let's use simple inheritance + mixin for now to be safe
-                                                        let mut s = DefaultHasher::new();
-                                                        next_path_id.hash(&mut s); // Chain the hash
-                                                        edge.hash(&mut s);
-                                                        ctx.queue
-                                                            .push_back((edge.clone(), s.finish()));
-                                                    }
-                                                } else {
-                                                    // Invalid node?
-                                                    // Existing code pushed it anyway?
-                                                    ctx.queue.push_back((next, next_path_id));
-                                                }
-                                            }
-                                            continue;
-                                        }
-
-                                        if let Some(targets) = self.edges.get(&node_id) {
-                                            let next_paths: Vec<(String, u64)> =
-                                                if targets.len() > 1 {
-                                                    targets
-                                                        .iter()
-                                                        .map(|t| {
-                                                            if *t == END {
-                                                                (t.clone(), path_id)
-                                                            } else {
-                                                                let mut s = DefaultHasher::new();
-                                                                path_id.hash(&mut s);
-                                                                t.hash(&mut s);
-                                                                (t.clone(), s.finish())
-                                                            }
-                                                        })
-                                                        .collect()
-                                                } else {
-                                                    targets
-                                                        .iter()
-                                                        .cloned()
-                                                        .map(|t| (t, path_id))
-                                                        .collect()
-                                                };
-
-                                            for (next, next_path_id) in next_paths {
-                                                if next != END {
-                                                    ctx.queue.push_back((next, next_path_id));
-                                                }
-                                            }
-                                        }
-
-                                        continue;
-                                    }
-                                    Err(err) => {
-                                        ctx.pending_events.push_back(GraphEvent::Error(
-                                            GraphError::NodeFailed {
-                                                node: node_id,
-                                                source: Box::new(err),
-                                            },
-                                        ));
-                                        ctx.join_set.shutdown().await;
-                                        continue;
+                                        ctx.queue.push_back((next, next_path_id));
                                     }
                                 }
+
+                                // 4a. Checkpoint
+                                if let (Some((checkpointer, _)), Some(thread_id)) =
+                                    (self.checkpointer.as_ref(), ctx.checkpoint_thread_id.as_deref())
+                                {
+                                     let mut full_queue = ctx.queue.iter().cloned().collect::<Vec<_>>();
+                                     full_queue.extend(ctx.active_tasks.iter().cloned());
+                                     
+                                     let checkpoint = Checkpoint::new(
+                                        thread_id.to_string(),
+                                        ctx.state.clone(),
+                                        ctx.step_count as u64,
+                                        current.clone(),
+                                        full_queue,
+                                     );
+                                    
+                                    if let Err(e) = checkpointer.save(&checkpoint).await {
+                                         let graph_err = GraphError::from(e);
+                                         if let Some((manager, root)) = &ctx.callbacks {
+                                            let error_value = ensure_object(graph_err.to_string().to_trace_output());
+                                            let duration_ms = root.start_instant.elapsed().as_millis();
+                                            manager.on_error(root, &error_value, duration_ms).await;
+                                        }
+                                         ctx.pending_events.push_back(GraphEvent::Error(graph_err));
+                                         ctx.join_set.shutdown().await;
+                                         continue;
+                                    } else {
+                                        ctx.pending_events.push_back(GraphEvent::CheckpointSaved { 
+                                            node: current.clone(), 
+                                            timestamp: Utc::now().timestamp_millis() as u64 
+                                        });
+
+                                        if let Some((manager, root)) = &ctx.callbacks {
+                                            // Checkpoint saved event
+                                            manager.on_event(root, "checkpoint_saved", &json!({"node_id": current})).await;
+                                        }
+                                    }
+                                }
+
+                                // 4b. Interrupt After (AFTER checkpoint)
+                                if ctx.effective.interrupt_after.contains(&current) || self.interrupt_after.contains(&current) {
+                                     let error = GraphError::Interrupted;
+                                     if let Some((manager, root)) = &ctx.callbacks {
+                                        let error_value = ensure_object(error.to_string().to_trace_output());
+                                        let duration_ms = root.start_instant.elapsed().as_millis();
+                                        manager.on_error(root, &error_value, duration_ms).await;
+                                    }
+                                     ctx.pending_events.push_back(GraphEvent::Error(error));
+                                     continue;
+                                }
+
+
                             }
                             Err(e) => {
-                                ctx.pending_events.push_back(GraphEvent::Error(
-                                    GraphError::System(e.to_string()),
-                                ));
+                                // Node Failure
+                                let error = GraphError::NodeFailed {
+                                    node: current.clone(),
+                                    source: Box::new(e),
+                                };
+                                if let Some((manager, _root)) = &ctx.callbacks {
+                                     if let Some(node_ctx) = ctx.callback_nodes.remove(&(current.clone(), path_id)) {
+                                          let error_value = ensure_object(error.to_string().to_trace_output());
+                                          let duration_ms = node_ctx.start_instant.elapsed().as_millis();
+                                          manager.on_error(&node_ctx, &error_value, duration_ms).await;
+                                     }
+                                }
                                 ctx.join_set.shutdown().await;
+                                ctx.pending_events.push_back(GraphEvent::Error(error));
                                 continue;
                             }
                         }
-                    }
+                     }
+                } else if ctx.queue.is_empty() {
+                    // Done!
+                     if let Some((manager, root)) = &ctx.callbacks {
+                         let outputs = ensure_object(ctx.state.to_trace_output());
+                         let duration_ms = root.start_instant.elapsed().as_millis();
+                         manager.on_end(root, &outputs, duration_ms).await;
+                     }
+                     
+                     emit_status_event(
+                        &ctx.agent_event_sender,
+                        &mut ctx.agent_event_step,
+                        &ctx.agent_event_thread_id,
+                        "completed",
+                        "Graph execution completed",
+                    )
+                    .await;
+                    
+                    return None;
                 }
-
-                return None;
             }
         })
         .boxed()
@@ -625,15 +840,16 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
     pub async fn invoke_graph_with_options(
         &self,
         mut state: GraphState<S>,
-        options: ExecutionOptions,
+        mut options: ExecutionOptions,
     ) -> Result<GraphState<S>, GraphError> {
         let checkpoint_thread_id = options.checkpoint_thread_id.clone().or_else(|| {
             self.checkpointer
                 .as_ref()
                 .map(|(_, thread_id)| thread_id.clone())
         });
+        
         let agent_event_sender = options.agent_event_sender.clone();
-        let agent_event_thread_id = options
+        let _agent_event_thread_id = options
             .agent_event_thread_id
             .clone()
             .or_else(|| checkpoint_thread_id.clone())
@@ -647,13 +863,22 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
                 match checkpointer.load(thread_id).await {
                     Ok(Some(saved)) => {
                         state = saved.state;
+                        // Important: when resuming, we must respect the saved queue and step
+                        if !saved.queue.is_empty() {
+                            options.initial_queue = Some(saved.queue);
+                            options.initial_step = Some(saved.step as usize + 1);
+                        } else {
+                            // If queue is empty, it means the previous run finished.
+                            // We use the loaded state but allow the default (or provided) initial_queue 
+                            // to start a new execution path from this state.
+                        }
                     }
                     Ok(None) => {}
                     Err(error) => return Err(error.into()),
                 }
             }
         }
-
+        
         if !self.nodes.contains_key(&self.entry) {
             let error = GraphError::MissingNode {
                 node: self.entry.clone(),
@@ -667,522 +892,20 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
             .await;
             return Err(error);
         }
-        let effective = self.default_config.merge(&options);
-        let observer = options.observer.clone().or_else(|| self.observer.clone());
-        let mut callbacks: Option<(CallbackManager, RunContext)> = None;
-        if let Some(run_config) = options.run_config {
-            if let Some(manager) = run_config.callbacks {
-                if !manager.is_noop() {
-                    let name = run_config
-                        .name_override
-                        .unwrap_or_else(|| "graph_execution".to_string());
-                    // Use `graph` for the root run; switch to `chain` if LangSmith UI lacks graph support.
-                    let root = RunContext::root(
-                        RunType::Graph,
-                        name,
-                        run_config.tags,
-                        run_config.metadata,
-                    );
-                    let inputs = ensure_object(state.to_trace_input());
-                    manager.on_start(&root, &inputs).await;
-                    callbacks = Some((manager, root));
-                }
-            }
-        }
-        let mut step_count = options.initial_step.unwrap_or(0);
-        let mut recent: VecDeque<String> = VecDeque::new();
-        // Queue stores (NodeId, PathId)
-        let mut queue: VecDeque<(String, u64)> = options
-            .initial_queue
-            .clone()
-            .map(VecDeque::from)
-            .unwrap_or_else(|| VecDeque::from([(self.entry.clone(), 0)]));
-        let mut join_set = tokio::task::JoinSet::new();
-        // Track active tasks (NodeId, PathId) to persist them on interrupt
-        let mut active_tasks: HashSet<(String, u64)> = HashSet::new();
-        let mut callback_nodes: HashMap<(String, u64), RunContext> = HashMap::new();
-        let start_time = Instant::now();
-        let mut visit_counts: HashMap<String, u32> = HashMap::new();
-        let mut path_visits: HashMap<(String, u64), u32> = HashMap::new();
 
-        while !queue.is_empty() || !join_set.is_empty() {
-            while let Some((current, path_id)) = queue.pop_front() {
-                // Global Duration Check
-                if let Some(duration) = effective.max_duration {
-                    if start_time.elapsed() > duration {
-                        let error = GraphError::Timeout {
-                            node: "global".to_string(),
-                            elapsed: start_time.elapsed(),
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error("global", &error).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
+        let mut stream = self.stream_invoke_with_options(state.clone(), options);
 
-                if let Some(max) = effective.max_steps {
-                    if step_count >= max {
-                        let error = GraphError::MaxStepsExceeded {
-                            max,
-                            reached: step_count,
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        if let Some((manager, root)) = &callbacks {
-                            let error_value = ensure_object(error.to_string().to_trace_output());
-                            let duration_ms = root.start_instant.elapsed().as_millis();
-                            manager.on_error(root, &error_value, duration_ms).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
-
-                // Global visit count check (Strict safety net)
-                if let Some(max_visits) = effective.max_visits {
-                    let count = visit_counts.entry(current.clone()).or_insert(0);
-                    *count += 1;
-                    if *count > max_visits {
-                        let error = GraphError::MaxVisitsExceeded {
-                            node: current.clone(),
-                            max: max_visits,
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
-
-                // Path-sensitive loop check
-                if let Some(max_loops) = effective.max_loop_iterations {
-                    let key = (current.clone(), path_id);
-                    let count = path_visits.entry(key).or_insert(0);
-                    *count += 1;
-                    if *count > max_loops {
-                        let error = GraphError::MaxLoopIterationsExceeded {
-                            node: current.clone(),
-                            max: max_loops,
-                            path_id,
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
-
-                step_count += 1;
-
-                if effective.cycle_detection {
-                    if recent.len() == effective.cycle_window {
-                        recent.pop_front();
-                    }
-                    recent.push_back(current.clone());
-                    let count = recent.iter().filter(|node| **node == current).count();
-                    // Basic cycle detection (window based) - might be redundant with path check but keep as option
-                    if count >= 2 {
-                        let error = GraphError::CycleDetected {
-                            node: current.clone(),
-                            recent: recent.iter().cloned().collect(),
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        if let Some((manager, root)) = &callbacks {
-                            let error_value = ensure_object(error.to_string().to_trace_output());
-                            let duration_ms = root.start_instant.elapsed().as_millis();
-                            manager.on_error(root, &error_value, duration_ms).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
-
-                if effective.interrupt_before.contains(&current)
-                    || self.interrupt_before.contains(&current)
-                {
-                    let error = GraphError::Interrupted;
-                    if let Some(obs) = &observer {
-                        obs.on_error(&current, &error).await;
-                    }
-                    if let Some((manager, root)) = &callbacks {
-                        let error_value = ensure_object(error.to_string().to_trace_output());
-                        let duration_ms = root.start_instant.elapsed().as_millis();
-                        manager.on_error(root, &error_value, duration_ms).await;
-                    }
-
-                    if let (Some((checkpointer, _)), Some(thread_id)) =
-                        (self.checkpointer.as_ref(), checkpoint_thread_id.as_deref())
-                    {
-                        // Push current back to queue (it hasn't run)
-                        let mut full_queue = queue.iter().cloned().collect::<Vec<_>>();
-                        full_queue.push((current.clone(), path_id));
-                        // Add active tasks back (since we abort them)
-                        full_queue.extend(active_tasks.iter().cloned());
-
-                        let checkpoint = Checkpoint::new(
-                            thread_id.to_string(),
-                            state.clone(),
-                            step_count as u64,
-                            current.clone(),
-                            full_queue,
-                        );
-                        let _ = checkpointer.save(&checkpoint).await;
-                    }
-
-                    join_set.abort_all();
-                    return Err(error);
-                }
-
-                let node = match self.nodes.get(&current) {
-                    Some(node) => node.clone(),
-                    None => {
-                        let error = GraphError::InvalidEdge {
-                            node: current.clone(),
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        if let Some((manager, root)) = &callbacks {
-                            let error_value = ensure_object(error.to_string().to_trace_output());
-                            let duration_ms = root.start_instant.elapsed().as_millis();
-                            manager.on_error(root, &error_value, duration_ms).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                };
-
-                if let Some(obs) = &observer {
-                    let input_value =
-                        serde_json::to_value(&state.data).unwrap_or(serde_json::Value::Null);
-                    obs.on_node_start(&current, &input_value).await;
-                }
-
-                emit_status_event(
-                    &agent_event_sender,
-                    &mut agent_event_step,
-                    &agent_event_thread_id,
-                    "node_start",
-                    format!("Starting node {current}"),
-                )
-                .await;
-
-                if let Some((manager, root)) = &callbacks {
-                    let node_ctx = root.child(RunType::Chain, current.clone());
-                    let node_inputs = ensure_object(state.to_trace_input());
-                    manager.on_start(&node_ctx, &node_inputs).await;
-                    callback_nodes.insert((current.clone(), path_id), node_ctx);
-                }
-
-                // Prepare input and context
-                let input_state = state.clone();
-                let node_ctx_obs = observer.clone();
-                let node_id = current.clone();
-
-                let effective_config = effective.clone(); // Clone for task
-
-                let context = GraphContext {
-                    remaining_steps: effective_config
-                        .max_steps
-                        .map(|m| m.saturating_sub(step_count)),
-                    observer: node_ctx_obs,
-                    node_id: node_id.clone(),
-                };
-
-                // Track active task
-                active_tasks.insert((current.clone(), path_id));
-
-                // Spawn task with Node Timeout
-                join_set.spawn(async move {
-                    let future = node.invoke_with_context(input_state, &context);
-
-                    let result = if let Some(timeout) = effective_config.node_timeout {
-                        match tokio::time::timeout(timeout, future).await {
-                            Ok(res) => res,
-                            Err(_) => Err(WesichainError::Custom(format!(
-                                "Node {} timed out after {:?}",
-                                node_id, timeout
-                            ))),
-                        }
-                    } else {
-                        future.await
-                    };
-
-                    (current, result, path_id)
-                });
-            }
-            if !join_set.is_empty() {
-                // Check global timeout before waiting on tasks
-                if let Some(duration) = effective.max_duration {
-                    if start_time.elapsed() > duration {
-                        let error = GraphError::Timeout {
-                            node: "global".to_string(),
-                            elapsed: start_time.elapsed(),
-                        };
-                        if let Some(obs) = &observer {
-                            obs.on_error("global", &error).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                }
-
-                if let Some(join_res) = join_set.join_next().await {
-                    let (current, invoke_res, path_id) = match join_res {
-                        Ok(r) => r,
-                        Err(err) => {
-                            let error = GraphError::System(err.to_string());
-                            join_set.abort_all();
-                            return Err(error);
-                        }
-                    };
-
-                    // Task finished, remove from active set
-                    active_tasks.remove(&(current.clone(), path_id));
-
-                    let update = match invoke_res {
-                        Ok(u) => u,
-                        Err(err) => {
-                            let error = GraphError::NodeFailed {
-                                node: current.clone(),
-                                source: Box::new(err),
-                            };
-                            if let Some((manager, _root)) = &callbacks {
-                                if let Some(node_ctx) =
-                                    callback_nodes.remove(&(current.clone(), path_id))
-                                {
-                                    let error_value =
-                                        ensure_object(error.to_string().to_trace_output());
-                                    let duration_ms = node_ctx.start_instant.elapsed().as_millis();
-                                    manager.on_error(&node_ctx, &error_value, duration_ms).await;
-                                }
-                            }
-                            if let Some(obs) = &observer {
-                                obs.on_error(&current, &error).await;
-                            }
-                            if let Some((manager, root)) = &callbacks {
-                                let error_value =
-                                    ensure_object(error.to_string().to_trace_output());
-                                let duration_ms = root.start_instant.elapsed().as_millis();
-                                manager.on_error(root, &error_value, duration_ms).await;
-                            }
-                            join_set.abort_all();
-                            return Err(error);
-                        }
-                    };
-
+        while let Some(event) = stream.next().await {
+            match event {
+                Ok(GraphEvent::StateUpdate(update)) => {
                     state = state.apply_update(update);
-
-                    if let Some((manager, _root)) = &callbacks {
-                        if let Some(node_ctx) = callback_nodes.remove(&(current.clone(), path_id)) {
-                            let node_outputs = ensure_object(state.to_trace_output());
-                            let duration_ms = node_ctx.start_instant.elapsed().as_millis();
-                            manager.on_end(&node_ctx, &node_outputs, duration_ms).await;
-                        }
-                    }
-
-                    if let Some(obs) = &observer {
-                        let output_value = match serde_json::to_value(&state.data) {
-                            Ok(value) => value,
-                            Err(err) => {
-                                let error = GraphError::NodeFailed {
-                                    node: current.clone(),
-                                    source: Box::new(err),
-                                };
-                                obs.on_error(&current, &error).await;
-                                if let Some((manager, root)) = &callbacks {
-                                    let error_value =
-                                        ensure_object(error.to_string().to_trace_output());
-                                    let duration_ms = root.start_instant.elapsed().as_millis();
-                                    manager.on_error(root, &error_value, duration_ms).await;
-                                }
-                                join_set.abort_all();
-                                return Err(error);
-                            }
-                        };
-                        obs.on_node_end(&current, &output_value, 0).await;
-                    }
-
-                    emit_status_event(
-                        &agent_event_sender,
-                        &mut agent_event_step,
-                        &agent_event_thread_id,
-                        "node_end",
-                        format!("Completed node {current}"),
-                    )
-                    .await;
-
-                    if self.interrupt_after.contains(&current) {
-                        let error = GraphError::Interrupted;
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        if let Some((manager, root)) = &callbacks {
-                            let error_value = ensure_object(error.to_string().to_trace_output());
-                            let duration_ms = root.start_instant.elapsed().as_millis();
-                            manager.on_error(root, &error_value, duration_ms).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
-                    if let Some(condition) = self.conditional.get(&current) {
-                        let targets = condition(&state);
-                        let next_paths: Vec<(String, u64)> = if targets.len() > 1 {
-                            targets
-                                .into_iter()
-                                .map(|t| {
-                                    if t == END {
-                                        (t, path_id)
-                                    } else {
-                                        let mut s = DefaultHasher::new();
-                                        path_id.hash(&mut s);
-                                        t.hash(&mut s);
-                                        (t, s.finish())
-                                    }
-                                })
-                                .collect()
-                        } else {
-                            targets.into_iter().map(|t| (t, path_id)).collect()
-                        };
-
-                        for (next, next_path_id) in next_paths {
-                            if next == END {
-                                continue;
-                            }
-                            if !self.nodes.contains_key(&next) {
-                                let error = GraphError::InvalidEdge { node: next.clone() };
-                                if let Some(obs) = &observer {
-                                    obs.on_error(&current, &error).await;
-                                }
-                                if let Some((manager, root)) = &callbacks {
-                                    let error_value =
-                                        ensure_object(error.to_string().to_trace_output());
-                                    let duration_ms = root.start_instant.elapsed().as_millis();
-                                    manager.on_error(root, &error_value, duration_ms).await;
-                                }
-                                join_set.abort_all();
-                                return Err(error);
-                            }
-                            queue.push_back((next, next_path_id));
-                        }
-                        continue;
-                    }
-
-                    if let Some(targets) = self.edges.get(&current) {
-                        let next_paths: Vec<(String, u64)> = if targets.len() > 1 {
-                            targets
-                                .iter()
-                                .map(|t| {
-                                    if *t == END {
-                                        (t.clone(), path_id)
-                                    } else {
-                                        let mut s = DefaultHasher::new();
-                                        path_id.hash(&mut s);
-                                        t.hash(&mut s);
-                                        (t.clone(), s.finish())
-                                    }
-                                })
-                                .collect()
-                        } else {
-                            targets.iter().cloned().map(|t| (t, path_id)).collect()
-                        };
-
-                        for (next, next_path_id) in next_paths {
-                            if next == END {
-                                continue;
-                            }
-                            if !self.nodes.contains_key(&next) {
-                                let error = GraphError::InvalidEdge { node: next.clone() };
-                                if let Some(obs) = &observer {
-                                    obs.on_error(&current, &error).await;
-                                }
-                                if let Some((manager, root)) = &callbacks {
-                                    let error_value =
-                                        ensure_object(error.to_string().to_trace_output());
-                                    let duration_ms = root.start_instant.elapsed().as_millis();
-                                    manager.on_error(root, &error_value, duration_ms).await;
-                                }
-                                join_set.abort_all();
-                                return Err(error);
-                            }
-                            queue.push_back((next, next_path_id));
-                        }
-                    }
-
-                    if let (Some((checkpointer, _)), Some(thread_id)) =
-                        (self.checkpointer.as_ref(), checkpoint_thread_id.as_deref())
-                    {
-                        let full_queue: Vec<_> = queue
-                            .iter()
-                            .cloned()
-                            .chain(active_tasks.iter().cloned())
-                            .collect();
-
-                        let checkpoint = Checkpoint::new(
-                            thread_id.to_string(),
-                            state.clone(),
-                            step_count as u64,
-                            current.clone(),
-                            full_queue,
-                        );
-                        if let Err(err) = checkpointer.save(&checkpoint).await {
-                            let graph_err = GraphError::from(err);
-                            if let Some(obs) = &observer {
-                                obs.on_error(&current, &graph_err).await;
-                            }
-                            if let Some((manager, root)) = &callbacks {
-                                let error_value =
-                                    ensure_object(graph_err.to_string().to_trace_output());
-                                let duration_ms = root.start_instant.elapsed().as_millis();
-                                manager.on_error(root, &error_value, duration_ms).await;
-                            }
-                            join_set.abort_all();
-                            return Err(graph_err);
-                        }
-                        if let Some(obs) = &observer {
-                            obs.on_checkpoint_saved(&current).await;
-                        }
-                    }
-
-                    if effective.interrupt_after.contains(&current)
-                        || self.interrupt_after.contains(&current)
-                    {
-                        let error = GraphError::Interrupted;
-                        if let Some(obs) = &observer {
-                            obs.on_error(&current, &error).await;
-                        }
-                        if let Some((manager, root)) = &callbacks {
-                            let error_value = ensure_object(error.to_string().to_trace_output());
-                            let duration_ms = root.start_instant.elapsed().as_millis();
-                            manager.on_error(root, &error_value, duration_ms).await;
-                        }
-                        join_set.abort_all();
-                        return Err(error);
-                    }
                 }
+                Ok(GraphEvent::Error(e)) | Err(e) => return Err(e),
+                // Other events (NodeEnter, etc.) can be ignored by invoke_graph
+                // as they are handled by stream side effects (observers/callbacks).
+                _ => {}
             }
         }
-        if let Some((manager, root)) = &callbacks {
-            let outputs = ensure_object(state.to_trace_output());
-            let duration_ms = root.start_instant.elapsed().as_millis();
-            manager.on_end(root, &outputs, duration_ms).await;
-        }
-
-        emit_status_event(
-            &agent_event_sender,
-            &mut agent_event_step,
-            &agent_event_thread_id,
-            "completed",
-            "Graph execution completed",
-        )
-        .await;
 
         Ok(state)
     }
@@ -1282,5 +1005,40 @@ impl<S: StateSchema<Update = S>> Runnable<GraphState<S>, StateUpdate<S>> for Exe
                 }
             })
             .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::hash::{Hash, Hasher};
+
+    #[test]
+    fn test_stable_path_hashing() {
+        let parent_id = 12345u64;
+        let node_name = "test_node";
+        
+        // Hash with our specific fixed keys
+        let hash1 = {
+            let mut s = RandomState::with_seeds(0x517cc1b727220a95, 0x6ed9eba1999cd92d, 0, 0).build_hasher();
+            parent_id.hash(&mut s);
+            node_name.hash(&mut s);
+            s.finish()
+        };
+
+        // Re-compute to ensure determinism
+        let expected1 = {
+             let mut s = RandomState::with_seeds(0x517cc1b727220a95, 0x6ed9eba1999cd92d, 0, 0).build_hasher();
+            parent_id.hash(&mut s);
+            node_name.hash(&mut s);
+            s.finish()
+        };
+        assert_eq!(hash1, expected1, "Hash MUST be deterministic");
+        
+        let mut hasher = RandomState::with_seeds(123, 456, 0, 0).build_hasher();
+        (parent_id, node_name).hash(&mut hasher);
+        let different_hash = hasher.finish();
+        
+        assert_ne!(hash1, different_hash, "Should differ from arbitrary keys");
     }
 }

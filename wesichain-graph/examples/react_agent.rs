@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use futures::stream::{self, StreamExt};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wesichain_agent::Tool;
+use wesichain_core::Tool;
 use wesichain_core::{Runnable, StreamEvent, ToolError, Value, WesichainError};
 use wesichain_graph::{
     ExecutionConfig, GraphBuilder, GraphError, GraphState, HasToolCalls, StateSchema, StateUpdate,

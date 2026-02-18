@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 
@@ -20,6 +21,10 @@ pub enum ToolFailurePolicy {
     AppendErrorAndContinue,
 }
 
+#[deprecated(
+    since = "0.2.0",
+    note = "Monolithic ReActAgentNode is deprecated. Use composable ReActGraphBuilder + AgentNode + ReActToolNode instead."
+)]
 pub struct ReActAgentNode {
     llm: Arc<dyn ToolCallingLlm>,
     tools: HashMap<String, Arc<dyn Tool>>,

@@ -45,6 +45,7 @@ Wesichain `v0.2.0` is live on crates.io as a modular crate family.
 - 19 published crates, each installable independently
 - no umbrella `wesichain` crate on crates.io yet (intentional for minimal dependency footprints)
 - designed for tool-using ReAct agents, stateful graph execution, and RAG
+- **Note:** `wesichain-agent` crate has been removed in v0.2. Use composable `ReActGraphBuilder` instead.
 
 ---
 
@@ -134,7 +135,7 @@ Wesichain is modular by default; install only the crates you need.
 | `wesichain-macros` | Procedural macros for ergonomic integration | [link](https://crates.io/crates/wesichain-macros) | [link](https://docs.rs/wesichain-macros) |
 | `wesichain-embeddings` | Embedding interfaces and providers | [link](https://crates.io/crates/wesichain-embeddings) | [link](https://docs.rs/wesichain-embeddings) |
 | `wesichain-retrieval` | Retrieval utilities (indexing, splitting, retrievers) | [link](https://crates.io/crates/wesichain-retrieval) | [link](https://docs.rs/wesichain-retrieval) |
-| `wesichain-agent` | Agent orchestration and tool-calling flows | [link](https://crates.io/crates/wesichain-agent) | [link](https://docs.rs/wesichain-agent) |
+
 | `wesichain-graph` | Stateful graph execution, routing, interrupts, and checkpoints | [link](https://crates.io/crates/wesichain-graph) | [link](https://docs.rs/wesichain-graph) |
 | `wesichain-checkpoint-sql` | Shared SQL checkpoint schema/operations | [link](https://crates.io/crates/wesichain-checkpoint-sql) | [link](https://docs.rs/wesichain-checkpoint-sql) |
 | `wesichain-checkpoint-sqlite` | SQLite checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-sqlite) | [link](https://docs.rs/wesichain-checkpoint-sqlite) |

@@ -1,17 +1,29 @@
 use std::sync::Arc;
 
 use futures::stream::{self, BoxStream, StreamExt};
-use wesichain_agent::Tool;
+use wesichain_core::Tool;
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 use wesichain_llm::{Message, Role, ToolCall};
 
 use crate::{GraphState, StateSchema, StateUpdate};
 
+/// Trait for states that contain pending tool calls.
+///
+/// Implement this on your state to use [`ToolNode`] for generic tool execution.
+/// For ReAct-style agents using scratchpad-based state, use
+/// [`ReActToolNode`](crate::react_subgraph::ReActToolNode) with `ScratchpadState` instead.
 pub trait HasToolCalls {
     fn tool_calls(&self) -> &Vec<ToolCall>;
     fn push_tool_result(&mut self, message: Message);
 }
 
+/// Generic tool execution node for graph-based workflows.
+///
+/// `ToolNode` executes all pending tool calls from state via the [`HasToolCalls`] trait.
+/// This is the general-purpose tool executor suitable for any workflow.
+///
+/// For ReAct-style agents, prefer [`ReActToolNode`](crate::react_subgraph::ReActToolNode)
+/// which integrates with the scratchpad pattern (`ScratchpadState`).
 pub struct ToolNode {
     tools: Vec<Arc<dyn Tool>>,
 }
@@ -62,9 +74,6 @@ where
     }
 
     fn stream(&self, _input: GraphState<S>) -> BoxStream<'_, Result<StreamEvent, WesichainError>> {
-        stream::once(
-            async move { Err(WesichainError::Custom("stream not implemented".to_string())) },
-        )
-        .boxed()
+        stream::empty().boxed()
     }
 }

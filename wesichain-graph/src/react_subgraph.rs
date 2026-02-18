@@ -211,6 +211,15 @@ where
 /// Node that executes tools based on pending Actions in the scratchpad.
 /// It finds the last Action(s) that do not have a following Observation,
 /// executes them, and appends the Observation.
+/// Tool execution node specialized for ReAct-style agents.
+///
+/// Unlike [`ToolNode`](crate::ToolNode) which uses the [`HasToolCalls`](crate::HasToolCalls) trait,
+/// `ReActToolNode` works with states implementing [`ScratchpadState`](wesichain_core::ScratchpadState).
+/// It reads the latest tool call from the scratchpad, executes it, and pushes
+/// the result back as a new [`ReActStep`](wesichain_core::ReActStep).
+///
+/// Use this when building agents via [`ReActGraphBuilder`].
+/// For generic tool execution in non-ReAct workflows, use [`ToolNode`](crate::ToolNode).
 pub struct ReActToolNode {
     tools: HashMap<String, Arc<dyn Tool>>,
     failure_policy: ToolFailurePolicy,
