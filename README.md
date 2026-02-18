@@ -201,6 +201,25 @@ Benchmark notes and methodology: `docs/benchmarks/README.md`.
 
 ---
 
+## AI-Assisted Development
+
+This repository includes AI-optimized documentation for coding agents:
+
+- **[docs/AGENTS.md](docs/AGENTS.md)** - Universal coding rules for AI agents
+- **[docs/skills/](docs/skills/)** - Detailed patterns for RAG, agents, and core concepts
+- **`.claude/skills/`** - Claude Code-optimized skills (auto-discovered)
+
+### Quick Start for AI Agents
+
+1. Read `docs/AGENTS.md` first (strict rules)
+2. Reference `docs/skills/*.md` for specific patterns
+3. Use builder patterns, async/await, and proper error handling
+4. Never invent methods - only use patterns shown in docs
+
+See [docs/skills/README.md](docs/skills/README.md) for the complete guide index.
+
+---
+
 ## Development
 
 ```bash
