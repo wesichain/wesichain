@@ -7,18 +7,17 @@ Build production-ready Retrieval-Augmented Generation (RAG) systems with efficie
 ### Key Crates
 
 ```rust
-use wesichain_core::{Runnable, Chain, Document};
-use wesichain_prompt::PromptTemplate;
-use wesichain_llm::{OllamaClient, OllamaEmbeddings};
-use wesichain_text_splitter::{TextSplitter, RecursiveCharacterSplitter};
-use wesichain_vector_store::{InMemoryVectorStore, QdrantVectorStore, Retriever};
-use wesichain_rag::RagPipeline;
+use wesichain_core::{Document, Runnable};
+use wesichain_retrieval::{
+    InMemoryVectorStore, RecursiveCharacterTextSplitter, Indexer, Retriever
+};
+use wesichain_rag::{WesichainRag, RagQueryRequest};
 ```
 
 ### RAG Flow
 
 ```
-Documents → TextSplitter → Embeddings → VectorStore → Retriever → LLM → Answer
+Documents → TextSplitter → Indexer → VectorStore → Retriever → LLM → Answer
      ↓            ↓             ↓              ↓            ↓        ↓
   Raw Text    Chunks      Vectors      Indexed     Context   Response
 ```
@@ -27,11 +26,11 @@ Documents → TextSplitter → Embeddings → VectorStore → Retriever → LLM 
 
 | Component | Type | Purpose |
 |-----------|------|---------|
-| TextSplitter | `RecursiveCharacterSplitter` | Split documents into chunks |
-| Embeddings | `OllamaEmbeddings` | Generate vector embeddings |
-| VectorStore | `InMemoryVectorStore` / `QdrantVectorStore` | Store and search vectors |
-| Retriever | `Retriever` | Fetch relevant documents |
-| RAG Pipeline | `RagPipeline` | End-to-end RAG workflow |
+| TextSplitter | `RecursiveCharacterTextSplitter` | Split documents into chunks |
+| Indexer | `Indexer<E, S>` | Index documents into vector store |
+| Retriever | `Retriever<E, S>` | Fetch relevant documents |
+| VectorStore | `InMemoryVectorStore` | Store and search vectors |
+| RAG | `WesichainRag` | End-to-end RAG workflow |
 
 ## Code Patterns
 
@@ -40,11 +39,11 @@ Documents → TextSplitter → Embeddings → VectorStore → Retriever → LLM 
 Full end-to-end RAG system using local Ollama embeddings and LLM.
 
 ```rust
-use wesichain_core::{Runnable, Document};
-use wesichain_llm::{OllamaClient, OllamaEmbeddings};
-use wesichain_text_splitter::RecursiveCharacterSplitter;
-use wesichain_vector_store::InMemoryVectorStore;
-use wesichain_rag::RagPipeline;
+use wesichain_core::Document;
+use wesichain_retrieval::{
+    InMemoryVectorStore, RecursiveCharacterTextSplitter, Indexer, Retriever, HashEmbedder
+};
+use wesichain_rag::{WesichainRag, RagQueryRequest};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -55,121 +54,117 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Document::new("Wesichain provides high-performance LLM chains..."),
     ];
 
-    // 2. Split documents into chunks
-    let splitter = RecursiveCharacterSplitter::new()
-        .chunk_size(500)
-        .chunk_overlap(50);
-    let chunks = splitter.split_documents(&documents);
+    // 2. Create text splitter
+    let splitter = RecursiveCharacterTextSplitter::builder()
+        .chunk_size(1000)
+        .chunk_overlap(200)
+        .separators(vec!["\n\n", "\n", ". ", " ", ""])
+        .build()?;
 
-    // 3. Initialize embeddings
-    let embeddings = OllamaEmbeddings::new("http://localhost:11434", "nomic-embed-text");
+    // 3. Split documents
+    let split_docs = splitter.split_documents(&documents);
 
-    // 4. Create vector store and add documents
-    let mut vector_store = InMemoryVectorStore::new(embeddings.embedding_dimension());
-    vector_store.add_documents(&chunks, &embeddings).await?;
+    // 4. Build RAG pipeline with default in-memory store
+    let rag = WesichainRag::builder()
+        .with_splitter(splitter)
+        .build()?;
 
-    // 5. Create retriever
-    let retriever = vector_store.as_retriever().top_k(3);
+    // 5. Index documents
+    rag.add_documents(split_docs).await?;
 
-    // 6. Initialize LLM
-    let llm = OllamaClient::new("http://localhost:11434", "llama3.2");
+    // 6. Query
+    let request = RagQueryRequest {
+        query: "What is Wesichain?".to_string(),
+        thread_id: None,
+    };
+    let response = rag.query(request).await?;
 
-    // 7. Build RAG pipeline
-    let rag = RagPipeline::new()
-        .with_retriever(retriever)
-        .with_llm(llm)
-        .with_template("Context: {context}\n\nQuestion: {question}\n\nAnswer:");
-
-    // 8. Query
-    let answer = rag.invoke("What is Wesichain?").await?;
-    println!("{}", answer);
-
+    println!("{}", response.answer);
     Ok(())
 }
 ```
 
-### Pattern 2: RAG with Qdrant Vector Store
+### Pattern 2: RAG with Custom Embedder and Vector Store
 
-Use Qdrant for persistent, scalable vector storage.
+Use custom embedding and vector store implementations.
 
 ```rust
-use wesichain_llm::OllamaEmbeddings;
-use wesichain_vector_store::QdrantVectorStore;
-use qdrant_client::QdrantClient;
+use std::sync::Arc;
+use wesichain_core::{Document, Embedding};
+use wesichain_retrieval::{
+    InMemoryVectorStore, RecursiveCharacterTextSplitter, Indexer, Retriever
+};
+use wesichain_rag::WesichainRag;
+use wesichain_graph::InMemoryCheckpointer;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Connect to Qdrant
-    let qdrant_client = QdrantClient::from_url("http://localhost:6334").build()?;
-    
-    let embeddings = OllamaEmbeddings::new("http://localhost:11434", "nomic-embed-text");
-    
-    // Create or connect to collection
-    let vector_store = QdrantVectorStore::new(
-        qdrant_client,
-        "my_collection",
-        embeddings.embedding_dimension(),
-    )
-    .with_distance_metric("cosine")
-    .create_collection_if_missing()
-    .await?;
+    // 1. Initialize components
+    let splitter = RecursiveCharacterTextSplitter::builder()
+        .chunk_size(1000)
+        .chunk_overlap(200)
+        .build()?;
 
-    // Add documents
-    vector_store.add_documents(&chunks, &embeddings).await?;
+    // 2. Use custom embedder (or HashEmbedder for testing)
+    let embedder = HashEmbedder::new(384); // 384-dimension embeddings
 
-    // Use in RAG pipeline
-    let retriever = vector_store.as_retriever().top_k(5);
-    
+    // 3. Create vector store
+    let vector_store = InMemoryVectorStore::new();
+
+    // 4. Build RAG with explicit components
+    let rag = WesichainRag::builder()
+        .with_splitter(splitter)
+        .with_embedder(embedder)
+        .with_vector_store(vector_store)
+        .with_checkpointer(InMemoryCheckpointer::default())
+        .with_max_retries(3)
+        .build()?;
+
+    // 5. Process file
+    rag.process_file(std::path::Path::new("./docs.txt")).await?;
+
+    // 6. Query with thread tracking
+    let response = rag.query(RagQueryRequest {
+        query: "What is this document about?".to_string(),
+        thread_id: Some("session-123".to_string()),
+    }).await?;
+
+    println!("Answer: {}", response.answer);
+    println!("Thread: {}", response.thread_id);
+
     Ok(())
 }
 ```
 
 ### Pattern 3: Custom Retriever with Filters
 
-Implement custom retrieval logic with metadata filtering.
+Access the underlying retriever for custom search logic.
 
 ```rust
-use wesichain_core::Document;
-use wesichain_vector_store::{Retriever, SearchFilter};
+use wesichain_rag::WesichainRag;
+use wesichain_core::SearchResult;
 
-// Create documents with metadata
-let docs = vec![
-    Document::new("Rust memory safety...").with_metadata("category", "language"),
-    Document::new("Tokio async runtime...").with_metadata("category", "runtime"),
-    Document::new("Serde serialization...").with_metadata("category", "library"),
-];
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let rag = WesichainRag::builder().build()?;
 
-// Build filter
-let filter = SearchFilter::new()
-    .must_eq("category", "runtime")
-    .must_not_eq("status", "deprecated");
+    // Add documents first...
+    rag.add_documents(docs).await?;
 
-// Apply to retriever
-let retriever = vector_store
-    .as_retriever()
-    .top_k(3)
-    .with_filter(filter);
+    // Perform similarity search directly
+    let results: Vec<SearchResult> = rag.similarity_search("async rust", 5).await?;
 
-// Custom retriever implementation
-struct CategoryRetriever {
-    store: InMemoryVectorStore,
-    default_category: String,
-}
-
-impl Retriever for CategoryRetriever {
-    async fn retrieve(
-        &self, 
-        query: &str, 
-        embeddings: &dyn Embeddings
-    ) -> Result<Vec<Document>> {
-        let filter = SearchFilter::new()
-            .must_eq("category", &self.default_category);
-        
-        self.store
-            .search(query, embeddings, 5)
-            .with_filter(filter)
-            .await
+    for result in results {
+        println!("Score: {:.2}, Content: {}",
+            result.score,
+            result.document.content
+        );
     }
+
+    // Or with scores
+    let results = rag.similarity_search_with_score("query", 10).await?;
+
+    Ok(())
 }
 ```
 
@@ -178,22 +173,45 @@ impl Retriever for CategoryRetriever {
 Stream RAG responses for real-time user experience.
 
 ```rust
-use wesichain_core::Runnable;
+use wesichain_core::AgentEvent;
+use wesichain_rag::{WesichainRag, RagQueryRequest};
 use futures::StreamExt;
 
-let rag = RagPipeline::new()
-    .with_retriever(retriever)
-    .with_llm(llm)
-    .with_template("Context: {context}\n\nQuestion: {question}");
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let rag = WesichainRag::builder().build()?;
 
-// Stream the response
-let mut stream = rag.stream("Explain async Rust").await?;
+    // Add documents...
+    rag.add_documents(docs).await?;
 
-while let Some(chunk) = stream.next().await {
-    match chunk {
-        Ok(text) => print!("{}", text),
-        Err(e) => eprintln!("Error: {}", e),
+    // Stream the response
+    let mut stream = rag.query_stream(RagQueryRequest {
+        query: "Explain async Rust".to_string(),
+        thread_id: None,
+    }).await?;
+
+    while let Some(event) = stream.next().await {
+        match event? {
+            AgentEvent::Thought { content, .. } => {
+                println!("🤔 Thinking: {}", content);
+            }
+            AgentEvent::ToolCall { tool_name, input, .. } => {
+                println!("🔧 Tool: {}({})", tool_name, input);
+            }
+            AgentEvent::Observation { output, .. } => {
+                println!("📊 Result: {}", output);
+            }
+            AgentEvent::Final { content, .. } => {
+                println!("✅ Answer: {}", content);
+            }
+            AgentEvent::Error { message, .. } => {
+                eprintln!("❌ Error: {}", message);
+            }
+            _ => {}
+        }
     }
+
+    Ok(())
 }
 ```
 
@@ -201,85 +219,91 @@ while let Some(chunk) = stream.next().await {
 
 ### Prompt 1: Basic Document Q&A
 
-"Create a RAG pipeline that answers questions about a set of text documents. Use Ollama for embeddings and LLM, split documents into 500-character chunks with 50-character overlap, and retrieve the top 3 most relevant chunks to answer questions."
+"Create a RAG pipeline using WesichainRag that answers questions about text documents. Use RecursiveCharacterTextSplitter with 1000-character chunks and 200-character overlap. Index documents and use the query() method to get answers."
 
-### Prompt 2: Wikipedia RAG
+### Prompt 2: File-based RAG
 
-"Build a RAG system that fetches Wikipedia articles on a topic, indexes them in Qdrant, and answers questions using that knowledge. Include error handling for when no relevant context is found."
+"Build a RAG system using WesichainRag that loads a text file with process_file(), indexes it, and answers questions. Include error handling for file not found and empty results."
 
-### Prompt 3: Code Documentation Search
+### Prompt 3: Streaming RAG
 
-"Create a code documentation RAG system that indexes Rust crate documentation. Use metadata filters to search by module name, and return code examples along with explanations."
+"Implement a streaming RAG with WesichainRag using query_stream(). Handle all AgentEvent variants (Thought, ToolCall, Observation, Final, Error) and print them with emojis for user feedback."
 
-### Prompt 4: Multi-Query RAG
+### Prompt 4: RAG with Checkpointing
 
-"Implement a multi-query RAG that generates 3 variations of the user's question, retrieves documents for each variation, and combines the results before generating the final answer to improve recall."
+"Create a RAG system with persistence using with_checkpointer(). Use InMemoryCheckpointer for development. Query with a fixed thread_id to maintain conversation state across multiple queries."
 
 ## Common Errors
 
-### Error: embedding dimension mismatch
+### Error: retriever not initialized
 
 ```
-Error: Vector dimension mismatch: expected 768, got 384
+Error: Retriever not initialized - call build() first
 ```
 
-**Cause**: Using different embedding models for indexing and querying.
+**Cause**: Using RAG before properly building it.
 
-**Fix**: Ensure the same embedding model is used consistently:
+**Fix**: Ensure you call build() and handle the Result:
 
 ```rust
-// Use a constant or configuration
-const EMBEDDING_MODEL: &str = "nomic-embed-text";
-let embeddings = OllamaEmbeddings::new(url, EMBEDDING_MODEL);
+let rag = WesichainRag::builder()
+    .with_embedder(embedder)
+    .with_vector_store(store)
+    .build()?; // Don't forget ?
 ```
 
 ### Error: document too long for embedding
 
 ```
-Error: Document exceeds maximum token limit (8192)
+Error: Document exceeds maximum token limit
 ```
 
-**Fix**: Adjust chunk size or use a larger context embedding model:
+**Fix**: Adjust chunk size in the splitter:
 
 ```rust
-let splitter = RecursiveCharacterSplitter::new()
-    .chunk_size(2000)  // Reduce chunk size
-    .chunk_overlap(200);
-```
-
-### Error: Qdrant collection not found
-
-```
-Error: Collection 'my_collection' not found
-```
-
-**Fix**: Create collection before use:
-
-```rust
-let vector_store = QdrantVectorStore::new(client, "my_collection", dim)
-    .create_collection_if_missing()
-    .await?;
+let splitter = RecursiveCharacterTextSplitter::builder()
+    .chunk_size(500)  // Reduce chunk size
+    .chunk_overlap(50)
+    .build()?;
 ```
 
 ### Error: empty context retrieved
 
 ```
-Error: No relevant documents found for query
+Runtime error: No relevant documents found
 ```
 
-**Fix**: Add fallback behavior or lower similarity threshold:
+**Fix**: Check if documents were indexed and query is relevant:
 
 ```rust
-let retriever = vector_store
-    .as_retriever()
-    .top_k(3)
-    .with_score_threshold(0.5);  // Lower threshold
+// Verify documents are indexed
+rag.add_documents(docs).await?;
 
-// Or handle empty results
-let docs = retriever.retrieve(query, &embeddings).await?;
-if docs.is_empty() {
-    return Ok("I don't have enough information to answer that.".to_string());
+// Search directly to verify
+let results = rag.similarity_search("query", 5).await?;
+if results.is_empty() {
+    println!("No results - check your documents and query");
 }
+```
+
+### Error: thread_id not found
+
+```
+Error: Checkpoint not found for thread_id: xyz
+```
+
+**Fix**: Use a consistent thread_id or generate new one:
+
+```rust
+use uuid::Uuid;
+
+let thread_id = existing_thread_id
+    .unwrap_or_else(|| Uuid::new_v4().to_string());
+
+let response = rag.query(RagQueryRequest {
+    query: "...".to_string(),
+    thread_id: Some(thread_id),
+}).await?;
 ```
 
 ### Error: cannot move out of borrowed content
@@ -288,52 +312,58 @@ if docs.is_empty() {
 Error: cannot move out of `self.embeddings` which is behind a shared reference
 ```
 
-**Fix**: Use `Arc` for shared ownership or clone:
+**Fix**: Use Arc for shared ownership:
 
 ```rust
 use std::sync::Arc;
 
-struct MyRag {
-    embeddings: Arc<OllamaEmbeddings>,  // Use Arc
-}
-
-// Or clone if cheap
-let embeddings_clone = self.embeddings.clone();
+let embedder = Arc::new(HashEmbedder::new(384));
+let rag = WesichainRag::builder()
+    .with_embedder((*embedder).clone()) // Clone if needed
+    .build()?;
 ```
 
 ## Best Practices
 
-1. **Chunk Size Strategy**: Use smaller chunks (200-500 tokens) for precise retrieval, larger chunks (1000-2000) for context-heavy questions. Always include overlap (10-20%) to preserve context across chunk boundaries.
+1. **Chunk Size Strategy**: Use smaller chunks (500-1000 tokens) for precise retrieval, larger chunks (1500-2000) for context-heavy questions. Always include overlap (10-20%) to preserve context.
 
-2. **Embedding Consistency**: Never mix embedding models between indexing and querying. Store the embedding model name with your index to prevent mismatches.
-
-3. **Hybrid Search**: Combine vector similarity with keyword search for better results on specific terms:
+2. **Builder Pattern**: Wesichain uses builder patterns extensively. Chain methods and call build() at the end:
    ```rust
-   let retriever = vector_store
-       .as_hybrid_retriever()
-       .vector_weight(0.7)
-       .keyword_weight(0.3);
+   let rag = WesichainRag::builder()
+       .with_embedder(embedder)
+       .with_vector_store(store)
+       .with_max_retries(3)
+       .build()?;
    ```
 
-4. **Re-ranking**: Apply a cross-encoder re-ranker to improve retrieval quality:
+3. **Thread IDs**: Use consistent thread_ids for multi-turn conversations to maintain state:
    ```rust
-   let retriever = vector_store
-       .as_retriever()
-       .top_k(20)           // Retrieve more initially
-       .rerank_top_k(5);    // Re-rank and keep best 5
+   let thread_id = "user-session-123".to_string();
+   let response = rag.query(RagQueryRequest {
+       query: "...".to_string(),
+       thread_id: Some(thread_id.clone()),
+   }).await?;
    ```
 
-5. **Caching Embeddings**: Cache embeddings for frequently accessed documents to avoid redundant API calls:
+4. **Error Handling**: RAG operations return `Result<T, RagError>`. Use `?` operator or match on errors:
    ```rust
-   use wesichain_vector_store::CachedEmbeddings;
-   
-   let cached_embeddings = CachedEmbeddings::new(embeddings)
-       .with_cache_dir("./embedding_cache");
+   match rag.query(request).await {
+       Ok(response) => println!("{}", response.answer),
+       Err(RagError::Retrieval(e)) => eprintln!("Search failed: {}", e),
+       Err(e) => eprintln!("Error: {}", e),
+   }
+   ```
+
+5. **Testing**: Use `HashEmbedder` for fast, deterministic testing without external services:
+   ```rust
+   let rag = WesichainRag::builder()
+       .with_embedder(HashEmbedder::new(384))
+       .build()?;
    ```
 
 ## See Also
 
-- [Agent Workflows](./agent-workflows.md) - Build agents that use RAG for tool reasoning
-- [Prompt Templates](./prompt-templates.md) - Craft effective RAG prompts
-- [Vector Stores](../components/vector-stores.md) - Deep dive into vector storage options
-- [Embeddings Guide](../components/embeddings.md) - Compare embedding providers
+- [Core Concepts](./core-concepts.md) - Runnable, Chain, Tool traits
+- [ReAct Agents](./react-agents.md) - Build agents that use RAG for tool reasoning
+- [Examples](https://github.com/wesichain/wesichain/tree/main/examples) - Working RAG examples
+- [Crates.io](https://crates.io/crates/wesichain-rag) - wesichain-rag crate

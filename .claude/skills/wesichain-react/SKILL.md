@@ -11,8 +11,8 @@ triggers:
   - "reasoning"
   - "acting"
   - "checkpoint"
-  - "wesichain-agent"
-  - "max_iterations"
+  - "wesichain-graph"
+  - "ReActGraphBuilder"
 ---
 
 ## When to Use
@@ -26,19 +26,51 @@ Use wesichain-react when you need to:
 ## Quick Start
 
 ```rust
-use wesichain_agent::{ReActGraphBuilder, ReActState};
-use wesichain_llm::OpenAIClient;
+use std::sync::Arc;
+use wesichain_graph::ReActGraphBuilder;
+use wesichain_core::{Tool, HasUserInput, HasFinalOutput, ScratchpadState};
+use wesichain_graph::state::{StateSchema, GraphState};
 
-let llm = OpenAIClient::from_env()?;
+// Define state with required traits
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct AgentState {
+    input: String,
+    scratchpad: Vec<wesichain_core::ReActStep>,
+    final_output: Option<String>,
+}
 
-let agent = ReActGraphBuilder::new(llm)
-    .with_tool(CalculatorTool)
-    .with_tool(WeatherTool)
-    .max_iterations(10)
-    .build()?;
+impl StateSchema for AgentState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self { update }
+}
 
-let result = agent.run("What is 25 * 4 plus the temperature in Paris?").await?;
-println!("{}", result);
+impl HasUserInput for AgentState {
+    fn from_input(input: impl Into<String>) -> Self {
+        Self { input: input.into(), ..Default::default() }
+    }
+    fn input(&self) -> &str { &self.input }
+}
+
+impl HasFinalOutput for AgentState {
+    fn final_output(&self) -> Option<&str> { self.final_output.as_deref() }
+}
+
+impl ScratchpadState for AgentState {
+    fn scratchpad(&self) -> &Vec<wesichain_core::ReActStep> { &self.scratchpad }
+    fn scratchpad_mut(&mut self) -> &mut Vec<wesichain_core::ReActStep> { &mut self.scratchpad }
+}
+
+// Build and run agent
+let llm: Arc<dyn wesichain_core::ToolCallingLlm> = Arc::new(my_llm);
+
+let graph = ReActGraphBuilder::new()
+    .llm(llm)
+    .tools(vec![Arc::new(CalculatorTool), Arc::new(SearchTool)])
+    .build::<AgentState>()?;
+
+let state = GraphState::new(AgentState::from_input("What is 25 * 4?"));
+let result = graph.invoke_graph(state).await?;
+println!("{:?}", result.data.final_output);
 ```
 
 ## Key Patterns
@@ -46,68 +78,97 @@ println!("{}", result);
 ### Pattern 1: Basic ReAct Agent
 
 ```rust
-use wesichain_agent::ReActGraphBuilder;
+use wesichain_graph::ReActGraphBuilder;
+use std::sync::Arc;
 
-let agent = ReActGraphBuilder::new(llm)
-    .with_tool(CalculatorTool)
-    .with_tool(WeatherTool)
-    .max_iterations(10)
+let tools: Vec<Arc<dyn Tool>> = vec![
+    Arc::new(CalculatorTool::default()),
+    Arc::new(WeatherTool::default()),
+];
+
+let graph = ReActGraphBuilder::new()
+    .llm(llm)
+    .tools(tools)
+    .build::<MyState>()?;
+
+let result = graph.invoke_graph(GraphState::new(MyState::from_input("Query"))).await?;
+```
+
+### Pattern 2: Custom Graph with ToolNode
+
+```rust
+use wesichain_graph::{GraphBuilder, ToolNode, GraphState, StateUpdate, START, END};
+use wesichain_graph::state::StateSchema;
+
+// State implementing HasToolCalls
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+struct CustomState {
+    messages: Vec<Message>,
+    tool_calls: Vec<ToolCall>,
+    final_answer: Option<String>,
+}
+
+impl StateSchema for CustomState {
+    type Update = Self;
+    fn apply(_: &Self, update: Self) -> Self { update }
+}
+
+impl wesichain_graph::HasToolCalls for CustomState {
+    fn tool_calls(&self) -> &Vec<ToolCall> { &self.tool_calls }
+    fn push_tool_result(&mut self, message: Message) { self.messages.push(message); }
+}
+
+// Build graph
+let tool_node = ToolNode::new(vec![Arc::new(CalculatorTool::default())]);
+
+let graph = GraphBuilder::<CustomState>::new()
+    .add_node("agent", my_llm_node)
+    .add_node("tools", tool_node)
+    .add_edge(START, "agent")
+    .add_conditional_edge("agent", |state: &GraphState<CustomState>| {
+        if state.data.final_answer.is_some() { vec![END.to_string()] }
+        else if !state.data.tool_calls.is_empty() { vec!["tools".to_string()] }
+        else { vec![END.to_string()] }
+    })
+    .add_edge("tools", "agent")
     .build()?;
-
-let result = agent.run("Your query here").await?;
 ```
 
-### Pattern 2: Custom Graph Agent
+### Pattern 3: Tool Implementation with Error Handling
 
 ```rust
-use wesichain_graph::{GraphBuilder, Node, Edge};
-use wesichain_agent::{AgentNode, ToolExecutorNode, ShouldContinueEdge};
+use wesichain_core::{Tool, ToolError};
+use serde_json::Value;
 
-let mut graph = GraphBuilder::<AgentState>::new();
+#[derive(Default)]
+pub struct CalculatorTool;
 
-// Add nodes
-graph.add_node("agent", AgentNode::new(llm.clone(), &tools))?;
-graph.add_node("tools", ToolExecutorNode::new(tools))?;
-
-// Add conditional edges
-graph.add_conditional_edge(
-    "agent",
-    ShouldContinueEdge::new(),
-    vec![
-        ("continue", "tools"),
-        ("end", "__end__"),
-    ],
-)?;
-graph.add_edge("tools", "agent")?;
-
-let compiled = graph.build()?;
-let result = compiled.run(state).await?;
-```
-
-### Pattern 3: Agent with Error Handling
-
-```rust
-use wesichain_agent::{ToolResult, ToolError};
-
-#[async_trait]
-impl Tool for RobustCalculator {
+#[async_trait::async_trait]
+impl Tool for CalculatorTool {
     fn name(&self) -> &str { "calculator" }
-    
-    async fn execute(&self, args: &str) -> Result<ToolResult, ToolError> {
-        // Parse and validate
-        let expr: Expr = match args.parse() {
-            Ok(e) => e,
-            Err(_) => return Ok(ToolResult::error("Invalid expression format")),
-        };
-        
-        // Execute with timeout
-        match tokio::time::timeout(
-            Duration::from_secs(5),
-            self.evaluate(expr)
-        ).await {
-            Ok(Ok(result)) => Ok(ToolResult::success(result.to_string())),
-            Ok(Err(e)) => Ok(ToolResult::error(format!("Math error: {}", e))),
-            Err(_) => Ok(ToolResult::error("Calculation timed out")),
+
+    fn description(&self) -> &str {
+        "Evaluate mathematical expressions safely"
+    }
+
+    fn schema(&self) -> Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": {
+                "expression": { "type": "string" }
+            },
+            "required": ["expression"]
+        })
+    }
+
+    async fn invoke(&self, args: Value) -> Result<Value, ToolError> {
+        let expr = args["expression"]
+            .as_str()
+            .ok_or_else(|| ToolError::InvalidInput("expression required".into()))?;
+
+        match meval::eval_str(expr) {
+            Ok(result) => Ok(serde_json::json!({ "result": result })),
+            Err(e) => Err(ToolError::Execution(format!("Eval failed: {}", e))),
         }
     }
 }
@@ -116,46 +177,49 @@ impl Tool for RobustCalculator {
 ### Pattern 4: Agent with Checkpointing
 
 ```rust
-use wesichain_graph::{FileCheckpointer, CheckpointConfig};
-use wesichain_agent::ReActGraphBuilder;
+use wesichain_graph::{InMemoryCheckpointer, Checkpoint};
+use std::sync::Arc;
 
-let checkpointer = FileCheckpointer::new("./checkpoints")
-    .with_save_interval(Duration::from_secs(30));
+let checkpointer = Arc::new(InMemoryCheckpointer::<MyState>::default());
 
-let agent = ReActGraphBuilder::new(llm)
-    .with_tool(WebSearchTool)
-    .with_tool(DocumentAnalyzer)
-    .with_checkpointer(checkpointer)
+let graph = GraphBuilder::<MyState>::new()
+    .add_node("agent", agent_node)
+    .add_node("tools", tool_node)
+    .add_edge(START, "agent")
+    // ... conditional edges ...
+    .with_checkpointer(checkpointer.clone(), "thread-123")
     .build()?;
 
-// Run with checkpoint ID
-let result = agent.run_with_checkpoint(state, "task-001").await?;
+// Execute
+let result = graph.invoke_graph(GraphState::new(MyState::from_input("Task"))).await?;
 
-// Resume later if interrupted
-if result.is_interrupted() {
-    let resumed = agent.resume_from_checkpoint("task-001").await?;
+// Resume later
+if let Some(checkpoint) = checkpointer.load("thread-123").await? {
+    let resumed = graph.invoke_graph(checkpoint.state).await?;
 }
 ```
 
 ## Golden Rules
 
-1. **Always set max_iterations** - Prevents infinite loops; start with 10-15 for most tasks
-2. **Use specific tool descriptions** - Help the LLM choose correctly by describing when to use each tool
-3. **Implement graceful degradation** - Return error messages as observations so the LLM can retry
-4. **Checkpoint long-running agents** - Enable resumability for tasks that may take minutes or hours
-5. **Validate tool outputs** - Sanitize results before sending to LLM to prevent prompt injection
+1. **State must implement all traits** - ReActGraphBuilder requires StateSchema + ScratchpadState + HasUserInput + HasFinalOutput
+2. **Use Arc<dyn Tool> for tools** - ToolNode and ReActGraphBuilder expect tools wrapped in Arc
+3. **Build is generic** - Call .build::<YourState>() with explicit state type
+4. **Use invoke_graph() not run()** - ExecutableGraph uses invoke_graph() method
+5. **Use START and END constants** - Don't hardcode "__start" and "__end"
 
 ## Common Mistakes
 
-- **State missing HasToolCalls trait** - Your state must implement `HasToolCalls`, `HasUserInput`, and `HasFinalOutput`
-- **Max iterations exceeded** - Complex tasks need higher limits; increase `max_iterations` or add stopping conditions
-- **Tool name typos** - LLM generates "calculatr" instead of "calculator"; provide clear descriptions and consider fuzzy matching
-- **Invalid tool arguments** - LLM provides malformed JSON; accept multiple field names with serde aliases and provide helpful errors
-- **Non-serializable state fields** - Raw sockets or locks break checkpointing; mark with `#[serde(skip)]` or use Arc
+- **State missing ScratchpadState** - Required for ReActGraphBuilder; implement scratchpad() and scratchpad_mut()
+- **Wrong builder method** - ReActGraphBuilder uses .llm() and .tools(), not .with_llm() or .with_tool()
+- **Not using Arc for tools** - Tools must be Vec<Arc<dyn Tool>>, not Vec<Box<dyn Tool>>
+- **Forgetting generic type** - build::<MyState>() is required; compiler can't infer the state type
+- **Calling run() instead of invoke_graph()** - ExecutableGraph doesn't have run(), use invoke_graph()
+- **State not serializable** - All state fields must implement Serialize + Deserialize for checkpointing
 
 ## Resources
 
-- Full guide: `/Users/bene/Documents/bene/python/rechain/wesichain/.worktrees/ai-skills-docs/docs/skills/react-agents.md`
-- Key crates: `wesichain-agent`, `wesichain-graph`
-- Required traits: `HasToolCalls`, `HasUserInput`, `HasFinalOutput`, `StateSchema`
-- Checkpointing: `FileCheckpointer`, `CheckpointConfig`
+- Full guide: `docs/skills/react-agents.md`
+- Key crates: `wesichain-graph`, `wesichain-core`
+- Types: `ReActGraphBuilder`, `ToolNode`, `GraphBuilder`, `ExecutableGraph`
+- Traits: `Tool`, `StateSchema`, `ScratchpadState`, `HasUserInput`, `HasFinalOutput`, `HasToolCalls`
+- Constants: `START`, `END`
