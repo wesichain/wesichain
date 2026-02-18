@@ -8,7 +8,7 @@ mod state;
 mod tooling;
 mod validation;
 
-pub use error::AgentError;
+pub use error::{AgentError, ToolDispatchError};
 pub use event::AgentEvent;
 pub use llm::LlmAdapter;
 pub use phase::{Acting, Completed, Failed, Idle, Interrupted, Observing, Thinking};
@@ -16,6 +16,7 @@ pub use policy::{NoopPolicy, PolicyDecision, RepromptStrategy};
 pub use runtime::AgentRuntime;
 pub use state::AgentState;
 pub use tooling::{
-    CancellationToken, ToolContext, ToolError, ToolSchema, ToolSet, ToolSetBuildError, TypedTool,
+    CancellationToken, ToolCallEnvelope, ToolContext, ToolError, ToolSchema, ToolSet,
+    ToolSetBuildError, TypedTool,
 };
 pub use validation::{validate_model_action, ModelAction};

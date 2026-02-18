@@ -1,3 +1,5 @@
+use crate::tooling::ToolError;
+
 #[derive(Debug)]
 pub enum AgentError {
     ModelTransport,
@@ -31,3 +33,59 @@ impl std::fmt::Display for AgentError {
 }
 
 impl std::error::Error for AgentError {}
+
+#[derive(Debug)]
+pub enum ToolDispatchError {
+    UnknownTool {
+        name: String,
+        call_id: String,
+    },
+    InvalidArgs {
+        name: String,
+        call_id: String,
+        source: serde_json::Error,
+    },
+    Execution {
+        name: String,
+        call_id: String,
+        source: ToolError,
+    },
+    Serialization {
+        name: String,
+        call_id: String,
+        source: serde_json::Error,
+    },
+}
+
+impl std::fmt::Display for ToolDispatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ToolDispatchError::UnknownTool { name, call_id } => {
+                write!(f, "unknown tool {name} for call {call_id}")
+            }
+            ToolDispatchError::InvalidArgs { name, call_id, .. } => {
+                write!(f, "invalid args for tool {name} in call {call_id}")
+            }
+            ToolDispatchError::Execution { name, call_id, .. } => {
+                write!(f, "tool {name} failed during call {call_id}")
+            }
+            ToolDispatchError::Serialization { name, call_id, .. } => {
+                write!(
+                    f,
+                    "failed to serialize output for tool {name} in call {call_id}"
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for ToolDispatchError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ToolDispatchError::UnknownTool { .. } => None,
+            ToolDispatchError::InvalidArgs { source, .. } => Some(source),
+            ToolDispatchError::Execution { source, .. } => Some(source),
+            ToolDispatchError::Serialization { source, .. } => Some(source),
+        }
+    }
+}
