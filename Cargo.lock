@@ -5780,6 +5780,7 @@ name = "wesichain-agent"
 version = "0.2.1"
 dependencies = [
  "trybuild",
+ "wesichain-core",
 ]
 
 [[package]]
