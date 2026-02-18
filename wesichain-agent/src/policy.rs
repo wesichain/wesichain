@@ -18,3 +18,30 @@ pub enum RepromptStrategy {
 }
 
 pub struct NoopPolicy;
+
+impl PolicyDecision {
+    pub fn retry() -> Self {
+        Self::Retry {
+            consume_budget: true,
+        }
+    }
+
+    pub fn reprompt(strategy: RepromptStrategy) -> Self {
+        Self::Reprompt {
+            strategy,
+            consume_budget: true,
+        }
+    }
+}
+
+pub trait PolicyEngine {
+    fn on_model_error(_error: &crate::AgentError) -> PolicyDecision {
+        PolicyDecision::Fail
+    }
+
+    fn on_tool_error(_error: &crate::AgentError) -> PolicyDecision {
+        PolicyDecision::Fail
+    }
+}
+
+impl PolicyEngine for NoopPolicy {}

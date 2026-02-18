@@ -12,8 +12,8 @@ pub use error::{AgentError, ToolDispatchError};
 pub use event::AgentEvent;
 pub use llm::LlmAdapter;
 pub use phase::{Acting, Completed, Failed, Idle, Interrupted, Observing, Thinking};
-pub use policy::{NoopPolicy, PolicyDecision, RepromptStrategy};
-pub use runtime::AgentRuntime;
+pub use policy::{NoopPolicy, PolicyDecision, PolicyEngine, RepromptStrategy};
+pub use runtime::{AgentRuntime, LoopTransition};
 pub use state::AgentState;
 pub use tooling::{
     CancellationToken, ToolCallEnvelope, ToolContext, ToolError, ToolSchema, ToolSet,
