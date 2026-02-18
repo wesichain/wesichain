@@ -158,6 +158,33 @@ pub trait PolicyEngine<S: AgentState> {
 
 Policy decisions are deterministic and side-effect-free from the runtime perspective.
 
+### `PolicyDecision` Contract
+
+```rust
+pub enum PolicyDecision {
+    Fail,
+    Retry {
+        consume_budget: bool,
+    },
+    Reprompt {
+        strategy: RepromptStrategy,
+        consume_budget: bool,
+    },
+    Interrupt,
+}
+
+pub enum RepromptStrategy {
+    OnceWithToolCatalog,
+    N { n: u32 },
+}
+```
+
+Normative defaults:
+
+- `Retry` and `Reprompt` consume step budget by default (`consume_budget = true`).
+- Any opt-out is advanced-only and must be explicit in configuration.
+- `RepromptStrategy::N` must be bounded (`n > 0`) and never unbounded.
+
 ## Typed Tool API (No Macros First)
 
 ### Public Contract
