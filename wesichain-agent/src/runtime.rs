@@ -18,6 +18,12 @@ impl<S, T, P> AgentRuntime<S, T, P, Idle> {
     }
 }
 
+impl<S, T, P> Default for AgentRuntime<S, T, P, Idle> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<S, T, P> AgentRuntime<S, T, P, Thinking> {
     pub fn act(self) -> AgentRuntime<S, T, P, Acting> {
         AgentRuntime {
