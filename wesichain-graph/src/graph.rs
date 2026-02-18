@@ -335,6 +335,7 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
             checkpoint_thread_id: Option<String>,
             initialized: bool,
             run_config: Option<wesichain_core::RunConfig>, // Store for delayed init
+            observer: Option<Arc<dyn Observer>>,
         }
 
         if !self.nodes.contains_key(&self.entry) {
@@ -380,6 +381,7 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
             checkpoint_thread_id,
             initialized: false,
             run_config: run_config_option,
+            observer: options.observer,
         };
 
         stream::unfold(stream_state, move |mut ctx| async move {
@@ -625,7 +627,7 @@ impl<S: StateSchema<Update = S>> ExecutableGraph<S> {
                     // Prepare Node Execution
                     let input_state = ctx.state.clone();
                     // We need a node-specific context
-                    let node_ctx_obs = None; // Observer removed from StreamState
+                    let node_ctx_obs = ctx.observer.clone();
                     let node_id = current.clone();
                     let effective_config_spawn = ctx.effective.clone();
                     let remaining = effective_config_spawn
