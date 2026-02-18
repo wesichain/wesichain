@@ -9,6 +9,7 @@ rust-version.workspace = true
 async-trait = "0.1"
 schemars = "0.8"
 serde = { version = "1", features = ["derive"] }
+tokio-util = { version = "0.7", features = ["rt"] }
 wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
 
 [dev-dependencies]

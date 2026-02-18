@@ -1,6 +1,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use wesichain_agent::{CancellationToken, ToolContext, ToolSet, TypedTool};
+use tokio_util::sync::CancellationToken;
+use wesichain_agent::{ToolContext, ToolSet, TypedTool};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct EchoArgs {

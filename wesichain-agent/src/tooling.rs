@@ -1,30 +1,10 @@
 use std::collections::{BTreeMap, HashSet};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
 
 use schemars::{schema::RootSchema, JsonSchema};
 use serde::de::DeserializeOwned;
+pub use tokio_util::sync::CancellationToken;
 
 pub type ToolError = wesichain_core::ToolError;
-
-#[derive(Clone, Debug, Default)]
-pub struct CancellationToken {
-    cancelled: Arc<AtomicBool>,
-}
-
-impl CancellationToken {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::SeqCst);
-    }
-
-    pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::SeqCst)
-    }
-}
 
 #[derive(Clone, Debug)]
 pub struct ToolContext {

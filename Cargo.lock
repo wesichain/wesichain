@@ -5070,6 +5070,7 @@ dependencies = [
  "bytes",
  "futures-core",
  "futures-sink",
+ "futures-util",
  "pin-project-lite",
  "tokio",
 ]
@@ -5782,6 +5783,7 @@ dependencies = [
  "async-trait",
  "schemars",
  "serde",
+ "tokio-util",
  "trybuild",
  "wesichain-core",
 ]
