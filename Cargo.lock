@@ -5698,11 +5698,11 @@ checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
 name = "wesichain"
-version = "0.2.0"
+version = "0.2.1"
 
 [[package]]
 name = "wesichain-checkpoint-postgres"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5716,7 +5716,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-checkpoint-redis"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "fred",
@@ -5729,7 +5729,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-checkpoint-sql"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -5740,7 +5740,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-checkpoint-sqlite"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -5756,7 +5756,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-chroma"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "chroma",
@@ -5771,7 +5771,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-compat"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -5786,7 +5786,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -5806,7 +5806,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-embeddings"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-openai 0.23.4",
  "async-trait",
@@ -5846,7 +5846,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-graph"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "ahash",
  "async-trait",
@@ -5868,7 +5868,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-langsmith"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -5891,7 +5891,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-llm"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-openai 0.21.0",
  "async-trait",
@@ -5910,7 +5910,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-macros"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5921,7 +5921,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-memory"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -5934,7 +5934,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-pinecone"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "reqwest",
@@ -5950,7 +5950,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-prompt"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -5964,7 +5964,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-qdrant"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "criterion 0.5.1",
@@ -5980,7 +5980,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-rag"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "futures",
@@ -6000,7 +6000,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-retrieval"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "criterion 0.5.1",
@@ -6022,7 +6022,7 @@ dependencies = [
 
 [[package]]
 name = "wesichain-weaviate"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "criterion 0.5.1",

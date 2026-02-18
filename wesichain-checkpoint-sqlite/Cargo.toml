@@ -14,12 +14,12 @@ serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "sqlite"] }
 thiserror = "1"
 tokio = { version = "1", features = ["sync"] }
-wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.2.0" }
-wesichain-core = { path = "../wesichain-core", version = "0.2.0" }
+wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.2.1" }
+wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
 
 [dev-dependencies]
 async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1", features = ["macros", "rt"] }
-wesichain-graph = { path = "../wesichain-graph", version = "0.2.0" }
-wesichain-core = { path = "../wesichain-core", version = "0.2.0" }
+wesichain-graph = { path = "../wesichain-graph", version = "0.2.1" }
+wesichain-core = { path = "../wesichain-core", version = "0.2.1" }

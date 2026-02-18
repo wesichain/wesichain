@@ -25,4 +25,4 @@ rand = "0.8"
 [dev-dependencies]
 tokio = { version = "1.0", features = ["full"] }
 tempfile = "3.8"
-wesichain-macros = { path = "../wesichain-macros", version = "0.2.0" }
+wesichain-macros = { path = "../wesichain-macros", version = "0.2.1" }
