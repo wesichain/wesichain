@@ -64,3 +64,16 @@ fn cancellation_before_observing_append_transitions_to_interrupted() {
         .iter()
         .any(|event| matches!(event, AgentEvent::StepFailed { step_id: 11, .. })));
 }
+
+#[test]
+fn cancellation_before_observing_append_non_evented_transitions_to_interrupted() {
+    let cancellation = CancellationToken::new();
+    cancellation.cancel();
+    let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::with_cancellation(cancellation)
+        .think()
+        .act();
+
+    let transition = runtime.on_tool_success();
+
+    assert!(matches!(transition, LoopTransition::Interrupted(_)));
+}

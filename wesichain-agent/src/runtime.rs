@@ -287,25 +287,29 @@ where
         self.transition()
     }
 
-    pub fn on_tool_success(self) -> AgentRuntime<S, T, P, Observing> {
-        self.observe()
+    pub fn on_tool_success(self) -> LoopTransition<S, T, P> {
+        if self.cancellation_is_requested() {
+            return LoopTransition::Interrupted(self.interrupt());
+        }
+
+        LoopTransition::Observing(self.observe())
     }
 
     pub fn on_tool_success_with_events(self, step_id: u32) -> TransitionWithEvents<S, T, P> {
-        if self.cancellation_is_requested() {
-            return (
-                LoopTransition::Interrupted(self.interrupt()),
+        match self.on_tool_success() {
+            LoopTransition::Observing(runtime) => (
+                LoopTransition::Observing(runtime),
+                vec![AgentEvent::ToolCompleted { step_id }],
+            ),
+            LoopTransition::Interrupted(runtime) => (
+                LoopTransition::Interrupted(runtime),
                 vec![emit_tool_failure_event(
                     step_id,
                     AgentError::PolicyRuntimeViolation,
                 )],
-            );
+            ),
+            _ => unreachable!("on_tool_success only returns Observing or Interrupted"),
         }
-
-        (
-            LoopTransition::Observing(self.observe()),
-            vec![AgentEvent::ToolCompleted { step_id }],
-        )
     }
 
     pub fn interrupt(self) -> AgentRuntime<S, T, P, Interrupted> {
