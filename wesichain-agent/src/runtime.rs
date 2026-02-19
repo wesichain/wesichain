@@ -49,6 +49,7 @@ fn emit_tool_failure_event(step_id: u32, error: AgentError) -> AgentEvent {
 
 pub struct AgentRuntime<S, T, P, Phase> {
     remaining_budget: u32,
+    cancellation: CancellationToken,
     _marker: std::marker::PhantomData<(S, T, P, Phase)>,
 }
 
@@ -56,6 +57,7 @@ impl<S, T, P, Phase> std::fmt::Debug for AgentRuntime<S, T, P, Phase> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("AgentRuntime")
             .field("remaining_budget", &self.remaining_budget)
+            .field("cancelled", &self.cancellation.is_cancelled())
             .finish()
     }
 }
@@ -87,17 +89,18 @@ impl<S, T, P, Phase> AgentRuntime<S, T, P, Phase> {
         self.remaining_budget
     }
 
-    pub fn map_model_transport_error(_error: wesichain_core::WesichainError) -> AgentError {
+    fn map_model_transport_error(_error: wesichain_core::WesichainError) -> AgentError {
         AgentError::ModelTransport
     }
 
-    fn is_cancelled(cancellation: &CancellationToken) -> bool {
-        cancellation.is_cancelled()
+    fn cancellation_is_requested(&self) -> bool {
+        self.cancellation.is_cancelled()
     }
 
     fn transition<NextPhase>(self) -> AgentRuntime<S, T, P, NextPhase> {
         AgentRuntime {
             remaining_budget: self.remaining_budget,
+            cancellation: self.cancellation,
             _marker: std::marker::PhantomData,
         }
     }
@@ -122,8 +125,20 @@ impl<S, T, P> AgentRuntime<S, T, P, Idle> {
     }
 
     pub fn with_budget(remaining_budget: u32) -> Self {
+        Self::with_budget_and_cancellation(remaining_budget, CancellationToken::new())
+    }
+
+    pub fn with_cancellation(cancellation: CancellationToken) -> Self {
+        Self::with_budget_and_cancellation(u32::MAX, cancellation)
+    }
+
+    pub fn with_budget_and_cancellation(
+        remaining_budget: u32,
+        cancellation: CancellationToken,
+    ) -> Self {
         Self {
             remaining_budget,
+            cancellation,
             _marker: std::marker::PhantomData,
         }
     }
@@ -132,11 +147,8 @@ impl<S, T, P> AgentRuntime<S, T, P, Idle> {
         self.transition()
     }
 
-    pub fn think_if_not_cancelled(
-        self,
-        cancellation: &CancellationToken,
-    ) -> LoopTransition<S, T, P> {
-        if Self::is_cancelled(cancellation) {
+    pub fn begin_thinking(self) -> LoopTransition<S, T, P> {
+        if self.cancellation_is_requested() {
             return LoopTransition::Interrupted(self.transition());
         }
 
@@ -185,6 +197,10 @@ where
         response: wesichain_core::LlmResponse,
         allowed_tools: &[String],
     ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
+        if self.cancellation_is_requested() {
+            return Ok((LoopTransition::Interrupted(self.interrupt()), Vec::new()));
+        }
+
         match Self::validate_model_action(step_id, response, allowed_tools) {
             Ok(ModelAction::ToolCall { .. }) => Ok((
                 LoopTransition::Acting(self.act()),
@@ -198,18 +214,23 @@ where
         }
     }
 
-    pub fn on_model_response_with_events_if_not_cancelled(
+    pub fn on_model_transport_error(
         self,
-        cancellation: &CancellationToken,
-        step_id: u32,
-        response: wesichain_core::LlmResponse,
-        allowed_tools: &[String],
+        error: wesichain_core::WesichainError,
+    ) -> Result<LoopTransition<S, T, P>, AgentError> {
+        self.on_model_transport_error_with_events(error)
+            .map(|(transition, _events)| transition)
+    }
+
+    pub fn on_model_transport_error_with_events(
+        self,
+        error: wesichain_core::WesichainError,
     ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
-        if Self::is_cancelled(cancellation) {
+        if self.cancellation_is_requested() {
             return Ok((LoopTransition::Interrupted(self.interrupt()), Vec::new()));
         }
 
-        self.on_model_response_with_events(step_id, response, allowed_tools)
+        self.on_model_error_with_events(Self::map_model_transport_error(error))
     }
 
     fn on_model_error_with_events(
@@ -271,22 +292,20 @@ where
     }
 
     pub fn on_tool_success_with_events(self, step_id: u32) -> TransitionWithEvents<S, T, P> {
+        if self.cancellation_is_requested() {
+            return (
+                LoopTransition::Interrupted(self.interrupt()),
+                vec![emit_tool_failure_event(
+                    step_id,
+                    AgentError::PolicyRuntimeViolation,
+                )],
+            );
+        }
+
         (
             LoopTransition::Observing(self.observe()),
             vec![AgentEvent::ToolCompleted { step_id }],
         )
-    }
-
-    pub fn on_tool_success_with_events_if_not_cancelled(
-        self,
-        cancellation: &CancellationToken,
-        step_id: u32,
-    ) -> TransitionWithEvents<S, T, P> {
-        if Self::is_cancelled(cancellation) {
-            return (LoopTransition::Interrupted(self.interrupt()), Vec::new());
-        }
-
-        self.on_tool_success_with_events(step_id)
     }
 
     pub fn interrupt(self) -> AgentRuntime<S, T, P, Interrupted> {

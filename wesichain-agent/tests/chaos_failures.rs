@@ -6,11 +6,11 @@ use wesichain_core::{LlmResponse, ToolCall, Value, WesichainError};
 
 #[test]
 fn llm_transport_failure_maps_to_model_transport_error() {
-    let mapped = AgentRuntime::<(), (), NoopPolicy, Idle>::map_model_transport_error(
-        WesichainError::Timeout(Duration::from_millis(5)),
-    );
+    let result = AgentRuntime::<(), (), NoopPolicy, Idle>::new()
+        .think()
+        .on_model_transport_error(WesichainError::Timeout(Duration::from_millis(5)));
 
-    assert!(matches!(mapped, AgentError::ModelTransport));
+    assert!(matches!(result, Err(AgentError::ModelTransport)));
 }
 
 #[test]
@@ -19,16 +19,16 @@ fn cancellation_before_thinking_transitions_to_interrupted() {
     cancellation.cancel();
 
     let transition =
-        AgentRuntime::<(), (), NoopPolicy, Idle>::new().think_if_not_cancelled(&cancellation);
+        AgentRuntime::<(), (), NoopPolicy, Idle>::with_cancellation(cancellation).begin_thinking();
 
     assert!(matches!(transition, LoopTransition::Interrupted(_)));
 }
 
 #[test]
 fn cancellation_before_tool_dispatch_transitions_to_interrupted() {
-    let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::new().think();
     let cancellation = CancellationToken::new();
     cancellation.cancel();
+    let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::with_cancellation(cancellation).think();
     let response = LlmResponse {
         content: String::new(),
         tool_calls: vec![ToolCall {
@@ -40,7 +40,7 @@ fn cancellation_before_tool_dispatch_transitions_to_interrupted() {
     let allowed_tools = vec!["calculator".to_string()];
 
     let (transition, events) = runtime
-        .on_model_response_with_events_if_not_cancelled(&cancellation, 1, response, &allowed_tools)
+        .on_model_response_with_events(1, response, &allowed_tools)
         .expect("cancellation should return interrupted transition");
 
     assert!(matches!(transition, LoopTransition::Interrupted(_)));
@@ -51,17 +51,16 @@ fn cancellation_before_tool_dispatch_transitions_to_interrupted() {
 
 #[test]
 fn cancellation_before_observing_append_transitions_to_interrupted() {
-    let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::new()
-        .think()
-        .act();
     let cancellation = CancellationToken::new();
     cancellation.cancel();
+    let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::with_cancellation(cancellation)
+        .think()
+        .act();
 
-    let (transition, events) =
-        runtime.on_tool_success_with_events_if_not_cancelled(&cancellation, 11);
+    let (transition, events) = runtime.on_tool_success_with_events(11);
 
     assert!(matches!(transition, LoopTransition::Interrupted(_)));
-    assert!(!events
+    assert!(events
         .iter()
-        .any(|event| matches!(event, AgentEvent::ToolCompleted { .. })));
+        .any(|event| matches!(event, AgentEvent::StepFailed { step_id: 11, .. })));
 }
