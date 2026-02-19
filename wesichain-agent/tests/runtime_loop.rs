@@ -117,3 +117,25 @@ fn tool_error_reprompt_transition_preserves_strategy_metadata() {
         other => panic!("expected reprompt transition, got {other:?}"),
     }
 }
+
+#[test]
+fn evented_tool_success_transitions_to_observing_phase() {
+    let acting = AgentRuntime::<(), (), AlwaysReprompt, Idle>::with_budget(2)
+        .think()
+        .act();
+
+    let (transition, events) = acting.on_tool_success_with_events(3);
+
+    match transition {
+        LoopTransition::Observing(runtime) => {
+            assert_eq!(runtime.remaining_budget(), 2);
+        }
+        other => panic!("expected observing transition, got {other:?}"),
+    }
+
+    assert_eq!(events.len(), 1);
+    assert!(matches!(
+        events[0],
+        wesichain_agent::AgentEvent::ToolCompleted { step_id: 3 }
+    ));
+}

@@ -66,6 +66,7 @@ pub enum LoopTransition<S, T, P> {
         reprompt_strategy: Option<RepromptStrategy>,
     },
     Acting(AgentRuntime<S, T, P, Acting>),
+    Observing(AgentRuntime<S, T, P, Observing>),
     Completed(AgentRuntime<S, T, P, Completed>),
     Interrupted(AgentRuntime<S, T, P, Interrupted>),
 }
@@ -234,10 +235,7 @@ where
 
     pub fn on_tool_success_with_events(self, step_id: u32) -> TransitionWithEvents<S, T, P> {
         (
-            LoopTransition::Thinking {
-                runtime: self.observe().think(),
-                reprompt_strategy: None,
-            },
+            LoopTransition::Observing(self.observe()),
             vec![AgentEvent::ToolCompleted { step_id }],
         )
     }
