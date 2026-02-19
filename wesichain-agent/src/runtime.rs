@@ -228,6 +228,20 @@ where
         self.transition()
     }
 
+    pub fn on_tool_success(self) -> AgentRuntime<S, T, P, Observing> {
+        self.observe()
+    }
+
+    pub fn on_tool_success_with_events(self, step_id: u32) -> TransitionWithEvents<S, T, P> {
+        (
+            LoopTransition::Thinking {
+                runtime: self.observe().think(),
+                reprompt_strategy: None,
+            },
+            vec![AgentEvent::ToolCompleted { step_id }],
+        )
+    }
+
     pub fn interrupt(self) -> AgentRuntime<S, T, P, Interrupted> {
         self.transition()
     }

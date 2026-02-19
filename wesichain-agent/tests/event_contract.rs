@@ -32,7 +32,6 @@ fn step_started_precedes_terminal_event_for_each_step() {
 
 #[test]
 fn each_tool_dispatched_has_exactly_one_completion_or_failure_counterpart() {
-    let thinking = AgentRuntime::<(), (), RetryToolPolicy, _>::new().think();
     let response = wesichain_core::LlmResponse {
         content: "need tool".to_string(),
         tool_calls: vec![wesichain_core::ToolCall {
@@ -42,17 +41,31 @@ fn each_tool_dispatched_has_exactly_one_completion_or_failure_counterpart() {
         }],
     };
 
-    let (transition, mut events) = thinking
-        .on_model_response_with_events(1, response, &["calculator".to_string()])
+    let success_thinking = AgentRuntime::<(), (), NoopPolicy, _>::new().think();
+    let (success_transition, mut events) = success_thinking
+        .on_model_response_with_events(1, response.clone(), &["calculator".to_string()])
         .expect("model response should transition to acting");
 
-    let acting = match transition {
+    let success_acting = match success_transition {
+        LoopTransition::Acting(runtime) => runtime,
+        _ => panic!("expected acting transition"),
+    };
+    let (_, success_events) = success_acting.on_tool_success_with_events(1);
+    events.extend(success_events);
+
+    let failure_thinking = AgentRuntime::<(), (), RetryToolPolicy, _>::new().think();
+    let (failure_transition, failure_dispatch_events) = failure_thinking
+        .on_model_response_with_events(2, response, &["calculator".to_string()])
+        .expect("model response should transition to acting");
+    events.extend(failure_dispatch_events);
+
+    let failure_acting = match failure_transition {
         LoopTransition::Acting(runtime) => runtime,
         _ => panic!("expected acting transition"),
     };
 
-    let (_, failure_events) = acting
-        .on_tool_error_with_events(1, AgentError::ToolDispatch)
+    let (_, failure_events) = failure_acting
+        .on_tool_error_with_events(2, AgentError::ToolDispatch)
         .expect("tool error should map to retry transition");
     events.extend(failure_events);
 
