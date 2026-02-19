@@ -21,7 +21,11 @@ impl TypedTool for EchoTool {
 
     const NAME: &'static str = "echo";
 
-    async fn run(&self, args: Self::Args, _ctx: ToolContext) -> Result<Self::Output, wesichain_agent::ToolError> {
+    async fn run(
+        &self,
+        args: Self::Args,
+        _ctx: ToolContext,
+    ) -> Result<Self::Output, wesichain_agent::ToolError> {
         Ok(EchoOutput { echoed: args.text })
     }
 }
@@ -34,7 +38,11 @@ impl TypedTool for EchoToolDuplicate {
 
     const NAME: &'static str = "echo";
 
-    async fn run(&self, args: Self::Args, _ctx: ToolContext) -> Result<Self::Output, wesichain_agent::ToolError> {
+    async fn run(
+        &self,
+        args: Self::Args,
+        _ctx: ToolContext,
+    ) -> Result<Self::Output, wesichain_agent::ToolError> {
         Ok(EchoOutput { echoed: args.text })
     }
 }
@@ -47,7 +55,11 @@ impl TypedTool for InvalidNameTool {
 
     const NAME: &'static str = "   ";
 
-    async fn run(&self, args: Self::Args, _ctx: ToolContext) -> Result<Self::Output, wesichain_agent::ToolError> {
+    async fn run(
+        &self,
+        args: Self::Args,
+        _ctx: ToolContext,
+    ) -> Result<Self::Output, wesichain_agent::ToolError> {
         Ok(EchoOutput { echoed: args.text })
     }
 }
@@ -82,7 +94,10 @@ fn schema_catalog_contains_typed_args_and_output() {
 
 #[test]
 fn build_rejects_empty_or_whitespace_tool_names() {
-    let err = ToolSet::new().register::<InvalidNameTool>().build().unwrap_err();
+    let err = ToolSet::new()
+        .register::<InvalidNameTool>()
+        .build()
+        .unwrap_err();
 
     assert!(err.to_string().contains("tool name"));
     assert!(err.to_string().contains("empty"));
