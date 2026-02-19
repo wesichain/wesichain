@@ -1,0 +1,13 @@
+[agent]
+p50_regression_review_pct = 7
+p95_regression_block_pct = 10
+peak_memory_regression_block_pct = 5
+error_rate_regression_block_pct = 0
+crash_rate_regression_block_pct = 0
+
+# Local baseline values for runtime profile gate.
+baseline_p50_ms = 0.25
+baseline_p95_ms = 0.60
+baseline_peak_memory_mb = 256
+baseline_error_rate = 0
+baseline_crash_rate = 0

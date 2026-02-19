@@ -1,0 +1,12 @@
+{
+  "p50_ms_baseline": 10.0,
+  "p50_ms_current": 10.9,
+  "p95_ms_baseline": 20.0,
+  "p95_ms_current": 23.0,
+  "peak_memory_mb_baseline": 512.0,
+  "peak_memory_mb_current": 563.2,
+  "error_rate_baseline": 0.0,
+  "error_rate_current": 0.01,
+  "crash_rate_baseline": 0.0,
+  "crash_rate_current": 0.0
+}

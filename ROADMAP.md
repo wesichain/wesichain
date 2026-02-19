@@ -2,6 +2,14 @@
 
 This document tracks major features in active design or planned for future releases.
 
+## In Active Implementation
+
+### v0.3 FSM-First Agent Runtime + Typed Tools
+- **Status**: Active implementation
+- **Scope**: `wesichain-agent` typestate runtime, typed `ToolSet` registry/dispatch, policy-driven retry and event contracts
+- **Reference**: `docs/plans/2026-02-18-wesichain-v0.3-agent-fsm-typed-tools-design.md`
+- **Target**: v0.3 release track
+
 ## In Active Design
 
 ### OpenTelemetry Support

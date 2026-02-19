@@ -1,0 +1,5 @@
+error[E0599]: no function or associated item named `default` found for struct `AgentRuntime<S, T, P, Phase>` in the current scope
+ --> tests/ui/invalid_non_idle_default.rs:4:59
+  |
+4 |     let _ = AgentRuntime::<(), (), NoopPolicy, Thinking>::default();
+  |                                                           ^^^^^^^ function or associated item not found in `AgentRuntime<(), (), NoopPolicy, wesichain_agent::Thinking>`

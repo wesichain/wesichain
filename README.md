@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  Python parity informs ergonomics, Rust strengths drive correctness model.
+</p>
+
+<p align="center">
   <a href="https://wesichain.vercel.app/">
     <img src="https://img.shields.io/badge/docs-wesichain.vercel.app-orange?style=flat" alt="Documentation">
   </a>
@@ -40,12 +44,12 @@
 
 ---
 
-Wesichain `v0.2.0` is live on crates.io as a modular crate family.
+Wesichain `v0.2.0` is live on crates.io as a modular crate family, with the v0.3 agent runtime track in active implementation.
 
 - 19 published crates, each installable independently
 - no umbrella `wesichain` crate on crates.io yet (intentional for minimal dependency footprints)
 - designed for tool-using ReAct agents, stateful graph execution, and RAG
-- **Note:** `wesichain-agent` crate has been removed in v0.2. Use composable `ReActGraphBuilder` instead.
+- **Note:** `wesichain-agent` is the FSM-first runtime track for v0.3 and is currently under active implementation in this repository.
 
 ---
 
@@ -198,6 +202,25 @@ Benchmark notes and methodology: `docs/benchmarks/README.md`.
 | [Examples (ReAct + Graph)](wesichain-graph/examples/) | ReAct and graph workflow examples |
 | [Examples (RAG)](wesichain-rag/examples/) | Retrieval and streaming RAG examples |
 | [Design Docs](docs/plans/) | Architecture and implementation plans |
+
+---
+
+## AI-Assisted Development
+
+This repository includes AI-optimized documentation for coding agents:
+
+- **[docs/AGENTS.md](docs/AGENTS.md)** - Universal coding rules for AI agents
+- **[docs/skills/](docs/skills/)** - Detailed patterns for RAG, agents, and core concepts
+- **`.claude/skills/`** - Claude Code-optimized skills (auto-discovered)
+
+### Quick Start for AI Agents
+
+1. Read `docs/AGENTS.md` first (strict rules)
+2. Reference `docs/skills/*.md` for specific patterns
+3. Use builder patterns, async/await, and proper error handling
+4. Never invent methods - only use patterns shown in docs
+
+See [docs/skills/README.md](docs/skills/README.md) for the complete guide index.
 
 ---
 

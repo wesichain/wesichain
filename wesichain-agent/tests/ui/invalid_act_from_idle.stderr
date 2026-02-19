@@ -1,0 +1,8 @@
+error[E0599]: no method named `act` found for struct `AgentRuntime<(), (), NoopPolicy, Idle>` in the current scope
+ --> tests/ui/invalid_act_from_idle.rs:5:21
+  |
+5 |     let _ = runtime.act();
+  |                     ^^^ method not found in `AgentRuntime<(), (), NoopPolicy, Idle>`
+  |
+  = note: the method was found for
+          - `AgentRuntime<S, T, P, wesichain_agent::Thinking>`
