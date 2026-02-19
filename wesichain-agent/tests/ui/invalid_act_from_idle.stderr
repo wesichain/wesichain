@@ -5,4 +5,4 @@ error[E0599]: no method named `act` found for struct `AgentRuntime<(), (), NoopP
   |                     ^^^ method not found in `AgentRuntime<(), (), NoopPolicy, Idle>`
   |
   = note: the method was found for
-          - `AgentRuntime<S, T, P, Thinking>`
+          - `AgentRuntime<S, T, P, wesichain_agent::Thinking>`

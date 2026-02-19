@@ -48,6 +48,16 @@ pub struct ToolSet {
     dispatchers: BTreeMap<String, Arc<dyn ErasedToolRunner>>,
 }
 
+impl std::fmt::Debug for ToolSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ToolSet")
+            .field("entries", &self.entries)
+            .field("schema_catalog_len", &self.schema_catalog.len())
+            .field("dispatchers_len", &self.dispatchers.len())
+            .finish()
+    }
+}
+
 impl ToolSet {
     #[allow(
         clippy::new_ret_no_self,
