@@ -34,6 +34,18 @@ pub fn emit_tool_step_events(step_id: u32, outcome: ToolDispatchOutcome) -> Vec<
     events
 }
 
+fn emit_tool_dispatch_events(step_id: u32) -> Vec<AgentEvent> {
+    let mut events = emit_tool_step_events(step_id, ToolDispatchOutcome::Completed);
+    let _ = events.pop();
+    events
+}
+
+fn emit_tool_failure_event(step_id: u32, error: AgentError) -> AgentEvent {
+    emit_tool_step_events(step_id, ToolDispatchOutcome::Failed(error))
+        .pop()
+        .expect("emit_tool_step_events always emits at least one event")
+}
+
 pub struct AgentRuntime<S, T, P, Phase> {
     remaining_budget: u32,
     _marker: std::marker::PhantomData<(S, T, P, Phase)>,
@@ -137,42 +149,70 @@ where
         response: wesichain_core::LlmResponse,
         allowed_tools: &[String],
     ) -> Result<LoopTransition<S, T, P>, AgentError> {
+        self.on_model_response_with_events(step_id, response, allowed_tools)
+            .map(|(transition, _events)| transition)
+    }
+
+    pub fn on_model_response_with_events(
+        self,
+        step_id: u32,
+        response: wesichain_core::LlmResponse,
+        allowed_tools: &[String],
+    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
         match Self::validate_model_action(step_id, response, allowed_tools) {
-            Ok(ModelAction::ToolCall { .. }) => Ok(LoopTransition::Acting(self.act())),
-            Ok(ModelAction::FinalAnswer { .. }) => Ok(LoopTransition::Completed(self.complete())),
-            Err(error) => self.on_model_error(error),
+            Ok(ModelAction::ToolCall { .. }) => Ok((
+                LoopTransition::Acting(self.act()),
+                emit_tool_dispatch_events(step_id),
+            )),
+            Ok(ModelAction::FinalAnswer { .. }) => Ok((
+                LoopTransition::Completed(self.complete()),
+                emit_single_step_events(step_id),
+            )),
+            Err(error) => self.on_model_error_with_events(error),
         }
     }
 
-    fn on_model_error(self, error: AgentError) -> Result<LoopTransition<S, T, P>, AgentError> {
+    fn on_model_error_with_events(
+        self,
+        error: AgentError,
+    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
         let decision = P::on_model_error(&error);
-        self.apply_policy_decision(error, decision)
+        self.apply_policy_decision_with_events(error, decision, Vec::new())
     }
 
-    fn apply_policy_decision(
+    fn apply_policy_decision_with_events(
         self,
         error: AgentError,
         decision: PolicyDecision,
-    ) -> Result<LoopTransition<S, T, P>, AgentError> {
+        events: Vec<AgentEvent>,
+    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
         match decision {
             PolicyDecision::Fail => Err(error),
-            PolicyDecision::Interrupt => Ok(LoopTransition::Interrupted(self.interrupt())),
+            PolicyDecision::Interrupt => {
+                Ok((LoopTransition::Interrupted(self.interrupt()), events))
+            }
             PolicyDecision::Retry { consume_budget } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking {
-                    runtime,
-                    reprompt_strategy: None,
-                })
+                Ok((
+                    LoopTransition::Thinking {
+                        runtime,
+                        reprompt_strategy: None,
+                    },
+                    events,
+                ))
             }
             PolicyDecision::Reprompt {
                 strategy,
                 consume_budget,
             } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking {
-                    runtime,
-                    reprompt_strategy: Some(strategy),
-                })
+                Ok((
+                    LoopTransition::Thinking {
+                        runtime,
+                        reprompt_strategy: Some(strategy),
+                    },
+                    events,
+                ))
             }
         }
     }
@@ -191,26 +231,56 @@ where
     }
 
     pub fn on_tool_error(self, error: AgentError) -> Result<LoopTransition<S, T, P>, AgentError> {
+        self.on_tool_error_internal(None, error)
+            .map(|(transition, _events)| transition)
+    }
+
+    pub fn on_tool_error_with_events(
+        self,
+        step_id: u32,
+        error: AgentError,
+    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+        self.on_tool_error_internal(Some(step_id), error)
+    }
+
+    fn on_tool_error_internal(
+        self,
+        step_id: Option<u32>,
+        error: AgentError,
+    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
         let decision = P::on_tool_error(&error);
+        let mut events = Vec::new();
+        if let Some(step_id) = step_id {
+            events.push(emit_tool_failure_event(step_id, error.clone()));
+        }
+
         match decision {
             PolicyDecision::Fail => Err(error),
-            PolicyDecision::Interrupt => Ok(LoopTransition::Interrupted(self.interrupt())),
+            PolicyDecision::Interrupt => {
+                Ok((LoopTransition::Interrupted(self.interrupt()), events))
+            }
             PolicyDecision::Retry { consume_budget } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking {
-                    runtime: runtime.transition(),
-                    reprompt_strategy: None,
-                })
+                Ok((
+                    LoopTransition::Thinking {
+                        runtime: runtime.transition(),
+                        reprompt_strategy: None,
+                    },
+                    events,
+                ))
             }
             PolicyDecision::Reprompt {
                 strategy,
                 consume_budget,
             } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking {
-                    runtime: runtime.transition(),
-                    reprompt_strategy: Some(strategy),
-                })
+                Ok((
+                    LoopTransition::Thinking {
+                        runtime: runtime.transition(),
+                        reprompt_strategy: Some(strategy),
+                    },
+                    events,
+                ))
             }
         }
     }

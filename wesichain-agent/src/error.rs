@@ -1,6 +1,6 @@
 use crate::tooling::ToolError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AgentError {
     ModelTransport,
     InvalidModelAction {

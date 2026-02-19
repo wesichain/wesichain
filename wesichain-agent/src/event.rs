@@ -99,3 +99,20 @@ pub fn validate_tool_dispatch_cardinality(events: &[AgentEvent]) -> Result<(), S
 
     Ok(())
 }
+
+pub fn validate_completed_once(events: &[AgentEvent]) -> Result<(), String> {
+    let mut completed_index: Option<usize> = None;
+
+    for (index, event) in events.iter().enumerate() {
+        if matches!(event, AgentEvent::Completed { .. }) {
+            if let Some(first_index) = completed_index {
+                return Err(format!(
+                    "Completed emitted more than once (first at index {first_index}, duplicate at index {index})"
+                ));
+            }
+            completed_index = Some(index);
+        }
+    }
+
+    Ok(())
+}

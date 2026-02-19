@@ -10,7 +10,8 @@ mod validation;
 
 pub use error::{AgentError, ToolDispatchError};
 pub use event::{
-    validate_step_started_precedes_terminal, validate_tool_dispatch_cardinality, AgentEvent,
+    validate_completed_once, validate_step_started_precedes_terminal,
+    validate_tool_dispatch_cardinality, AgentEvent,
 };
 pub use llm::LlmAdapter;
 pub use phase::{Acting, Completed, Failed, Idle, Interrupted, Observing, Thinking};

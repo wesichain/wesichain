@@ -1,6 +1,7 @@
 use wesichain_agent::{
-    emit_single_step_events, emit_tool_step_events, validate_step_started_precedes_terminal,
-    validate_tool_dispatch_cardinality, AgentError, AgentEvent, ToolDispatchOutcome,
+    emit_single_step_events, emit_tool_step_events, validate_completed_once,
+    validate_step_started_precedes_terminal, validate_tool_dispatch_cardinality, AgentError,
+    AgentEvent, ToolDispatchOutcome,
 };
 
 #[test]
@@ -22,4 +23,18 @@ fn each_tool_dispatched_has_exactly_one_completion_or_failure_counterpart() {
     ));
 
     validate_tool_dispatch_cardinality(&events).unwrap();
+}
+
+#[test]
+fn completed_event_is_emitted_only_once() {
+    let events = vec![
+        AgentEvent::StepStarted { step_id: 1 },
+        AgentEvent::ModelResponded { step_id: 1 },
+        AgentEvent::Completed { step_id: 1 },
+        AgentEvent::StepStarted { step_id: 2 },
+        AgentEvent::ModelResponded { step_id: 2 },
+        AgentEvent::Completed { step_id: 2 },
+    ];
+
+    assert!(validate_completed_once(&events).is_err());
 }
