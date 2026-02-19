@@ -1,5 +1,5 @@
 use crate::phase::{Acting, Completed, Idle, Interrupted, Observing, Thinking};
-use crate::{validation, AgentError, ModelAction, PolicyDecision, PolicyEngine};
+use crate::{validation, AgentError, ModelAction, PolicyDecision, PolicyEngine, RepromptStrategy};
 
 pub struct AgentRuntime<S, T, P, Phase> {
     remaining_budget: u32,
@@ -16,7 +16,10 @@ impl<S, T, P, Phase> std::fmt::Debug for AgentRuntime<S, T, P, Phase> {
 
 #[derive(Debug)]
 pub enum LoopTransition<S, T, P> {
-    Thinking(AgentRuntime<S, T, P, Thinking>),
+    Thinking {
+        runtime: AgentRuntime<S, T, P, Thinking>,
+        reprompt_strategy: Option<RepromptStrategy>,
+    },
     Acting(AgentRuntime<S, T, P, Acting>),
     Completed(AgentRuntime<S, T, P, Completed>),
     Interrupted(AgentRuntime<S, T, P, Interrupted>),
@@ -123,11 +126,20 @@ where
             PolicyDecision::Interrupt => Ok(LoopTransition::Interrupted(self.interrupt())),
             PolicyDecision::Retry { consume_budget } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking(runtime))
+                Ok(LoopTransition::Thinking {
+                    runtime,
+                    reprompt_strategy: None,
+                })
             }
-            PolicyDecision::Reprompt { consume_budget, .. } => {
+            PolicyDecision::Reprompt {
+                strategy,
+                consume_budget,
+            } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking(runtime))
+                Ok(LoopTransition::Thinking {
+                    runtime,
+                    reprompt_strategy: Some(strategy),
+                })
             }
         }
     }
@@ -150,10 +162,22 @@ where
         match decision {
             PolicyDecision::Fail => Err(error),
             PolicyDecision::Interrupt => Ok(LoopTransition::Interrupted(self.interrupt())),
-            PolicyDecision::Retry { consume_budget }
-            | PolicyDecision::Reprompt { consume_budget, .. } => {
+            PolicyDecision::Retry { consume_budget } => {
                 let runtime = self.consume_budget(consume_budget)?;
-                Ok(LoopTransition::Thinking(runtime.transition()))
+                Ok(LoopTransition::Thinking {
+                    runtime: runtime.transition(),
+                    reprompt_strategy: None,
+                })
+            }
+            PolicyDecision::Reprompt {
+                strategy,
+                consume_budget,
+            } => {
+                let runtime = self.consume_budget(consume_budget)?;
+                Ok(LoopTransition::Thinking {
+                    runtime: runtime.transition(),
+                    reprompt_strategy: Some(strategy),
+                })
             }
         }
     }
