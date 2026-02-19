@@ -70,6 +70,8 @@ pub enum LoopTransition<S, T, P> {
     Interrupted(AgentRuntime<S, T, P, Interrupted>),
 }
 
+pub type TransitionWithEvents<S, T, P> = (LoopTransition<S, T, P>, Vec<AgentEvent>);
+
 impl<S, T, P, Phase> AgentRuntime<S, T, P, Phase> {
     pub fn validate_model_action(
         step_id: u32,
@@ -158,7 +160,7 @@ where
         step_id: u32,
         response: wesichain_core::LlmResponse,
         allowed_tools: &[String],
-    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
         match Self::validate_model_action(step_id, response, allowed_tools) {
             Ok(ModelAction::ToolCall { .. }) => Ok((
                 LoopTransition::Acting(self.act()),
@@ -175,7 +177,7 @@ where
     fn on_model_error_with_events(
         self,
         error: AgentError,
-    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
         let decision = P::on_model_error(&error);
         self.apply_policy_decision_with_events(error, decision, Vec::new())
     }
@@ -185,7 +187,7 @@ where
         error: AgentError,
         decision: PolicyDecision,
         events: Vec<AgentEvent>,
-    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
         match decision {
             PolicyDecision::Fail => Err(error),
             PolicyDecision::Interrupt => {
@@ -239,7 +241,7 @@ where
         self,
         step_id: u32,
         error: AgentError,
-    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
         self.on_tool_error_internal(Some(step_id), error)
     }
 
@@ -247,7 +249,7 @@ where
         self,
         step_id: Option<u32>,
         error: AgentError,
-    ) -> Result<(LoopTransition<S, T, P>, Vec<AgentEvent>), AgentError> {
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
         let decision = P::on_tool_error(&error);
         let mut events = Vec::new();
         if let Some(step_id) = step_id {
