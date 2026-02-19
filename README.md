@@ -10,6 +10,10 @@
 </p>
 
 <p align="center">
+  Python parity informs ergonomics, Rust strengths drive correctness model.
+</p>
+
+<p align="center">
   <a href="https://wesichain.vercel.app/">
     <img src="https://img.shields.io/badge/docs-wesichain.vercel.app-orange?style=flat" alt="Documentation">
   </a>
@@ -40,12 +44,12 @@
 
 ---
 
-Wesichain `v0.2.0` is live on crates.io as a modular crate family.
+Wesichain `v0.2.0` is live on crates.io as a modular crate family, with the v0.3 agent runtime track in active implementation.
 
 - 19 published crates, each installable independently
 - no umbrella `wesichain` crate on crates.io yet (intentional for minimal dependency footprints)
 - designed for tool-using ReAct agents, stateful graph execution, and RAG
-- **Note:** `wesichain-agent` crate has been removed in v0.2. Use composable `ReActGraphBuilder` instead.
+- **Note:** `wesichain-agent` is the FSM-first runtime track for v0.3 and is currently under active implementation in this repository.
 
 ---
 

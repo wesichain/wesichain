@@ -185,6 +185,11 @@ Normative defaults:
 - Any opt-out is advanced-only and must be explicit in configuration.
 - `RepromptStrategy::N` must be bounded (`n > 0`) and never unbounded.
 
+Implementation lock-in note (2026-02-19):
+
+- v0.3 implementation keeps `PolicyDecision` shape exactly as above.
+- Cancellation checks are applied consistently at phase boundaries, including successful tool completion paths.
+
 ## Typed Tool API (No Macros First)
 
 ### Public Contract

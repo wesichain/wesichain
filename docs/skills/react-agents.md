@@ -4,6 +4,23 @@ Build reasoning and acting (ReAct) agents that iteratively decide which tools to
 
 ## Quick Reference
 
+### v0.3 FSM Runtime Track (`wesichain-agent`)
+
+Use `wesichain-agent` when you want compile-time phase transitions and typed tool registration.
+
+```rust
+use wesichain_agent::{AgentRuntime, Idle, NoopPolicy, ToolSet, TypedTool};
+
+let runtime = AgentRuntime::<MyState, (), NoopPolicy, Idle>::with_budget(8).think();
+
+let tools = ToolSet::new()
+    .register::<CalculatorTool>()
+    .register::<SearchTool>()
+    .build()?;
+```
+
+`wesichain-graph` + `ReActGraphBuilder` remains the preferred stable path for v0.2 applications.
+
 ### Key Crates
 
 ```rust
