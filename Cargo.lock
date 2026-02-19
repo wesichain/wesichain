@@ -5781,6 +5781,7 @@ name = "wesichain-agent"
 version = "0.2.1"
 dependencies = [
  "async-trait",
+ "criterion 0.5.1",
  "schemars",
  "serde",
  "serde_json",

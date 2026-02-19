@@ -167,6 +167,20 @@ jobs:
       - name: Run advisory benchmark
         run: cargo bench -p wesichain-weaviate --bench vs_langchain -- --sample-size 10
 
+  agent-bench-gate-smoke:
+    name: Agent Benchmark Gate Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify threshold script blocks failing regressions
+        run: |
+          if python3 tools/bench/evaluate_agent_thresholds.py \
+            --metrics-json tools/bench/tests/agent_metrics_sample.json \
+            --thresholds tools/bench/agent-thresholds.toml; then
+            echo "expected regression gate to fail for sample metrics"
+            exit 1
+          fi
+
   core-trait-fanout:
     name: Core Trait Fan-Out Compile
     needs: detect-impact
