@@ -2,6 +2,7 @@ use crate::phase::{Acting, Completed, Idle, Interrupted, Observing, Thinking};
 use crate::{
     validation, AgentError, AgentEvent, ModelAction, PolicyDecision, PolicyEngine, RepromptStrategy,
 };
+use tokio_util::sync::CancellationToken;
 
 #[derive(Debug)]
 pub enum ToolDispatchOutcome {
@@ -86,6 +87,14 @@ impl<S, T, P, Phase> AgentRuntime<S, T, P, Phase> {
         self.remaining_budget
     }
 
+    pub fn map_model_transport_error(_error: wesichain_core::WesichainError) -> AgentError {
+        AgentError::ModelTransport
+    }
+
+    fn is_cancelled(cancellation: &CancellationToken) -> bool {
+        cancellation.is_cancelled()
+    }
+
     fn transition<NextPhase>(self) -> AgentRuntime<S, T, P, NextPhase> {
         AgentRuntime {
             remaining_budget: self.remaining_budget,
@@ -121,6 +130,20 @@ impl<S, T, P> AgentRuntime<S, T, P, Idle> {
 
     pub fn think(self) -> AgentRuntime<S, T, P, Thinking> {
         self.transition()
+    }
+
+    pub fn think_if_not_cancelled(
+        self,
+        cancellation: &CancellationToken,
+    ) -> LoopTransition<S, T, P> {
+        if Self::is_cancelled(cancellation) {
+            return LoopTransition::Interrupted(self.transition());
+        }
+
+        LoopTransition::Thinking {
+            runtime: self.transition(),
+            reprompt_strategy: None,
+        }
     }
 }
 
@@ -173,6 +196,20 @@ where
             )),
             Err(error) => self.on_model_error_with_events(error),
         }
+    }
+
+    pub fn on_model_response_with_events_if_not_cancelled(
+        self,
+        cancellation: &CancellationToken,
+        step_id: u32,
+        response: wesichain_core::LlmResponse,
+        allowed_tools: &[String],
+    ) -> Result<TransitionWithEvents<S, T, P>, AgentError> {
+        if Self::is_cancelled(cancellation) {
+            return Ok((LoopTransition::Interrupted(self.interrupt()), Vec::new()));
+        }
+
+        self.on_model_response_with_events(step_id, response, allowed_tools)
     }
 
     fn on_model_error_with_events(
@@ -238,6 +275,18 @@ where
             LoopTransition::Observing(self.observe()),
             vec![AgentEvent::ToolCompleted { step_id }],
         )
+    }
+
+    pub fn on_tool_success_with_events_if_not_cancelled(
+        self,
+        cancellation: &CancellationToken,
+        step_id: u32,
+    ) -> TransitionWithEvents<S, T, P> {
+        if Self::is_cancelled(cancellation) {
+            return (LoopTransition::Interrupted(self.interrupt()), Vec::new());
+        }
+
+        self.on_tool_success_with_events(step_id)
     }
 
     pub fn interrupt(self) -> AgentRuntime<S, T, P, Interrupted> {
