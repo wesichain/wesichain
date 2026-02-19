@@ -1,5 +1,38 @@
 use crate::phase::{Acting, Completed, Idle, Interrupted, Observing, Thinking};
-use crate::{validation, AgentError, ModelAction, PolicyDecision, PolicyEngine, RepromptStrategy};
+use crate::{
+    validation, AgentError, AgentEvent, ModelAction, PolicyDecision, PolicyEngine, RepromptStrategy,
+};
+
+#[derive(Debug)]
+pub enum ToolDispatchOutcome {
+    Completed,
+    Failed(AgentError),
+}
+
+pub fn emit_single_step_events(step_id: u32) -> Vec<AgentEvent> {
+    vec![
+        AgentEvent::StepStarted { step_id },
+        AgentEvent::ModelResponded { step_id },
+        AgentEvent::Completed { step_id },
+    ]
+}
+
+pub fn emit_tool_step_events(step_id: u32, outcome: ToolDispatchOutcome) -> Vec<AgentEvent> {
+    let mut events = vec![
+        AgentEvent::StepStarted { step_id },
+        AgentEvent::ModelResponded { step_id },
+        AgentEvent::ToolDispatched { step_id },
+    ];
+
+    match outcome {
+        ToolDispatchOutcome::Completed => events.push(AgentEvent::ToolCompleted { step_id }),
+        ToolDispatchOutcome::Failed(error) => {
+            events.push(AgentEvent::StepFailed { step_id, error })
+        }
+    }
+
+    events
+}
 
 pub struct AgentRuntime<S, T, P, Phase> {
     remaining_budget: u32,
