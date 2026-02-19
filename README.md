@@ -44,12 +44,12 @@
 
 ---
 
-Wesichain `v0.2.0` is live on crates.io as a modular crate family, with the v0.3 agent runtime track in active implementation.
+Wesichain `v0.2.1` is live as a modular crate family, with the v0.3 agent runtime track in active implementation.
 
-- 19 published crates, each installable independently
-- no umbrella `wesichain` crate on crates.io yet (intentional for minimal dependency footprints)
+- 22 workspace crates (`21` library crates + `1` examples crate)
+- modular-by-default: install only the crates you need for smaller dependency footprints
 - designed for tool-using ReAct agents, stateful graph execution, and RAG
-- **Note:** `wesichain-agent` is the FSM-first runtime track for v0.3 and is currently under active implementation in this repository.
+- **Note:** `wesichain-agent` is the FSM-first runtime track for v0.3 and is under active implementation in this repository.
 
 ---
 
@@ -60,9 +60,9 @@ Wesichain `v0.2.0` is live on crates.io as a modular crate family, with the v0.3
 ```toml
 [dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-wesichain-core = "0.2.0"
-wesichain-graph = "0.2.0"
-wesichain-llm = "0.2.0"
+wesichain-core = "0.2.1"
+wesichain-graph = "0.2.1"
+wesichain-llm = "0.2.1"
 ```
 
 ### 2) Create a ReAct agent with tools
@@ -70,23 +70,18 @@ wesichain-llm = "0.2.0"
 ```rust
 use std::sync::Arc;
 
-use wesichain_core::{HasFinalOutput, HasUserInput, ScratchpadState, ToolCallingLlm};
-use wesichain_graph::{GraphBuilder, GraphState, ReActAgentNode, StateSchema};
+use wesichain_core::{HasFinalOutput, HasUserInput, ScratchpadState, Tool, ToolCallingLlm};
+use wesichain_graph::{GraphState, ReActGraphBuilder, StateSchema};
 
 // AppState implements:
 // StateSchema + ScratchpadState + HasUserInput + HasFinalOutput
 let llm: Arc<dyn ToolCallingLlm> = Arc::new(my_llm);
+let tools: Vec<Arc<dyn Tool>> = vec![Arc::new(CalculatorTool), Arc::new(SearchTool)];
 
-let react_node = ReActAgentNode::builder()
+let graph = ReActGraphBuilder::new()
     .llm(llm)
-    .tools(vec![Arc::new(CalculatorTool), Arc::new(SearchTool)])
-    .max_iterations(12)
-    .build()?;
-
-let graph = GraphBuilder::new()
-    .add_node("agent", react_node)
-    .set_entry("agent")
-    .build();
+    .tools(tools)
+    .build::<AppState>()?;
 
 let initial = GraphState::new(AppState::from_input("Find 2+2, then explain it."));
 let result = graph.invoke_graph(initial).await?;
@@ -97,6 +92,9 @@ For full runnable ReAct examples:
 
 - `cargo run -p wesichain-graph --example react_agent`
 - `cargo run -p wesichain-graph --example persistent_conversation`
+- `cargo run -p wesichain-examples --bin react_agent_subgraph`
+
+`ReActAgentNode` still exists for compatibility, but `ReActGraphBuilder` is the recommended path.
 
 ### 3) Add RAG when you need retrieval grounding
 
@@ -121,31 +119,32 @@ For end-to-end RAG streaming example:
 
 | If you need | Start with |
 |---|---|
-| Tool use + multi-step reasoning | ReAct graph agent (`wesichain-graph` + `ReActAgentNode`) |
+| Tool use + multi-step reasoning | ReAct graph agent (`wesichain-graph` + `ReActGraphBuilder`) |
 | Retrieval-grounded answers | `wesichain-rag` |
 | Both | ReAct graph for orchestration + retrieval as a node/tool |
 
 ---
 
-## Wesichain Crates (v0.2.0)
+## Wesichain Crates (v0.2.1)
 
 Wesichain is modular by default; install only the crates you need.
 
 | Crate | Purpose | crates.io | docs.rs |
 |---|---|---|---|
-| `wesichain-core` | Core traits and runtime primitives (`Runnable`, tools, parsers, vector-store traits) | [link](https://crates.io/crates/wesichain-core) | [link](https://docs.rs/wesichain-core) |
+| `wesichain-core` | Core traits and runtime primitives (`Runnable`, tools, parsers, state traits) | [link](https://crates.io/crates/wesichain-core) | [link](https://docs.rs/wesichain-core) |
 | `wesichain-prompt` | Prompt templates and prompt formatting utilities | [link](https://crates.io/crates/wesichain-prompt) | [link](https://docs.rs/wesichain-prompt) |
-| `wesichain-llm` | LLM provider adapters and request/response abstractions | [link](https://crates.io/crates/wesichain-llm) | [link](https://docs.rs/wesichain-llm) |
+| `wesichain-llm` | Provider-agnostic LLM adapters (OpenAI, Ollama, Google, DeepSeek) | [link](https://crates.io/crates/wesichain-llm) | [link](https://docs.rs/wesichain-llm) |
+| `wesichain-agent` | FSM-first v0.3 runtime primitives for evented agents | [link](https://crates.io/crates/wesichain-agent) | [link](https://docs.rs/wesichain-agent) |
+| `wesichain-graph` | Stateful graph execution, routing, interrupts, and checkpoints | [link](https://crates.io/crates/wesichain-graph) | [link](https://docs.rs/wesichain-graph) |
+| `wesichain-memory` | Conversation memory primitives (buffer, window, summary) | [link](https://crates.io/crates/wesichain-memory) | [link](https://docs.rs/wesichain-memory) |
 | `wesichain-macros` | Procedural macros for ergonomic integration | [link](https://crates.io/crates/wesichain-macros) | [link](https://docs.rs/wesichain-macros) |
 | `wesichain-embeddings` | Embedding interfaces and providers | [link](https://crates.io/crates/wesichain-embeddings) | [link](https://docs.rs/wesichain-embeddings) |
 | `wesichain-retrieval` | Retrieval utilities (indexing, splitting, retrievers) | [link](https://crates.io/crates/wesichain-retrieval) | [link](https://docs.rs/wesichain-retrieval) |
-
-| `wesichain-graph` | Stateful graph execution, routing, interrupts, and checkpoints | [link](https://crates.io/crates/wesichain-graph) | [link](https://docs.rs/wesichain-graph) |
+| `wesichain-rag` | RAG pipeline helpers built on core + graph + retrieval | [link](https://crates.io/crates/wesichain-rag) | [link](https://docs.rs/wesichain-rag) |
 | `wesichain-checkpoint-sql` | Shared SQL checkpoint schema/operations | [link](https://crates.io/crates/wesichain-checkpoint-sql) | [link](https://docs.rs/wesichain-checkpoint-sql) |
 | `wesichain-checkpoint-sqlite` | SQLite checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-sqlite) | [link](https://docs.rs/wesichain-checkpoint-sqlite) |
 | `wesichain-checkpoint-postgres` | Postgres checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-postgres) | [link](https://docs.rs/wesichain-checkpoint-postgres) |
 | `wesichain-checkpoint-redis` | Redis checkpoint backend | [link](https://crates.io/crates/wesichain-checkpoint-redis) | [link](https://docs.rs/wesichain-checkpoint-redis) |
-| `wesichain-rag` | RAG pipeline helpers built on core + graph + retrieval | [link](https://crates.io/crates/wesichain-rag) | [link](https://docs.rs/wesichain-rag) |
 | `wesichain-langsmith` | LangSmith-compatible tracing/observability integration | [link](https://crates.io/crates/wesichain-langsmith) | [link](https://docs.rs/wesichain-langsmith) |
 | `wesichain-chroma` | Chroma vector store integration | [link](https://crates.io/crates/wesichain-chroma) | [link](https://docs.rs/wesichain-chroma) |
 | `wesichain-pinecone` | Pinecone vector store integration | [link](https://crates.io/crates/wesichain-pinecone) | [link](https://docs.rs/wesichain-pinecone) |
@@ -162,16 +161,16 @@ Use only what you need:
 ```toml
 # Core chain primitives
 [dependencies]
-wesichain-core = "0.2.0"
+wesichain-core = "0.2.1"
 
 # Add graph execution
-wesichain-graph = "0.2.0"
+wesichain-graph = "0.2.1"
 
 # Add RAG utilities
-wesichain-rag = "0.2.0"
+wesichain-rag = "0.2.1"
 
 # Add sqlite checkpoint backend
-wesichain-checkpoint-sqlite = "0.2.0"
+wesichain-checkpoint-sqlite = "0.2.1"
 ```
 
 ---
