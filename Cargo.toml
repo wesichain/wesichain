@@ -4,6 +4,7 @@ members = [
   "wesichain-core",
   "wesichain-prompt",
   "wesichain-llm",
+  "wesichain-anthropic",
 
   "wesichain-graph",
   "wesichain-checkpoint-sql",
@@ -22,11 +23,22 @@ members = [
   "wesichain-agent",
   "wesichain-macros", "wesichain-memory",
   "examples",
+  "wesichain-otel",
+
+  # v0.3 adoption-ready crates
+  "wesichain-tools",
+  "wesichain-server",
+  "wesichain-cli",
+
+  # v0.4 Claude Code-level agent framework
+  "wesichain-mcp",
+  "wesichain-session",
+  "wesichain-langfuse",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0 OR MIT"
 rust-version = "1.75"

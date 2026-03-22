@@ -5,24 +5,31 @@ edition = "2021"
 publish = false
 
 [dependencies]
-wesichain-core = { path = "../wesichain-core" }
-wesichain-graph = { path = "../wesichain-graph" }
-wesichain-llm = { path = "../wesichain-llm" }
-wesichain-memory = { path = "../wesichain-memory" }
-wesichain-retrieval = { path = "../wesichain-retrieval" }
-wesichain-prompt = { path = "../wesichain-prompt" }
+wesichain-core       = { path = "../wesichain-core" }
+wesichain-graph      = { path = "../wesichain-graph" }
+wesichain-llm        = { path = "../wesichain-llm" }
+wesichain-memory     = { path = "../wesichain-memory" }
+wesichain-retrieval  = { path = "../wesichain-retrieval" }
+wesichain-prompt     = { path = "../wesichain-prompt" }
 wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite" }
+wesichain-anthropic  = { path = "../wesichain-anthropic" }
+wesichain-agent      = { path = "../wesichain-agent" }
+wesichain-macros     = { path = "../wesichain-macros" }
+wesichain-tools      = { path = "../wesichain-tools", features = ["fs", "exec", "git"] }
+wesichain-session    = { path = "../wesichain-session" }
 
 tokio = { version = "1.35", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 async-trait = "0.1"
 dotenv = "0.15"
+dotenvy = "0.15"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1.0"
 uuid = { version = "1.6", features = ["v4", "serde"] }
 futures = "0.3"
+schemars = "0.8"
 
 [[bin]]
 name = "react_agent_subgraph"
@@ -35,3 +42,19 @@ path = "src/bin/rag_basic.rs"
 [[bin]]
 name = "resumable_workflow"
 path = "src/bin/resumable_workflow.rs"
+
+[[bin]]
+name = "claude_react_agent"
+path = "src/bin/claude_react_agent.rs"
+
+[[bin]]
+name = "openai_rag"
+path = "src/bin/openai_rag.rs"
+
+[[bin]]
+name = "streaming_server"
+path = "src/bin/streaming_server.rs"
+
+[[bin]]
+name = "coding_agent"
+path = "src/bin/coding_agent.rs"

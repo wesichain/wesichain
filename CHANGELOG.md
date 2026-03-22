@@ -2,6 +2,33 @@
 
 All notable changes to Wesichain will be documented in this file.
 
+## [0.3.0] - 2026-03-22
+
+### New Crates
+- `wesichain-anthropic`: Anthropic Claude client with streaming, tool use, and extended thinking
+- `wesichain-tools`: Coding tools — `ReadFileTool`, `WriteFileTool`, `EditFileTool`, `ReplaceLinesTool`, `GlobTool`, `GrepTool`, `PatchTool`, `BashExecTool`, git tools, `PathGuard` sandbox
+- `wesichain-mcp`: MCP client (MCP 2024-11-05) over stdio and HTTP/SSE transport, resources + sampling support
+- `wesichain-session`: Session persistence via `FileSessionStore`, cost/token tracking, token budget enforcement
+- `wesichain-server`: Axum HTTP server with Bearer auth, rate limiting, SSE streaming, and body-size guard
+- `wesichain-cli`: `wesichain new` scaffolding and `wesichain run` interactive REPL with ANSI diff viewer
+- `wesichain-langfuse`: Langfuse observability callback handler with trace batching and PII redaction
+- `wesichain-otel`: Fixed OpenTelemetry span parenting with W3C traceparent propagation and OTLP export
+- `wesichain-rag`: Full RAG pipeline — document loaders, recursive text splitter, vector store integration, reranking
+
+### New APIs in Existing Crates
+- `wesichain-core`: `ModelCapabilities`, `TokenBudget`, `capability::for_model()`, `TimeLimited`, `RateLimiter`, `ApprovalHandler`
+- `wesichain-agent`: `AgentCheckpoint`, `ToolSet::tool_specs()`, `ToolCallEnvelope`, FSM-based runtime, `PermissionPolicy`, `AsToolExt`
+- `wesichain-graph`: Supervisor pattern, HITL (human-in-the-loop) nodes, parallel agents, `fork_from_checkpoint()`
+- `wesichain-memory`: `VectorMemoryStore`, `EntityMemory`, semantic memory (`SemanticMemoryStore`)
+- `wesichain-retrieval`: `CrossEncoderRetriever`, `KeywordReranker`, `Reranker` trait
+- `wesichain-llm`: Groq, Together AI, Azure OpenAI, and Mistral providers
+- `wesichain-prompt`: `PromptHub` trait, `LocalPromptHub` (YAML directory scanner)
+- `wesichain-core/checkpoint`: `HistoryCheckpointer::fork()` for time-travel branching
+
+### Metadata
+- All 29 publishable crates now have `keywords`, `categories`, and `readme` fields
+- README.md files added for all new crates
+
 ## [0.1.0] - 2026-02-06
 
 ### Added

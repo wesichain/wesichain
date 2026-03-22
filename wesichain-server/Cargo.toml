@@ -1,0 +1,30 @@
+[package]
+name = "wesichain-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description.workspace = true
+keywords = ["llm", "server", "axum", "api", "async"]
+categories = ["web-programming::http-server", "asynchronous"]
+readme = "README.md"
+
+[dependencies]
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }
+axum        = "0.7"
+tokio       = { version = "1", features = ["full"] }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+futures     = "0.3"
+tokio-stream = "0.1"
+tower       = { version = "0.5", features = ["limit", "util"] }
+tower-http  = { version = "0.6", features = ["limit", "validate-request"] }
+
+[dev-dependencies]
+async-trait = "0.1"
+http-body-util = "0.1"
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tower = { version = "0.5", features = ["util"] }

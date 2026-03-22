@@ -7,9 +7,12 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "LangChain 0.3.0 compatibility layer for Wesichain"
+keywords = ["langchain", "migration", "compat", "llm", "async"]
+categories = ["asynchronous", "api-bindings"]
+readme = "README.md"
 
 [dependencies]
-wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }
 async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1", features = ["full"] }
@@ -19,5 +22,6 @@ thiserror = "1"
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-wesichain-macros = { path = "../wesichain-macros", version = "0.2.1" }
-wesichain-prompt = { path = "../wesichain-prompt", version = "0.2.1" }
+wesichain-macros = { path = "../wesichain-macros", version = "0.3.0" }
+wesichain-prompt = { path = "../wesichain-prompt", version = "0.3.0" }
+schemars = "0.8"

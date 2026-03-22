@@ -7,6 +7,8 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Shared SQL checkpoint schema and operations"
+keywords = ["checkpoint", "sql", "persistence", "llm", "async"]
+categories = ["database", "asynchronous"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

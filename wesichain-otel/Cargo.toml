@@ -1,0 +1,22 @@
+[package]
+name = "wesichain-otel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "OpenTelemetry tracing integration for Wesichain"
+keywords = ["llm", "opentelemetry", "tracing", "otel", "async"]
+categories = ["development-tools", "debugging"]
+readme = "README.md"
+
+[dependencies]
+opentelemetry = { version = "0.22", features = ["trace"] }
+opentelemetry-otlp = { version = "0.15", features = ["trace", "grpc-tonic"] }
+opentelemetry_sdk = { version = "0.22", features = ["rt-tokio", "trace"] }
+opentelemetry-semantic-conventions = { version = "0.14" }
+dashmap = "6"
+uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }

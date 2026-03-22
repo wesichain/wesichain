@@ -7,6 +7,9 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description.workspace = true
+keywords = ["rag", "retrieval", "llm", "embeddings", "async"]
+categories = ["asynchronous", "algorithms"]
+readme = "README.md"
 
 [dependencies]
 async-trait = "0.1"
@@ -17,12 +20,12 @@ thiserror = "1"
 tokio = { version = "1", features = ["rt", "sync"] }
 tokio-stream = "0.1"
 uuid = { version = "1", features = ["v4"] }
-wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
-wesichain-graph = { path = "../wesichain-graph", version = "0.2.1" }
-wesichain-retrieval = { path = "../wesichain-retrieval", version = "0.2.1" }
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }
+wesichain-graph = { path = "../wesichain-graph", version = "0.3.0" }
+wesichain-retrieval = { path = "../wesichain-retrieval", version = "0.3.0" }
 
 [dev-dependencies]
 tempfile = "3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-wesichain-checkpoint-postgres = { path = "../wesichain-checkpoint-postgres", version = "0.2.1" }
-wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite", version = "0.2.1" }
+wesichain-checkpoint-postgres = { path = "../wesichain-checkpoint-postgres", version = "0.3.0" }
+wesichain-checkpoint-sqlite = { path = "../wesichain-checkpoint-sqlite", version = "0.3.0" }

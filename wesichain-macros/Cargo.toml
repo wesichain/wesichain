@@ -7,6 +7,8 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "Proc macros for Wesichain"
+keywords = ["llm", "macros", "derive", "proc-macro", "agents"]
+categories = ["development-tools"]
 
 [lib]
 proc-macro = true

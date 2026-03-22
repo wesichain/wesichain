@@ -7,6 +7,8 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "SQLite checkpoint backend for Wesichain"
+keywords = ["checkpoint", "sqlite", "persistence", "llm", "async"]
+categories = ["database", "asynchronous"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -14,12 +16,12 @@ serde_json = "1"
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio-rustls", "sqlite"] }
 thiserror = "1"
 tokio = { version = "1", features = ["sync"] }
-wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.2.1" }
-wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
+wesichain-checkpoint-sql = { path = "../wesichain-checkpoint-sql", version = "0.3.0" }
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }
 
 [dev-dependencies]
 async-trait = "0.1"
 futures = "0.3"
 tokio = { version = "1", features = ["macros", "rt"] }
-wesichain-graph = { path = "../wesichain-graph", version = "0.2.1" }
-wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
+wesichain-graph = { path = "../wesichain-graph", version = "0.3.0" }
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }

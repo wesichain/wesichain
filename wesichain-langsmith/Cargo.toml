@@ -7,6 +7,8 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description = "LangSmith observability for Wesichain"
+keywords = ["llm", "observability", "tracing", "langsmith", "ai"]
+categories = ["development-tools", "debugging"]
 
 [dependencies]
 async-trait = "0.1"
@@ -21,10 +23,10 @@ thiserror = "1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
 tracing = "0.1"
 uuid = { version = "1", features = ["v4", "serde"] }
-wesichain-core = { path = "../wesichain-core", version = "0.2.1" }
-wesichain-graph = { path = "../wesichain-graph", version = "0.2.1" }
+wesichain-core = { path = "../wesichain-core", version = "0.3.0" }
+wesichain-graph = { path = "../wesichain-graph", version = "0.3.0" }
 
 [dev-dependencies]
 futures = "0.3"
 wiremock = "0.6"
-wesichain-llm = { path = "../wesichain-llm", version = "0.2.1" }
+wesichain-llm = { path = "../wesichain-llm", version = "0.3.0" }

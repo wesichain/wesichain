@@ -1,0 +1,27 @@
+[package]
+name = "wesichain-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Project scaffolding CLI for wesichain"
+keywords = ["llm", "cli", "agents", "tools", "scaffolding"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+
+[[bin]]
+name = "wesichain"
+path = "src/main.rs"
+
+[dependencies]
+clap       = { version = "4", features = ["derive", "env"] }
+diffy      = "0.4"
+rustyline  = "14"
+reqwest    = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio      = { version = "1", features = ["full"] }
+dirs       = "5"
+futures    = "0.3"

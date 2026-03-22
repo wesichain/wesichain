@@ -7,5 +7,42 @@ rust-version.workspace = true
 repository.workspace = true
 homepage.workspace = true
 description.workspace = true
+keywords = ["llm", "ai", "agents", "langchain", "async"]
+categories = ["asynchronous", "web-programming"]
+readme = "README.md"
+
+[features]
+default = ["openai", "agent"]
+openai     = ["dep:wesichain-llm"]
+anthropic  = ["dep:wesichain-anthropic"]
+langsmith  = ["dep:wesichain-langsmith"]
+langfuse   = ["dep:wesichain-langfuse"]
+qdrant     = ["dep:wesichain-qdrant"]
+agent      = ["dep:wesichain-agent"]
+graph      = ["dep:wesichain-graph"]
+tools      = ["dep:wesichain-tools"]
+server     = ["dep:wesichain-server"]
+mcp        = ["dep:wesichain-mcp"]
+session    = ["dep:wesichain-session"]
+memory     = ["dep:wesichain-memory"]
+retrieval  = ["dep:wesichain-retrieval"]
+coding     = ["tools", "agent", "session", "mcp"]
+full       = ["openai", "anthropic", "langsmith", "langfuse", "agent", "graph",
+              "tools", "server", "mcp", "session", "memory", "retrieval"]
 
 [dependencies]
+wesichain-core       = { path = "../wesichain-core",       version = "0.3.0" }
+wesichain-prompt     = { path = "../wesichain-prompt",     version = "0.3.0" }
+wesichain-agent      = { path = "../wesichain-agent",      version = "0.3.0", optional = true }
+wesichain-graph      = { path = "../wesichain-graph",      version = "0.3.0", optional = true }
+wesichain-llm        = { path = "../wesichain-llm",        version = "0.3.0", optional = true }
+wesichain-anthropic  = { path = "../wesichain-anthropic",  version = "0.3.0", optional = true }
+wesichain-langsmith  = { path = "../wesichain-langsmith",  version = "0.3.0", optional = true }
+wesichain-langfuse   = { path = "../wesichain-langfuse",   version = "0.3.0", optional = true }
+wesichain-qdrant     = { path = "../wesichain-qdrant",     version = "0.3.0", optional = true }
+wesichain-tools      = { path = "../wesichain-tools",      version = "0.3.0", optional = true }
+wesichain-server     = { path = "../wesichain-server",     version = "0.3.0", optional = true }
+wesichain-mcp        = { path = "../wesichain-mcp",        version = "0.3.0", optional = true }
+wesichain-session    = { path = "../wesichain-session",    version = "0.3.0", optional = true }
+wesichain-memory     = { path = "../wesichain-memory",     version = "0.3.0", optional = true }
+wesichain-retrieval  = { path = "../wesichain-retrieval",  version = "0.3.0", optional = true }
