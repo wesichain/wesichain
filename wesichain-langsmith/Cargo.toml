@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "LangSmith observability for Wesichain"
 keywords = ["llm", "observability", "tracing", "langsmith", "ai"]
-categories = ["development-tools", "debugging"]
+categories = ["development-tools", "development-tools::debugging"]
 
 [dependencies]
 async-trait = "0.1"

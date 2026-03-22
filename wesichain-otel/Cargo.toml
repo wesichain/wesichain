@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "OpenTelemetry tracing integration for Wesichain"
 keywords = ["llm", "opentelemetry", "tracing", "otel", "async"]
-categories = ["development-tools", "debugging"]
+categories = ["development-tools", "development-tools::debugging"]
 readme = "README.md"
 
 [dependencies]

@@ -8,7 +8,7 @@ repository.workspace = true
 homepage.workspace = true
 description = "Langfuse observability integration for wesichain"
 keywords = ["llm", "observability", "tracing", "langfuse", "ai"]
-categories = ["development-tools", "debugging"]
+categories = ["development-tools", "development-tools::debugging"]
 readme = "README.md"
 
 [dependencies]
