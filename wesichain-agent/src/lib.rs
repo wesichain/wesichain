@@ -1,11 +1,14 @@
+pub mod as_tool;
+pub mod checkpoint;
 mod error;
 mod event;
 mod llm;
 mod phase;
 mod policy;
+pub mod permission;
 mod runtime;
 mod state;
-mod tooling;
+pub mod tooling;
 mod validation;
 
 pub use error::{AgentError, ToolDispatchError};
@@ -20,9 +23,12 @@ pub use runtime::{
     emit_single_step_events, emit_tool_step_events, AgentRuntime, LoopTransition,
     ToolDispatchOutcome,
 };
+pub use checkpoint::AgentCheckpoint;
 pub use state::AgentState;
+pub use as_tool::AgentAsTool;
+pub use permission::{PermissionCheck, PermissionPolicy, ToolPermission};
 pub use tooling::{
-    CancellationToken, ToolCallEnvelope, ToolContext, ToolError, ToolSchema, ToolSet,
+    CancellationToken, Tool, ToolCallEnvelope, ToolContext, ToolError, ToolSchema, ToolSet,
     ToolSetBuildError, TypedTool,
 };
 pub use validation::{validate_model_action, ModelAction};

@@ -5,10 +5,13 @@ use wesichain_core::WesichainError;
 
 pub mod buffer;
 mod buffer_tests;
+pub mod semantic;
 pub mod summary;
 mod summary_tests;
 pub mod window;
 mod window_tests;
+
+pub use semantic::{EntityMemory, MemoryRouter, VectorMemoryStore};
 
 #[async_trait]
 pub trait Memory: Send + Sync {

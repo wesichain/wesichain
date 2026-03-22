@@ -1,3 +1,6 @@
+pub mod approval;
+pub mod capability;
+pub mod token_budget;
 mod agent_event;
 mod binding;
 mod callbacks;
@@ -12,6 +15,7 @@ mod metadata_filter;
 mod output_parsers;
 pub mod persistence;
 pub mod prelude;
+mod rate_limiter;
 mod react;
 pub mod registry;
 mod retrieval_state;
@@ -20,11 +24,13 @@ pub mod runnable;
 mod runnable_parallel;
 pub mod serde;
 pub mod state;
+mod time_limited;
 mod tool;
 mod value;
 mod vector_store;
 
 pub use agent_event::AgentEvent;
+pub use approval::{ApprovalChannel, ApprovalDecision, ApprovalDefault, ApprovalRequest};
 pub use binding::{Bindable, RunnableBinding};
 pub use callbacks::{
     ensure_object, CallbackHandler, CallbackManager, LlmInput, LlmResult, RunConfig, RunContext,
@@ -36,8 +42,11 @@ pub use embedding::{embed_batch_ref_dyn, embed_batch_strs_dyn, Embedding};
 pub use error::{EmbeddingError, StoreError, WesichainError};
 pub use fallbacks::RunnableWithFallbacks;
 pub use llm::{
-    LlmRequest, LlmResponse, Message, Role, ToolCall, ToolCallingLlm, ToolCallingLlmExt, ToolSpec,
+    ContentPart, LlmRequest, LlmResponse, Message, MessageContent, Role, ToolCall, ToolCallingLlm,
+    ToolCallingLlmExt, ToolSpec,
 };
+pub use rate_limiter::RateLimited;
+pub use time_limited::TimeLimited;
 pub use metadata_filter::MetadataFilter;
 pub use output_parsers::{
     BaseOutputParser, JsonOutputParser, OutputFixingParser, StrOutputParser, StructuredOutputParser,
@@ -50,6 +59,6 @@ pub use retry::Retrying;
 pub use runnable::{Runnable, StreamEvent};
 pub use runnable_parallel::RunnableParallel;
 pub use serde::SerializableRunnable;
-pub use tool::{Tool, ToolError};
+pub use tool::{CancellationToken, Tool, ToolContext, ToolError, TypedTool};
 pub use value::{IntoValue, TryFromValue, Value};
 pub use vector_store::{delete_ref_dyn, delete_strs_dyn, SearchResult, VectorStore};

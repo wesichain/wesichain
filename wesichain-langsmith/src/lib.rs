@@ -15,7 +15,7 @@
 //! use wesichain_graph::{ExecutionOptions, GraphBuilder, GraphState, StateSchema, StateUpdate};
 //! use wesichain_langsmith::{LangSmithCallbackHandler, LangSmithConfig};
 //!
-//! #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+//! #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 //! struct DemoState {
 //!     value: usize,
 //! }
@@ -85,7 +85,7 @@
 //! use wesichain_graph::{ExecutionOptions, ExecutableGraph, GraphState, StateSchema};
 //! use wesichain_langsmith::{LangSmithConfig, LangSmithObserver};
 //!
-//! #[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+//! #[derive(Clone, Default, Debug, serde::Serialize, serde::Deserialize)]
 //! struct DemoState;
 //!
 //! impl StateSchema for DemoState {

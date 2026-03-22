@@ -24,6 +24,12 @@ pub use providers::deepseek::DeepSeekClient;
 #[cfg(feature = "google")]
 pub use providers::google::GoogleClient;
 
+#[cfg(feature = "azure")]
+pub use providers::azure::AzureOpenAiClient;
+
+#[cfg(feature = "mistral")]
+pub use providers::mistral::MistralClient;
+
 use wesichain_core::Runnable;
 
 #[deprecated(

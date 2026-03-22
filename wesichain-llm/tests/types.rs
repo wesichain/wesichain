@@ -7,7 +7,7 @@ fn llm_request_serializes_with_tools() {
         model: "llama3.1".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
@@ -16,6 +16,9 @@ fn llm_request_serializes_with_tools() {
             description: "math".to_string(),
             parameters: json!({"type":"object","properties":{}}),
         }],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let value = serde_json::to_value(req).expect("serialize");
@@ -25,7 +28,7 @@ fn llm_request_serializes_with_tools() {
 
     let tool_msg = Message {
         role: Role::Tool,
-        content: "ok".to_string(),
+        content: "ok".into(),
         tool_call_id: Some("call-1".to_string()),
         tool_calls: Vec::new(),
     };
@@ -49,12 +52,14 @@ fn tool_call_serializes_with_args_field() {
 #[test]
 fn llm_response_serializes_with_content_and_tool_calls_only() {
     let response = LlmResponse {
-        content: "hello".to_string(),
+        content: "hello".into(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_string(),
             name: "calculator".to_string(),
             args: json!({"x": 1}),
         }],
+        usage: None,
+        model: String::new(),
     };
 
     let value = serde_json::to_value(response).expect("serialize response");
@@ -65,8 +70,10 @@ fn llm_response_serializes_with_content_and_tool_calls_only() {
 #[test]
 fn llm_response_omits_tool_calls_when_empty() {
     let response = LlmResponse {
-        content: "hello".to_string(),
+        content: "hello".into(),
         tool_calls: Vec::new(),
+        usage: None,
+        model: String::new(),
     };
 
     let value = serde_json::to_value(response).expect("serialize response");

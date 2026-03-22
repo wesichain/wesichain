@@ -16,8 +16,10 @@ impl PolicyEngine for RetryToolPolicy {
 fn step_started_precedes_terminal_event_for_each_step() {
     let runtime = AgentRuntime::<(), (), NoopPolicy, _>::new().think();
     let response = wesichain_core::LlmResponse {
-        content: "done".to_string(),
+        content: "done".into(),
         tool_calls: Vec::new(),
+        usage: None,
+        model: String::new(),
     };
 
     let (_, events) = runtime
@@ -33,12 +35,14 @@ fn step_started_precedes_terminal_event_for_each_step() {
 #[test]
 fn each_tool_dispatched_has_exactly_one_completion_or_failure_counterpart() {
     let response = wesichain_core::LlmResponse {
-        content: "need tool".to_string(),
+        content: "need tool".into(),
         tool_calls: vec![wesichain_core::ToolCall {
             id: "call-1".to_string(),
             name: "calculator".to_string(),
             args: wesichain_core::Value::Null,
         }],
+        usage: None,
+        model: String::new(),
     };
 
     let success_thinking = AgentRuntime::<(), (), NoopPolicy, _>::new().think();
@@ -76,8 +80,10 @@ fn each_tool_dispatched_has_exactly_one_completion_or_failure_counterpart() {
 fn completed_event_is_emitted_only_once() {
     let runtime = AgentRuntime::<(), (), NoopPolicy, _>::new().think();
     let response = wesichain_core::LlmResponse {
-        content: "done".to_string(),
+        content: "done".into(),
         tool_calls: Vec::new(),
+        usage: None,
+        model: String::new(),
     };
 
     let (_, events) = runtime

@@ -21,11 +21,13 @@ impl Runnable<LlmRequest, LlmResponse> for MockLlm {
         let last_msg = input
             .messages
             .last()
-            .map(|m| m.content.clone())
+            .map(|m| m.content.to_text_lossy())
             .unwrap_or_default();
         Ok(LlmResponse {
             content: format!("Mock answer from {} for: {}", self.model_name, last_msg),
             tool_calls: vec![],
+            usage: None,
+            model: String::new(),
         })
     }
 
@@ -149,11 +151,14 @@ async fn test_registry_chain_reconstruction() {
         model: "mock-gpt".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
     let input = serde_json::to_value(&input_req).unwrap();
     let output = loaded_llm.invoke(input).await.unwrap();

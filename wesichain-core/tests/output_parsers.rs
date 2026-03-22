@@ -14,6 +14,9 @@ async fn test_str_output_parser() {
     let response = LlmResponse {
         content: "Hello from LLM".to_string(),
         tool_calls: vec![],
+
+        usage: None,
+        model: String::new(),
     };
     let output = parser.invoke(response).await.unwrap();
     assert_eq!(output, "Hello from LLM");
@@ -41,6 +44,9 @@ async fn test_json_output_parser() {
     let response = LlmResponse {
         content: markdown_json.to_string(),
         tool_calls: vec![],
+
+        usage: None,
+        model: String::new(),
     };
     let output = parser.invoke(response).await.unwrap();
     assert_eq!(output, json!({"key": "value"}));

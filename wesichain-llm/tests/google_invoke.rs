@@ -39,7 +39,7 @@ async fn google_invoke_maps_text_response() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -101,31 +101,31 @@ async fn google_invoke_folds_system_messages_into_system_instruction() {
         messages: vec![
             Message {
                 role: Role::System,
-                content: "You are concise.".to_string(),
+                content: "You are concise.".into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             },
             Message {
                 role: Role::System,
-                content: "Prefer bullet points.".to_string(),
+                content: "Prefer bullet points.".into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             },
             Message {
                 role: Role::User,
-                content: "hi".to_string(),
+                content: "hi".into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             },
             Message {
                 role: Role::Assistant,
-                content: "hello".to_string(),
+                content: "hello".into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             },
             Message {
                 role: Role::User,
-                content: "summarize".to_string(),
+                content: "summarize".into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             },
@@ -200,7 +200,7 @@ async fn google_invoke_maps_tool_declarations_and_function_calls() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "what is 2+2?".to_string(),
+            content: "what is 2+2?".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -250,7 +250,7 @@ async fn google_invoke_returns_error_for_blocked_finish_reason_without_content()
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "forbidden".to_string(),
+            content: "forbidden".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -285,7 +285,7 @@ async fn google_invoke_returns_partial_text_when_blocked_with_content() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "forbidden".to_string(),
+            content: "forbidden".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -316,7 +316,7 @@ async fn google_invoke_surfaces_rate_limit_message() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],

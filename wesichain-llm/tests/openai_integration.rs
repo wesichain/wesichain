@@ -16,7 +16,7 @@ async fn test_openai_simple_completion() {
         model: "gpt-4o-mini".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "Say 'Hello from Wesichain'".to_string(),
+            content: "Say 'Hello from Wesichain'".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],

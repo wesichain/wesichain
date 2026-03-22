@@ -17,9 +17,9 @@ async fn chat_prompt_formats_messages() {
 
     assert_eq!(messages.len(), 2);
     assert!(matches!(messages[0].role, Role::System));
-    assert_eq!(messages[0].content, "You are a helpful assistant.");
+    assert_eq!(messages[0].content, "You are a helpful assistant.".into());
     assert!(matches!(messages[1].role, Role::User));
-    assert_eq!(messages[1].content, "Hello, my name is Alice.");
+    assert_eq!(messages[1].content, "Hello, my name is Alice.".into());
 }
 
 #[tokio::test]
@@ -43,7 +43,7 @@ async fn chat_prompt_handles_placeholders() {
 
     assert_eq!(messages.len(), 4);
     assert!(matches!(messages[1].role, Role::User));
-    assert_eq!(messages[1].content, "Hi");
+    assert_eq!(messages[1].content, "Hi".into());
     assert!(matches!(messages[2].role, Role::Assistant));
-    assert_eq!(messages[2].content, "Hello");
+    assert_eq!(messages[2].content, "Hello".into());
 }

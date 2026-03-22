@@ -61,13 +61,13 @@ impl ReActAgentNode {
         let prompt = self.prompt.render(&HashMap::new())?;
         messages.push(Message {
             role: Role::System,
-            content: prompt,
+            content: prompt.into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         });
         messages.push(Message {
             role: Role::User,
-            content: state.user_input().to_string(),
+            content: state.user_input().to_string().into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         });
@@ -81,7 +81,7 @@ impl ReActAgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
@@ -92,7 +92,7 @@ impl ReActAgentNode {
                     let content = pending_thought.take().unwrap_or_default();
                     messages.push(Message {
                         role: Role::Assistant,
-                        content,
+                        content: content.into(),
                         tool_call_id: None,
                         tool_calls: vec![call.clone()],
                     });
@@ -109,7 +109,7 @@ impl ReActAgentNode {
                     })?;
                     messages.push(Message {
                         role: Role::Tool,
-                        content: value.to_string(),
+                        content: value.to_string().into(),
                         tool_call_id: Some(call.id),
                         tool_calls: Vec::new(),
                     });
@@ -118,14 +118,14 @@ impl ReActAgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
                     }
                     messages.push(Message {
                         role: Role::Assistant,
-                        content: text.clone(),
+                        content: text.clone().into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });
@@ -134,14 +134,14 @@ impl ReActAgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
                     }
                     messages.push(Message {
                         role: Role::Assistant,
-                        content: text.clone(),
+                        content: text.clone().into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });
@@ -152,7 +152,7 @@ impl ReActAgentNode {
         if let Some(thought) = pending_thought.take() {
             messages.push(Message {
                 role: Role::Assistant,
-                content: thought,
+                content: thought.into(),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -261,11 +261,15 @@ where
                     model: String::new(),
                     messages,
                     tools: self.tool_specs.clone(),
+                    temperature: None,
+                    max_tokens: None,
+                    stop_sequences: vec![],
                 })
                 .await?;
             let LlmResponse {
                 content,
                 tool_calls,
+                ..
             } = response;
             last_content = Some(content.clone());
             data.increment_iteration();

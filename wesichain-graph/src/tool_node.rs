@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use futures::stream::{self, BoxStream, StreamExt};
+use tokio::task::JoinSet;
 use wesichain_core::Tool;
 use wesichain_core::{Runnable, StreamEvent, WesichainError};
 use wesichain_llm::{Message, Role, ToolCall};
@@ -47,26 +48,50 @@ where
     S: StateSchema<Update = S> + HasToolCalls,
 {
     async fn invoke(&self, input: GraphState<S>) -> Result<StateUpdate<S>, WesichainError> {
-        let mut next = input.data.clone();
-        for call in input.data.tool_calls() {
+        let calls: Vec<ToolCall> = input.data.tool_calls().clone();
+
+        // Dispatch all tool calls concurrently, preserving original order.
+        let mut join_set: JoinSet<(usize, String, Result<String, WesichainError>)> =
+            JoinSet::new();
+
+        for (index, call) in calls.iter().enumerate() {
             let tool = self
                 .tools
                 .iter()
-                .find(|tool| tool.name() == call.name)
+                .find(|t| t.name() == call.name)
                 .ok_or_else(|| WesichainError::ToolCallFailed {
                     tool_name: call.name.clone(),
                     reason: "not found".to_string(),
                 })?;
-            let output = tool.invoke(call.args.clone()).await.map_err(|err| {
-                WesichainError::ToolCallFailed {
-                    tool_name: call.name.clone(),
-                    reason: err.to_string(),
-                }
-            })?;
+            let tool = tool.clone();
+            let args = call.args.clone();
+            let call_id = call.id.clone();
+            let tool_name = call.name.clone();
+            join_set.spawn(async move {
+                let result = tool.invoke(args).await.map(|v| v.to_string()).map_err(|e| {
+                    WesichainError::ToolCallFailed {
+                        tool_name,
+                        reason: e.to_string(),
+                    }
+                });
+                (index, call_id, result)
+            });
+        }
+
+        // Collect results and sort by original index so message history is deterministic.
+        let mut results: Vec<(usize, String, Result<String, WesichainError>)> =
+            Vec::with_capacity(calls.len());
+        while let Some(res) = join_set.join_next().await {
+            results.push(res.map_err(|e| WesichainError::Custom(format!("task panicked: {e}")))?);
+        }
+        results.sort_by_key(|(idx, _, _)| *idx);
+
+        let mut next = input.data.clone();
+        for (_, call_id, output) in results {
             next.push_tool_result(Message {
                 role: Role::Tool,
-                content: output.to_string(),
-                tool_call_id: Some(call.id.clone()),
+                content: output?.into(),
+                tool_call_id: Some(call_id),
                 tool_calls: Vec::new(),
             });
         }

@@ -17,7 +17,7 @@ async fn test_google_simple_completion() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "Say 'Hello from Wesichain' and nothing else.".to_string(),
+            content: "Say 'Hello from Wesichain' and nothing else.".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -38,7 +38,7 @@ async fn test_google_streaming_completion() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "Count from 1 to 5.".to_string(),
+            content: "Count from 1 to 5.".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],

@@ -17,6 +17,7 @@ pub enum RepromptStrategy {
     N { n: u32 },
 }
 
+#[derive(Debug)]
 pub struct NoopPolicy;
 
 impl PolicyDecision {

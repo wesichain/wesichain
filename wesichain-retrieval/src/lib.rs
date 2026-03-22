@@ -1,6 +1,7 @@
 mod base_retriever;
 mod ensemble;
 mod error;
+pub mod reranker;
 mod hash_embedder;
 mod in_memory;
 mod indexer;
@@ -21,6 +22,7 @@ pub use in_memory::InMemoryVectorStore;
 pub use indexer::Indexer;
 pub use loader::{load_file_async, load_files_async, PdfLoader, TextLoader};
 pub use multi_query::MultiQueryRetriever;
+pub use reranker::{CrossEncoderRetriever, KeywordReranker, Reranker};
 pub use retriever::Retriever;
 pub use splitter::{RecursiveCharacterTextSplitter, SplitterConfigError, TextSplitter};
 

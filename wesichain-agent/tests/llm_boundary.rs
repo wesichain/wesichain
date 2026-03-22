@@ -4,7 +4,7 @@ use wesichain_core::{LlmResponse, ToolCall, Value};
 #[test]
 fn runtime_rejects_multi_tool_call_shape_as_invalid_model_action() {
     let response = LlmResponse {
-        content: String::new(),
+        content: "".into(),
         tool_calls: vec![
             ToolCall {
                 id: "call-1".to_string(),
@@ -17,6 +17,9 @@ fn runtime_rejects_multi_tool_call_shape_as_invalid_model_action() {
                 args: Value::String("{\"city\":\"Berlin\"}".to_string()),
             },
         ],
+
+        usage: None,
+        model: String::new(),
     };
 
     let allowed_tools = vec!["calculator".to_string(), "weather_lookup".to_string()];
@@ -44,12 +47,15 @@ fn runtime_rejects_multi_tool_call_shape_as_invalid_model_action() {
 #[test]
 fn runtime_maps_unknown_tool_to_invalid_model_action() {
     let response = LlmResponse {
-        content: String::new(),
+        content: "".into(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_string(),
             name: "weather_lookup".to_string(),
             args: Value::String("{\"city\":\"Berlin\"}".to_string()),
         }],
+
+        usage: None,
+        model: String::new(),
     };
 
     let allowed_tools = vec!["calculator".to_string()];

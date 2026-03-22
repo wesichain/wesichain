@@ -30,12 +30,15 @@ fn cancellation_before_tool_dispatch_transitions_to_interrupted() {
     cancellation.cancel();
     let runtime = AgentRuntime::<(), (), NoopPolicy, Idle>::with_cancellation(cancellation).think();
     let response = LlmResponse {
-        content: String::new(),
+        content: "".into(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_string(),
             name: "calculator".to_string(),
             args: Value::String("{\"expression\":\"2+2\"}".to_string()),
         }],
+
+        usage: None,
+        model: String::new(),
     };
     let allowed_tools = vec!["calculator".to_string()];
 

@@ -16,7 +16,7 @@ async fn test_deepseek_simple_completion() {
         model: "deepseek-chat".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "Say 'Hello from DeepSeek'".to_string(),
+            content: "Say 'Hello from DeepSeek'".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],

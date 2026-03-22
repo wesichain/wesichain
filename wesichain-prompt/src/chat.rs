@@ -37,19 +37,19 @@ impl MessagePromptTemplate {
         match self {
             MessagePromptTemplate::Human(t) => Ok(vec![Message {
                 role: Role::User,
-                content: t.render(vars)?,
+                content: t.render(vars)?.into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             }]),
             MessagePromptTemplate::AI(t) => Ok(vec![Message {
                 role: Role::Assistant,
-                content: t.render(vars)?,
+                content: t.render(vars)?.into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             }]),
             MessagePromptTemplate::System(t) => Ok(vec![Message {
                 role: Role::System,
-                content: t.render(vars)?,
+                content: t.render(vars)?.into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             }]),

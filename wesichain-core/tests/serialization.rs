@@ -26,6 +26,8 @@ async fn test_serialization_str_parser() {
         .invoke(wesichain_core::LlmResponse {
             content: "hello".to_string(),
             tool_calls: vec![],
+            usage: None,
+            model: String::new(),
         })
         .await
         .unwrap();

@@ -22,11 +22,13 @@ pub fn emit_tool_step_events(step_id: u32, outcome: ToolDispatchOutcome) -> Vec<
     let mut events = vec![
         AgentEvent::StepStarted { step_id },
         AgentEvent::ModelResponded { step_id },
-        AgentEvent::ToolDispatched { step_id },
+        AgentEvent::ToolDispatched { step_id, tool_name: None },
     ];
 
     match outcome {
-        ToolDispatchOutcome::Completed => events.push(AgentEvent::ToolCompleted { step_id }),
+        ToolDispatchOutcome::Completed => {
+            events.push(AgentEvent::ToolCompleted { step_id, tool_name: None, result: None })
+        }
         ToolDispatchOutcome::Failed(error) => {
             events.push(AgentEvent::StepFailed { step_id, error })
         }
@@ -299,7 +301,7 @@ where
         match self.on_tool_success() {
             LoopTransition::Observing(runtime) => (
                 LoopTransition::Observing(runtime),
-                vec![AgentEvent::ToolCompleted { step_id }],
+                vec![AgentEvent::ToolCompleted { step_id, tool_name: None, result: None }],
             ),
             LoopTransition::Interrupted(runtime) => (
                 LoopTransition::Interrupted(runtime),
@@ -375,5 +377,367 @@ where
 impl<S, T, P> AgentRuntime<S, T, P, Observing> {
     pub fn think(self) -> AgentRuntime<S, T, P, Thinking> {
         self.transition()
+    }
+}
+
+impl<S, T, P> AgentRuntime<S, T, P, Interrupted> {
+    /// Capture a resumable checkpoint from the interrupted runtime.
+    ///
+    /// The caller supplies the current conversation `messages` and the
+    /// `step_id` that was in flight at the time of interruption.  These are
+    /// not stored inside `AgentRuntime` (the FSM is state-less with respect to
+    /// conversation data) so the agent loop must pass them here.
+    pub fn checkpoint(
+        &self,
+        messages: Vec<wesichain_core::Message>,
+        step_id: u32,
+    ) -> crate::checkpoint::AgentCheckpoint {
+        crate::checkpoint::AgentCheckpoint::new(messages, step_id, self.remaining_budget)
+    }
+}
+
+impl<S, T, P> AgentRuntime<S, T, P, Idle> {
+    /// Reconstruct an `Idle` runtime from a previously saved checkpoint.
+    ///
+    /// Returns `(runtime, messages, step_id)` so the agent loop can restore
+    /// the conversation context and resume at the correct step.
+    pub fn resume_from(
+        checkpoint: &crate::checkpoint::AgentCheckpoint,
+    ) -> (Self, Vec<wesichain_core::Message>, u32) {
+        let runtime = Self::with_budget(checkpoint.remaining_budget);
+        (runtime, checkpoint.messages.clone(), checkpoint.step_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::policy::{NoopPolicy, PolicyDecision, PolicyEngine, RepromptStrategy};
+    use wesichain_core::{LlmResponse, ToolCall};
+
+    // ---------------------------------------------------------------------------
+    // Test helpers
+    // ---------------------------------------------------------------------------
+
+    type TestRuntime<Phase> = AgentRuntime<(), (), NoopPolicy, Phase>;
+
+    fn final_answer_response(text: &str) -> LlmResponse {
+        LlmResponse {
+            content: text.to_string(),
+            tool_calls: vec![],
+            usage: None,
+            model: String::new(),
+        }
+    }
+
+    fn tool_call_response(tool_name: &str) -> LlmResponse {
+        LlmResponse {
+            content: String::new(),
+            tool_calls: vec![ToolCall {
+                id: "call_1".to_string(),
+                name: tool_name.to_string(),
+                args: serde_json::json!({ "query": "test" }),
+            }],
+            usage: None,
+            model: String::new(),
+        }
+    }
+
+    #[derive(Debug)]
+    struct AlwaysRetryPolicy;
+    impl PolicyEngine for AlwaysRetryPolicy {
+        fn on_model_error(_: &crate::AgentError) -> PolicyDecision {
+            PolicyDecision::Retry { consume_budget: true }
+        }
+
+        fn on_tool_error(_: &crate::AgentError) -> PolicyDecision {
+            PolicyDecision::Retry { consume_budget: true }
+        }
+    }
+
+    #[derive(Debug)]
+    struct AlwaysRepromptPolicy;
+    impl PolicyEngine for AlwaysRepromptPolicy {
+        fn on_model_error(_: &crate::AgentError) -> PolicyDecision {
+            PolicyDecision::reprompt(RepromptStrategy::OnceWithToolCatalog)
+        }
+
+        fn on_tool_error(_: &crate::AgentError) -> PolicyDecision {
+            PolicyDecision::reprompt(RepromptStrategy::OnceWithToolCatalog)
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Idle → Thinking / Interrupted transitions
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn idle_begins_thinking() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let transition = runtime.begin_thinking();
+        assert!(matches!(
+            transition,
+            LoopTransition::Thinking {
+                reprompt_strategy: None,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn idle_interrupted_when_cancelled() {
+        let token = CancellationToken::new();
+        token.cancel();
+        let runtime: TestRuntime<Idle> = AgentRuntime::with_cancellation(token);
+        let transition = runtime.begin_thinking();
+        assert!(matches!(transition, LoopTransition::Interrupted(_)));
+    }
+
+    #[test]
+    fn idle_think_returns_thinking_runtime() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::with_budget(5);
+        let thinking = runtime.think();
+        assert_eq!(thinking.remaining_budget(), 5);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Thinking → Completed (FinalAnswer)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn thinking_completes_on_final_answer() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = final_answer_response("Done!");
+        let transition = thinking
+            .on_model_response(1, response, &[])
+            .expect("should not error");
+        assert!(matches!(transition, LoopTransition::Completed(_)));
+    }
+
+    #[test]
+    fn thinking_completes_emits_events() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = final_answer_response("Done!");
+        let (transition, events) = thinking
+            .on_model_response_with_events(1, response, &[])
+            .expect("should not error");
+        assert!(matches!(transition, LoopTransition::Completed(_)));
+        // Should emit StepStarted, ModelResponded, Completed
+        assert_eq!(events.len(), 3);
+    }
+
+    // ---------------------------------------------------------------------------
+    // Thinking → Acting (ToolCall)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn thinking_acts_on_valid_tool_call() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let transition = thinking
+            .on_model_response(1, response, &["search".to_string()])
+            .expect("should not error");
+        assert!(matches!(transition, LoopTransition::Acting(_)));
+    }
+
+    #[test]
+    fn thinking_errors_on_unknown_tool() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("unknown_tool");
+        // NoopPolicy fails on model error
+        let result = thinking.on_model_response(1, response, &["search".to_string()]);
+        assert!(result.is_err());
+    }
+
+    // ---------------------------------------------------------------------------
+    // Thinking → Interrupted (cancellation mid-flight)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn thinking_interrupted_if_cancelled_before_response() {
+        let token = CancellationToken::new();
+        token.cancel();
+        let runtime: AgentRuntime<(), (), NoopPolicy, Idle> =
+            AgentRuntime::with_cancellation(token);
+        let thinking = runtime.think();
+        let response = final_answer_response("Done!");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &[])
+            .expect("should not error");
+        assert!(matches!(transition, LoopTransition::Interrupted(_)));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Budget management
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn budget_decrements_on_retry() {
+        let runtime: AgentRuntime<(), (), AlwaysRetryPolicy, Idle> =
+            AgentRuntime::with_budget(3);
+        let thinking = runtime.think();
+        let response = tool_call_response("nonexistent");
+        // AlwaysRetryPolicy retries and consumes budget
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &[])
+            .expect("should not error");
+        match transition {
+            LoopTransition::Thinking { runtime, .. } => {
+                assert_eq!(runtime.remaining_budget(), 2);
+            }
+            other => panic!("Expected Thinking, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn budget_exhaustion_returns_error() {
+        let runtime: AgentRuntime<(), (), AlwaysRetryPolicy, Idle> =
+            AgentRuntime::with_budget(1);
+        let thinking = runtime.think();
+        let response = tool_call_response("nonexistent");
+        // With budget=1, retry consumes it → budget=0
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &[])
+            .expect("should transition");
+        match transition {
+            LoopTransition::Thinking { runtime, .. } => {
+                assert_eq!(runtime.remaining_budget(), 0);
+                // Retry with exhausted budget should fail
+                let response2 = tool_call_response("nonexistent");
+                let result = runtime.on_model_response(2, response2, &[]);
+                assert!(matches!(result, Err(crate::AgentError::BudgetExceeded)));
+            }
+            other => panic!("Expected Thinking, got {:?}", other),
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Acting → Observing (tool success)
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn acting_observes_on_tool_success() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .expect("should not error");
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            other => panic!("Expected Acting, got {:?}", other),
+        };
+        let next = acting.on_tool_success();
+        assert!(matches!(next, LoopTransition::Observing(_)));
+    }
+
+    #[test]
+    fn acting_tool_success_emits_completed_event() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .unwrap();
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            _ => panic!(),
+        };
+        let (next, events) = acting.on_tool_success_with_events(1);
+        assert!(matches!(next, LoopTransition::Observing(_)));
+        assert_eq!(events.len(), 1);
+        assert!(matches!(events[0], crate::AgentEvent::ToolCompleted { .. }));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Acting → policy on tool error
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn acting_fails_on_tool_error_with_noop_policy() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .unwrap();
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            _ => panic!(),
+        };
+        let result = acting.on_tool_error(crate::AgentError::ToolDispatch);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn acting_retries_on_tool_error_with_retry_policy() {
+        let runtime: AgentRuntime<(), (), AlwaysRetryPolicy, Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .unwrap();
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            _ => panic!(),
+        };
+        let result = acting.on_tool_error(crate::AgentError::ToolDispatch);
+        assert!(result.is_ok());
+        assert!(matches!(
+            result.unwrap(),
+            LoopTransition::Thinking { reprompt_strategy: None, .. }
+        ));
+    }
+
+    #[test]
+    fn acting_reprompts_on_tool_error_with_reprompt_policy() {
+        let runtime: AgentRuntime<(), (), AlwaysRepromptPolicy, Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .unwrap();
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            _ => panic!(),
+        };
+        let result = acting.on_tool_error(crate::AgentError::ToolDispatch);
+        assert!(result.is_ok());
+        assert!(matches!(
+            result.unwrap(),
+            LoopTransition::Thinking {
+                reprompt_strategy: Some(_),
+                ..
+            }
+        ));
+    }
+
+    // ---------------------------------------------------------------------------
+    // Observing → Thinking
+    // ---------------------------------------------------------------------------
+
+    #[test]
+    fn observing_returns_to_thinking() {
+        let runtime: TestRuntime<Idle> = AgentRuntime::new();
+        let thinking = runtime.think();
+        let response = tool_call_response("search");
+        let (transition, _) = thinking
+            .on_model_response_with_events(1, response, &["search".to_string()])
+            .unwrap();
+        let acting = match transition {
+            LoopTransition::Acting(r) => r,
+            _ => panic!(),
+        };
+        let (observing_transition, _) = acting.on_tool_success_with_events(1);
+        let observing = match observing_transition {
+            LoopTransition::Observing(r) => r,
+            _ => panic!(),
+        };
+        let next_thinking = observing.think();
+        assert_eq!(next_thinking.remaining_budget(), u32::MAX);
     }
 }

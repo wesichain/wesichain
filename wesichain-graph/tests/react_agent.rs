@@ -92,6 +92,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockLlm {
                 name: "calculator".to_string(),
                 args: json!({"expression": "2+2"}),
             }],
+            usage: None,
+            model: String::new(),
         })
     }
 

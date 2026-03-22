@@ -25,11 +25,14 @@ async fn ollama_invoke_maps_response() {
         model: "request-model".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let resp = client.invoke(req).await.expect("invoke");
@@ -54,11 +57,14 @@ async fn ollama_invoke_surfaces_http_errors() {
         model: "llama3.1".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let err = client.invoke(req).await.expect_err("invoke should fail");

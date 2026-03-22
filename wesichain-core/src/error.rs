@@ -24,6 +24,14 @@ pub enum WesichainError {
     Serde(#[from] serde_json::Error),
     #[error("{0}")]
     Custom(String),
+    #[error("authentication failed for '{provider}': {message}")]
+    AuthenticationFailed { provider: String, message: String },
+    #[error("rate limit exceeded (retry after {retry_after:?})")]
+    RateLimitExceeded { retry_after: Option<Duration> },
+    #[error("context window exceeded: limit {limit} tokens, got {actual}")]
+    ContextWindowExceeded { limit: usize, actual: usize },
+    #[error("content policy violation: {reason}")]
+    ContentPolicyViolation { reason: String },
 }
 
 impl From<EmbeddingError> for WesichainError {

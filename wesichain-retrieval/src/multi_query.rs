@@ -85,11 +85,14 @@ where
             model: String::new(), // Model will be set by LLM implementation
             messages: vec![Message {
                 role: Role::User,
-                content: prompt,
+                content: prompt.into(),
                 tool_call_id: None,
                 tool_calls: vec![],
             }],
             tools: vec![],
+            temperature: None,
+            max_tokens: None,
+            stop_sequences: vec![],
         };
 
         let response =

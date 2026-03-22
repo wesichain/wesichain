@@ -28,7 +28,7 @@ mod tests {
         let history = vars.get("history").unwrap();
         let messages: Vec<Message> = serde_json::from_value(history.clone()).unwrap();
         assert_eq!(messages.len(), 2);
-        assert_eq!(messages[0].content, "One");
+        assert_eq!(messages[0].content, "One".into());
 
         // Save 2nd turn - should keep last 2 messages
         let mut inputs2 = HashMap::new();
@@ -45,9 +45,9 @@ mod tests {
         let messages: Vec<Message> = serde_json::from_value(history.clone()).unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].role, Role::User);
-        assert_eq!(messages[0].content, "Two");
+        assert_eq!(messages[0].content, "Two".into());
         assert_eq!(messages[1].role, Role::Assistant);
-        assert_eq!(messages[1].content, "2");
+        assert_eq!(messages[1].content, "2".into());
     }
 
     #[tokio::test]
@@ -73,8 +73,8 @@ mod tests {
         let messages: Vec<Message> =
             serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
         assert_eq!(messages.len(), 4);
-        assert_eq!(messages[0].content, "Q1");
-        assert_eq!(messages[3].content, "A2");
+        assert_eq!(messages[0].content, "Q1".into());
+        assert_eq!(messages[3].content, "A2".into());
     }
 
     #[tokio::test]
@@ -116,10 +116,10 @@ mod tests {
         let messages: Vec<Message> =
             serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
         assert_eq!(messages.len(), 4);
-        assert_eq!(messages[0].content, "Q2"); // Q1 and A1 dropped
-        assert_eq!(messages[1].content, "A2");
-        assert_eq!(messages[2].content, "Q3");
-        assert_eq!(messages[3].content, "A3");
+        assert_eq!(messages[0].content, "Q2".into()); // Q1 and A1 dropped
+        assert_eq!(messages[1].content, "A2".into());
+        assert_eq!(messages[2].content, "Q3".into());
+        assert_eq!(messages[3].content, "A3".into());
     }
 
     #[tokio::test]
@@ -149,8 +149,8 @@ mod tests {
             let messages: Vec<Message> =
                 serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
             assert_eq!(messages.len(), 4);
-            assert_eq!(messages[0].content, "Q2");
-            assert_eq!(messages[3].content, "A3");
+            assert_eq!(messages[0].content, "Q2".into());
+            assert_eq!(messages[3].content, "A3".into());
 
             // Add one more turn
             let mut inputs = HashMap::new();
@@ -170,8 +170,8 @@ mod tests {
             let messages: Vec<Message> =
                 serde_json::from_value(vars.get("history").unwrap().clone()).unwrap();
             assert_eq!(messages.len(), 4);
-            assert_eq!(messages[0].content, "Q3"); // Q2, A2 dropped
-            assert_eq!(messages[3].content, "A4");
+            assert_eq!(messages[0].content, "Q3".into()); // Q2, A2 dropped
+            assert_eq!(messages[3].content, "A4".into());
         }
     }
 

@@ -37,7 +37,7 @@ async fn google_stream_emits_text_chunks_and_final_answer() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -74,7 +74,7 @@ async fn google_stream_detects_late_function_call() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "what is 2+2?".to_string(),
+            content: "what is 2+2?".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -110,7 +110,7 @@ async fn google_stream_surfaces_http_errors() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],
@@ -148,7 +148,7 @@ async fn google_stream_stops_after_parse_error() {
         model: "".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: vec![],
         }],

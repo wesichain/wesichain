@@ -10,7 +10,7 @@ fn llm_types_serialize_with_tool_calls() {
     };
     let message = Message {
         role: Role::Assistant,
-        content: "".to_string(),
+        content: "".into(),
         tool_call_id: None,
         tool_calls: vec![call.clone()],
     };
@@ -22,6 +22,9 @@ fn llm_types_serialize_with_tool_calls() {
             description: "math".to_string(),
             parameters: json!({"type": "object"}),
         }],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
     let value = serde_json::to_value(req).expect("serialize request");
     assert!(value["messages"][0]["tool_calls"].is_array());
@@ -29,6 +32,8 @@ fn llm_types_serialize_with_tool_calls() {
     let response = LlmResponse {
         content: "".to_string(),
         tool_calls: vec![call],
+        usage: None,
+        model: String::new(),
     };
     let response_value = serde_json::to_value(response).expect("serialize response");
     assert!(response_value["tool_calls"].is_array());

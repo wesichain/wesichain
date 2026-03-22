@@ -25,12 +25,15 @@ impl PolicyEngine for RepromptOnToolError {
 fn reprompt_consumes_budget_by_default_and_reaches_budget_exceeded() {
     let allowed_tools = vec!["calculator".to_string()];
     let invalid_response = LlmResponse {
-        content: String::new(),
+        content: "".into(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_string(),
             name: "weather_lookup".to_string(),
             args: Value::String("{\"city\":\"Berlin\"}".to_string()),
         }],
+
+        usage: None,
+        model: String::new(),
     };
 
     let runtime = AgentRuntime::<(), (), AlwaysReprompt, Idle>::with_budget(1).think();
@@ -59,8 +62,11 @@ fn reprompt_consumes_budget_by_default_and_reaches_budget_exceeded() {
 fn final_answer_transitions_to_completed_terminal_state() {
     let allowed_tools = vec!["calculator".to_string()];
     let response = LlmResponse {
-        content: "42".to_string(),
+        content: "42".into(),
         tool_calls: vec![],
+
+        usage: None,
+        model: String::new(),
     };
 
     let runtime = AgentRuntime::<(), (), AlwaysReprompt, Idle>::with_budget(2).think();
@@ -76,12 +82,15 @@ fn final_answer_transitions_to_completed_terminal_state() {
 fn model_error_reprompt_transition_preserves_strategy_metadata() {
     let allowed_tools = vec!["calculator".to_string()];
     let invalid_response = LlmResponse {
-        content: String::new(),
+        content: "".into(),
         tool_calls: vec![ToolCall {
             id: "call-1".to_string(),
             name: "weather_lookup".to_string(),
             args: Value::String("{\"city\":\"Berlin\"}".to_string()),
         }],
+
+        usage: None,
+        model: String::new(),
     };
 
     let runtime = AgentRuntime::<(), (), AlwaysReprompt, Idle>::with_budget(2).think();
@@ -136,6 +145,6 @@ fn evented_tool_success_transitions_to_observing_phase() {
     assert_eq!(events.len(), 1);
     assert!(matches!(
         events[0],
-        wesichain_agent::AgentEvent::ToolCompleted { step_id: 3 }
+        wesichain_agent::AgentEvent::ToolCompleted { step_id: 3, .. }
     ));
 }

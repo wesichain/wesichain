@@ -148,6 +148,8 @@ async fn test_with_structured_output() {
             name: "output_formatter".to_string(),
             args: json!({"name": "Alice", "age": 30}),
         }],
+        usage: None,
+        model: String::new(),
     };
 
     let llm = MockLlm { response };
@@ -157,6 +159,9 @@ async fn test_with_structured_output() {
         model: "test".to_string(),
         messages: vec![],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let result = chain.invoke(request).await.unwrap();

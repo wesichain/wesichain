@@ -92,7 +92,7 @@ where
                     Role::Assistant => "AI",
                     _ => "System",
                 };
-                format!("{}: {}", role, m.content)
+                format!("{}: {}", role, m.content.to_text_lossy())
             })
             .collect::<Vec<_>>()
             .join("\n");
@@ -106,11 +106,14 @@ where
             model: String::new(),
             messages: vec![Message {
                 role: Role::User,
-                content: prompt,
+                content: prompt.into(),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             }],
             tools: Vec::new(),
+            temperature: None,
+            max_tokens: None,
+            stop_sequences: vec![],
         };
 
         let response = self.llm.invoke(request).await?;
@@ -154,7 +157,7 @@ where
                         Role::Assistant => "AI",
                         _ => "System",
                     };
-                    format!("{}: {}", role, m.content)
+                    format!("{}: {}", role, m.content.to_text_lossy())
                 })
                 .collect::<Vec<_>>()
                 .join("\n");
@@ -190,13 +193,13 @@ where
         let new_messages = vec![
             Message {
                 role: Role::User,
-                content: input_text.to_string(),
+                content: input_text.to_string().into(),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },
             Message {
                 role: Role::Assistant,
-                content: output_text.to_string(),
+                content: output_text.to_string().into(),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             },

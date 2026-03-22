@@ -3,6 +3,10 @@
 // Import commonly used types with: `use wesichain_core::prelude::*;`
 
 pub use crate::{
+    // Model capabilities & token budget
+    capability::ModelCapabilities,
+    token_budget::TokenBudget,
+
     // Output parsers
     BaseOutputParser,
     CallbackManager,
@@ -51,12 +55,14 @@ pub use crate::{
     StreamEvent,
     StructuredOutputParser,
     // Tools
+    CancellationToken,
     Tool,
     ToolCall,
     ToolCallingLlm,
     ToolCallingLlmExt,
-
+    ToolContext,
     ToolError,
+    TypedTool,
 
     ToolSpec,
     TryFromValue,

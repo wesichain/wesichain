@@ -283,11 +283,33 @@ impl OpenAiCompatibleClient {
                 })
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            let error_msg = serde_json::from_str::<OpenAiError>(&error_text)
-                .map(|e| e.error.message)
+            let parsed = serde_json::from_str::<OpenAiError>(&error_text);
+            let error_msg = parsed
+                .as_ref()
+                .map(|e| e.error.message.clone())
                 .unwrap_or_else(|_| format!("HTTP {}: {}", status, error_text));
 
-            Err(WesichainError::LlmProvider(error_msg))
+            Err(match status.as_u16() {
+                401 | 403 => WesichainError::AuthenticationFailed {
+                    provider: "openai".to_string(),
+                    message: error_msg,
+                },
+                429 => WesichainError::RateLimitExceeded { retry_after: None },
+                _ if parsed
+                    .as_ref()
+                    .map(|e| {
+                        e.error
+                            .code
+                            .as_deref()
+                            .map(|c| c.contains("context_length_exceeded"))
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(false) =>
+                {
+                    WesichainError::ContextWindowExceeded { limit: 0, actual: 0 }
+                }
+                _ => WesichainError::LlmProvider(error_msg),
+            })
         }
     }
 
@@ -324,11 +346,20 @@ impl OpenAiCompatibleClient {
             Ok(parse_sse_stream(response))
         } else {
             let error_text = response.text().await.unwrap_or_default();
-            let error_msg = serde_json::from_str::<OpenAiError>(&error_text)
-                .map(|e| e.error.message)
+            let parsed = serde_json::from_str::<OpenAiError>(&error_text);
+            let error_msg = parsed
+                .as_ref()
+                .map(|e| e.error.message.clone())
                 .unwrap_or_else(|_| format!("HTTP {}: {}", status, error_text));
 
-            Err(WesichainError::LlmProvider(error_msg))
+            Err(match status.as_u16() {
+                401 | 403 => WesichainError::AuthenticationFailed {
+                    provider: "openai".to_string(),
+                    message: error_msg,
+                },
+                429 => WesichainError::RateLimitExceeded { retry_after: None },
+                _ => WesichainError::LlmProvider(error_msg),
+            })
         }
     }
 }
@@ -353,12 +384,18 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
             } else {
                 Some(input.tools)
             },
-            temperature: None,
-            max_tokens: None,
+            temperature: input.temperature,
+            max_tokens: input.max_tokens,
             stream: false,
         };
 
         let response = self.chat_completion(request).await?;
+
+        let usage = response.usage.map(|u| wesichain_core::TokenUsage {
+            prompt_tokens: u.prompt_tokens,
+            completion_tokens: u.completion_tokens,
+            total_tokens: u.total_tokens,
+        });
 
         let choice = response
             .choices
@@ -369,6 +406,8 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
         Ok(LlmResponse {
             content: choice.message.content.unwrap_or_default(),
             tool_calls: choice.message.tool_calls.unwrap_or_default(),
+            usage,
+            model: String::new(),
         })
     }
 
@@ -387,8 +426,8 @@ impl Runnable<LlmRequest, LlmResponse> for OpenAiCompatibleClient {
             } else {
                 Some(input.tools)
             },
-            temperature: None,
-            max_tokens: None,
+            temperature: input.temperature,
+            max_tokens: input.max_tokens,
             stream: true,
         };
 

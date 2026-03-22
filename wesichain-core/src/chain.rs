@@ -107,6 +107,22 @@ pub trait RunnableExt<Input: Send + 'static, Output: Send + 'static>:
     {
         crate::RunnableWithFallbacks::new(std::sync::Arc::new(self), fallbacks)
     }
+
+    fn with_timeout(self, duration: std::time::Duration) -> crate::TimeLimited<Self>
+    where
+        Self: Send + Sync,
+        Input: Clone,
+    {
+        crate::TimeLimited::new(self, duration)
+    }
+
+    fn with_rate_limit(self, requests_per_minute: u32) -> crate::RateLimited<Self>
+    where
+        Self: Send + Sync,
+        Input: Clone,
+    {
+        crate::RateLimited::new(self, requests_per_minute)
+    }
 }
 
 impl<Input: Send + 'static, Output: Send + 'static, T> RunnableExt<Input, Output> for T where

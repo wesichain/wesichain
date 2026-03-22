@@ -218,15 +218,18 @@ async fn non_retryable_error_fails_fast() {
 }
 
 #[tokio::test]
-async fn stream_delegates_timeout_without_retrying() {
+async fn stream_retries_timeout_on_first_item_and_emits_max_retries_exceeded() {
+    // With retry-on-stream-start semantics: a timeout on the first emitted item
+    // triggers retries. After max_attempts, MaxRetriesExceeded is emitted.
     let timeout_streamer = StreamTimeout::new();
     let streams = timeout_streamer.streams_counter();
     let retrying = timeout_streamer.with_retries(3);
     let mut stream = retrying.stream("ping".to_string());
     let first = stream.next().await.unwrap().unwrap_err();
 
-    assert!(matches!(first, WesichainError::Timeout(_)));
-    assert_eq!(streams.load(Ordering::SeqCst), 1);
+    assert!(matches!(first, WesichainError::MaxRetriesExceeded { max: 3 }));
+    // All 3 stream attempts were made before giving up
+    assert_eq!(streams.load(Ordering::SeqCst), 3);
 }
 
 #[tokio::test]

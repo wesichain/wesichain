@@ -31,6 +31,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockLlm {
             Ok(LlmResponse {
                 content: response,
                 tool_calls: vec![],
+                usage: None,
+                model: String::new(),
             })
         } else {
             Err(WesichainError::Custom("No more responses".to_string()))

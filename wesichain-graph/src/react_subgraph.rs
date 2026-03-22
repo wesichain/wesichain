@@ -23,6 +23,97 @@ pub enum ToolFailurePolicy {
     AppendErrorAndContinue,
 }
 
+// ── Context compression ───────────────────────────────────────────────────────
+
+/// Strategy for compressing the message history when it grows too large.
+#[async_trait::async_trait]
+pub trait ContextCompressor: Send + Sync {
+    /// Return `true` if the current message list should be compressed.
+    fn should_compress(&self, messages: &[Message]) -> bool;
+    /// Replace the message list with a shorter summarised version.
+    async fn compress(&self, messages: Vec<Message>) -> Result<Vec<Message>, WesichainError>;
+}
+
+/// Compresses message history when the total character count exceeds `max_chars`.
+///
+/// Uses an LLM to produce a one-sentence summary that replaces the middle
+/// messages (keeping the system prompt and the last user message intact).
+pub struct TokenThresholdCompressor {
+    max_chars: usize,
+    llm: Arc<dyn Runnable<LlmRequest, LlmResponse>>,
+}
+
+impl TokenThresholdCompressor {
+    /// `max_chars / 4` approximates the token count.
+    pub fn new(max_chars: usize, llm: Arc<dyn Runnable<LlmRequest, LlmResponse>>) -> Self {
+        Self { max_chars, llm }
+    }
+}
+
+#[async_trait::async_trait]
+impl ContextCompressor for TokenThresholdCompressor {
+    fn should_compress(&self, messages: &[Message]) -> bool {
+        let total: usize = messages.iter().map(|m| m.content.to_string().len()).sum();
+        total > self.max_chars
+    }
+
+    async fn compress(&self, messages: Vec<Message>) -> Result<Vec<Message>, WesichainError> {
+        // Keep system prompt (first) + last user message + compress everything in between.
+        let history_text: String = messages[1..]
+            .iter()
+            .map(|m| format!("{:?}: {}", m.role, m.content))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let summary_req = LlmRequest {
+            model: String::new(),
+            messages: vec![
+                Message {
+                    role: Role::System,
+                    content: "Summarise the following conversation in 2-3 sentences.".into(),
+                    tool_call_id: None,
+                    tool_calls: vec![],
+                },
+                Message {
+                    role: Role::User,
+                    content: history_text.into(),
+                    tool_call_id: None,
+                    tool_calls: vec![],
+                },
+            ],
+            tools: vec![],
+            temperature: Some(0.0),
+            max_tokens: Some(256),
+            stop_sequences: vec![],
+        };
+
+        let summary = self.llm.invoke(summary_req).await?.content;
+
+        let mut compressed = Vec::new();
+        // Keep system prompt if present
+        if let Some(sys) = messages.first() {
+            if matches!(sys.role, Role::System) {
+                compressed.push(sys.clone());
+            }
+        }
+        compressed.push(Message {
+            role: Role::User,
+            content: format!("[Context summary] {summary}").into(),
+            tool_call_id: None,
+            tool_calls: vec![],
+        });
+        // Keep the last user message if different from summary
+        if let Some(last) = messages.last() {
+            if matches!(last.role, Role::User) {
+                compressed.push(last.clone());
+            }
+        }
+        Ok(compressed)
+    }
+}
+
+// ── AgentNode ─────────────────────────────────────────────────────────────────
+
 /// Node that executes the LLM in the ReAct loop.
 /// It inspects the state, builds messages, calls the LLM, and updates the scratchpad
 /// with the Thought (if any) and Action (if tool calls generated).
@@ -30,11 +121,17 @@ pub struct AgentNode {
     llm: Arc<dyn ToolCallingLlm>,
     tools: Vec<ToolSpec>,
     prompt: PromptTemplate,
+    context_compressor: Option<Arc<dyn ContextCompressor>>,
 }
 
 impl AgentNode {
     pub fn new(llm: Arc<dyn ToolCallingLlm>, tools: Vec<ToolSpec>, prompt: PromptTemplate) -> Self {
-        Self { llm, tools, prompt }
+        Self { llm, tools, prompt, context_compressor: None }
+    }
+
+    pub fn with_context_compressor(mut self, compressor: Arc<dyn ContextCompressor>) -> Self {
+        self.context_compressor = Some(compressor);
+        self
     }
 
     fn build_messages_robust<S>(&self, state: &S) -> Result<Vec<Message>, WesichainError>
@@ -45,13 +142,13 @@ impl AgentNode {
         let prompt = self.prompt.render(&HashMap::new())?;
         messages.push(Message {
             role: Role::System,
-            content: prompt,
+            content: prompt.into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         });
         messages.push(Message {
             role: Role::User,
-            content: state.user_input().to_string(),
+            content: state.user_input().to_string().into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         });
@@ -65,7 +162,7 @@ impl AgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
@@ -76,7 +173,7 @@ impl AgentNode {
                     let content = pending_thought.take().unwrap_or_default();
                     messages.push(Message {
                         role: Role::Assistant,
-                        content,
+                        content: content.into(),
                         tool_call_id: None,
                         tool_calls: vec![call.clone()],
                     });
@@ -93,7 +190,7 @@ impl AgentNode {
                     })?;
                     messages.push(Message {
                         role: Role::Tool,
-                        content: value.to_string(),
+                        content: value.to_string().into(),
                         tool_call_id: Some(call.id),
                         tool_calls: Vec::new(),
                     });
@@ -102,14 +199,14 @@ impl AgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
                     }
                     messages.push(Message {
                         role: Role::Assistant,
-                        content: text.clone(),
+                        content: text.clone().into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });
@@ -118,14 +215,14 @@ impl AgentNode {
                     if let Some(thought) = pending_thought.take() {
                         messages.push(Message {
                             role: Role::Assistant,
-                            content: thought,
+                            content: thought.into(),
                             tool_call_id: None,
                             tool_calls: Vec::new(),
                         });
                     }
                     messages.push(Message {
                         role: Role::Assistant,
-                        content: text.clone(),
+                        content: text.clone().into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });
@@ -136,7 +233,7 @@ impl AgentNode {
         if let Some(thought) = pending_thought.take() {
             messages.push(Message {
                 role: Role::Assistant,
-                content: thought,
+                content: thought.into(),
                 tool_call_id: None,
                 tool_calls: Vec::new(),
             });
@@ -166,7 +263,14 @@ where
         data.ensure_scratchpad();
 
         // Build messages from current scratchpad history
-        let messages = self.build_messages_robust(&data)?;
+        let mut messages = self.build_messages_robust(&data)?;
+
+        // Apply context compression if configured and threshold is exceeded.
+        if let Some(compressor) = &self.context_compressor {
+            if compressor.should_compress(&messages) {
+                messages = compressor.compress(messages).await?;
+            }
+        }
 
         let response = self
             .llm
@@ -174,12 +278,16 @@ where
                 model: String::new(),
                 messages,
                 tools: self.tools.clone(),
+                temperature: None,
+                max_tokens: None,
+                stop_sequences: vec![],
             })
             .await?;
 
         let LlmResponse {
             content,
             tool_calls,
+            ..
         } = response;
 
         // Create delta for update
@@ -378,6 +486,7 @@ pub struct ReActGraphBuilder {
     tools: Vec<Arc<dyn Tool>>,
     prompt: PromptTemplate,
     tool_failure_policy: ToolFailurePolicy,
+    context_compressor: Option<Arc<dyn ContextCompressor>>,
 }
 
 impl Default for ReActGraphBuilder {
@@ -393,6 +502,7 @@ impl ReActGraphBuilder {
             tools: Vec::new(),
             prompt: PromptTemplate::new(DEFAULT_SYSTEM_PROMPT.to_string()),
             tool_failure_policy: ToolFailurePolicy::FailFast,
+            context_compressor: None,
         }
     }
 
@@ -413,6 +523,12 @@ impl ReActGraphBuilder {
 
     pub fn tool_failure_policy(mut self, policy: ToolFailurePolicy) -> Self {
         self.tool_failure_policy = policy;
+        self
+    }
+
+    /// Attach a context compressor to the agent node.
+    pub fn with_context_compressor(mut self, compressor: impl ContextCompressor + 'static) -> Self {
+        self.context_compressor = Some(Arc::new(compressor));
         self
     }
 
@@ -445,7 +561,11 @@ impl ReActGraphBuilder {
             });
         }
 
-        let agent_node = AgentNode::new(llm, tool_specs, self.prompt);
+        let mut agent_node = AgentNode::new(llm, tool_specs, self.prompt);
+        if let Some(compressor) = self.context_compressor {
+            agent_node = agent_node.with_context_compressor(compressor);
+        }
+        let agent_node = agent_node;
         let tool_node = ReActToolNode::new(tool_map, self.tool_failure_policy);
 
         let builder = GraphBuilder::<S>::new()

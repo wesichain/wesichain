@@ -12,6 +12,27 @@ pub enum StreamEvent {
     ToolCallResult { id: String, output: crate::Value },
     FinalAnswer(String),
     Metadata { key: String, value: crate::Value },
+    /// Emitted when an agent pauses at a human-in-the-loop approval gate.
+    ///
+    /// The host application should present `prompt` to a human, collect their
+    /// decision, and resume the graph from `checkpoint_id`.
+    AwaitingApproval {
+        /// Stable identifier for this execution run.
+        run_id: String,
+        /// Human-readable description of what the agent wants to do.
+        prompt: String,
+        /// Opaque checkpoint identifier — pass back to resume the graph.
+        checkpoint_id: String,
+    },
+    /// Model reasoning / scratchpad text (Anthropic extended thinking, OpenAI o-series).
+    ThinkingChunk(String),
+    /// Token consumption update emitted after each LLM response.
+    UsageUpdate {
+        input_tokens: u32,
+        output_tokens: u32,
+        cache_read_tokens: Option<u32>,
+        cache_write_tokens: Option<u32>,
+    },
 }
 
 #[async_trait]

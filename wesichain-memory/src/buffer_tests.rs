@@ -37,9 +37,9 @@ mod tests {
         let messages: Vec<Message> = serde_json::from_value(history.clone()).unwrap();
         assert_eq!(messages.len(), 2);
         assert_eq!(messages[0].role, Role::User);
-        assert_eq!(messages[0].content, "Hello");
+        assert_eq!(messages[0].content, "Hello".into());
         assert_eq!(messages[1].role, Role::Assistant);
-        assert_eq!(messages[1].content, "Hi there");
+        assert_eq!(messages[1].content, "Hi there".into());
 
         // 4. Save another turn
         let mut inputs2 = HashMap::new();
@@ -60,8 +60,8 @@ mod tests {
         let history = vars.get("history").unwrap();
         let messages: Vec<Message> = serde_json::from_value(history.clone()).unwrap();
         assert_eq!(messages.len(), 4);
-        assert_eq!(messages[2].content, "How are you?");
-        assert_eq!(messages[3].content, "I'm good");
+        assert_eq!(messages[2].content, "How are you?".into());
+        assert_eq!(messages[3].content, "I'm good".into());
 
         // 6. Verify thread isolation
         let thread_id_2 = "test-thread-2";

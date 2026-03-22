@@ -91,7 +91,7 @@ impl Runnable<GraphState<AgentState>, StateUpdate<AgentState>> for Agent {
                 tool_results: Vec::new(),
                 answer: Some(format!(
                     "Tool said: {}",
-                    last.map(|msg| msg.content).unwrap_or_default()
+                    last.map(|msg| msg.content.to_text_lossy()).unwrap_or_default()
                 )),
             }))
         }

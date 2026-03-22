@@ -149,6 +149,7 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
             model,
             messages,
             tools,
+            ..
         } = input;
         let model = if model.is_empty() {
             self.model.clone()
@@ -179,6 +180,8 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
         Ok(LlmResponse {
             content: response.message.content,
             tool_calls: response.tool_calls,
+            usage: None,
+            model: String::new(),
         })
     }
 
@@ -190,6 +193,7 @@ impl Runnable<LlmRequest, LlmResponse> for OllamaClient {
             model,
             messages,
             tools,
+            ..
         } = input;
         let model = if model.is_empty() {
             self.model.clone()

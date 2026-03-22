@@ -16,7 +16,7 @@ mod tests {
             request: LlmRequest,
         ) -> Result<LlmResponse, wesichain_core::WesichainError> {
             // Extract conversation from the prompt
-            let content = &request.messages[0].content;
+            let content = request.messages[0].content.to_text_lossy();
 
             // Simple mock: just return a shorter version
             let summary = if content.contains("Current summary:") {
@@ -28,6 +28,8 @@ mod tests {
             Ok(LlmResponse {
                 content: summary.to_string(),
                 tool_calls: Vec::new(),
+                usage: None,
+                model: String::new(),
             })
         }
 

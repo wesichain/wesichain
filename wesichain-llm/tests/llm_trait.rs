@@ -11,8 +11,10 @@ struct DummyLlm;
 impl wesichain_core::Runnable<LlmRequest, LlmResponse> for DummyLlm {
     async fn invoke(&self, _input: LlmRequest) -> Result<LlmResponse, WesichainError> {
         Ok(LlmResponse {
-            content: "ok".to_string(),
+            content: "ok".into(),
             tool_calls: vec![],
+            usage: None,
+            model: String::new(),
         })
     }
 

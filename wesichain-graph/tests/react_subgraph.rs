@@ -152,11 +152,15 @@ async fn test_react_subgraph_execution() {
                 name: "test_tool".to_string(),
                 args: Value::Null,
             }],
+            usage: None,
+            model: String::new(),
         },
         // Response 2: Final answer
         LlmResponse {
             content: "Done".to_string(),
             tool_calls: vec![],
+            usage: None,
+            model: String::new(),
         },
     ];
 

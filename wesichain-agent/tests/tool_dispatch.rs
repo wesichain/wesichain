@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -17,6 +18,7 @@ struct EchoOutput {
 
 struct EchoTool;
 
+#[async_trait::async_trait]
 impl TypedTool for EchoTool {
     type Args = EchoArgs;
     type Output = EchoOutput;
@@ -37,6 +39,7 @@ fn ctx() -> ToolContext {
         correlation_id: "corr-1".to_string(),
         step_id: 1,
         cancellation: CancellationToken::new(),
+        stream_tx: None,
     }
 }
 

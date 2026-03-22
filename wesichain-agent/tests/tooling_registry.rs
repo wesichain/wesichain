@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
@@ -15,6 +16,7 @@ struct EchoOutput {
 
 struct EchoTool;
 
+#[async_trait]
 impl TypedTool for EchoTool {
     type Args = EchoArgs;
     type Output = EchoOutput;
@@ -32,6 +34,7 @@ impl TypedTool for EchoTool {
 
 struct EchoToolDuplicate;
 
+#[async_trait]
 impl TypedTool for EchoToolDuplicate {
     type Args = EchoArgs;
     type Output = EchoOutput;
@@ -49,6 +52,7 @@ impl TypedTool for EchoToolDuplicate {
 
 struct InvalidNameTool;
 
+#[async_trait]
 impl TypedTool for InvalidNameTool {
     type Args = EchoArgs;
     type Output = EchoOutput;
@@ -109,6 +113,7 @@ fn tool_context_contains_required_fields() {
         correlation_id: "corr-1".to_string(),
         step_id: 7,
         cancellation: CancellationToken::new(),
+        stream_tx: None,
     };
 
     assert_eq!(ctx.correlation_id, "corr-1");

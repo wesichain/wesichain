@@ -141,6 +141,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
                         name: "time".to_string(),
                         args: serde_json::json!({}),
                     }],
+                    usage: None,
+                    model: String::new(),
                 })
             }
             Role::Tool => {
@@ -148,6 +150,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
                 Ok(LlmResponse {
                     content: "The current time is 12:00 PM.".to_string(),
                     tool_calls: vec![],
+                    usage: None,
+                    model: String::new(),
                 })
             }
             _ => {
@@ -155,6 +159,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockAgentLlm {
                 Ok(LlmResponse {
                     content: "I don't know.".to_string(),
                     tool_calls: vec![],
+                    usage: None,
+                    model: String::new(),
                 })
             }
         }

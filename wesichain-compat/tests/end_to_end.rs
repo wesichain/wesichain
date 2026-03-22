@@ -40,6 +40,8 @@ impl Runnable<LlmRequest, LlmResponse> for MockLlm {
         Ok(LlmResponse {
             content: "Mock response".to_string(),
             tool_calls: vec![],
+            usage: None,
+            model: String::new(),
         })
     }
 
@@ -71,7 +73,7 @@ async fn end_to_end_flow() {
 
     // 4. Create Tool Definition (from macro generated struct)
     // Note: The macro generates a struct named based on function name. `fn add` -> `ADDTool`.
-    let tool_instance = ADDTool;
+    let tool_instance = AddTool;
     let tool_schema = tool_instance.schema();
 
     // 5. Prepare Mock LLM and Bind Tools
@@ -93,6 +95,9 @@ async fn end_to_end_flow() {
         model: "mock-model".to_string(),
         messages,
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     // Bind tools to the request (simulating llm.bind(tools))
@@ -115,5 +120,5 @@ async fn end_to_end_flow() {
     assert_eq!(last_req.tools.len(), 1);
     assert_eq!(last_req.tools[0].name, "calculator");
     assert_eq!(last_req.messages.len(), 2);
-    assert_eq!(last_req.messages[1].content, "Please add 10 and 5.");
+    assert_eq!(last_req.messages[1].content, "Please add 10 and 5.".into());
 }

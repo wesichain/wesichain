@@ -10,7 +10,7 @@ async fn add(a: i32, b: i32) -> Result<i32, String> {
 
 #[tokio::test]
 async fn tool_macro_generates_correct_struct() {
-    let tool = ADDTool;
+    let tool = AddTool;
     assert_eq!(tool.name(), "calculator");
     assert_eq!(tool.description(), "Adds two numbers");
 
@@ -20,7 +20,7 @@ async fn tool_macro_generates_correct_struct() {
     assert!(props.contains_key("b"));
 
     let args = json!({ "a": 5, "b": 3 });
-    let result: Value = tool.invoke(args).await.unwrap();
+    let result: Value = Tool::invoke(&tool, args).await.unwrap();
     assert_eq!(result.as_i64().unwrap(), 8);
 }
 
@@ -30,6 +30,9 @@ async fn bind_works_on_llm_request() {
         model: "gpt-4".to_string(),
         messages: vec![],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let tool_spec = json!({

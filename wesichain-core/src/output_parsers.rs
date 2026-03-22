@@ -237,7 +237,7 @@ where
                     // Append bad response and error message
                     current_request.messages.push(Message {
                         role: Role::Assistant,
-                        content: response.content,
+                        content: response.content.into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });
@@ -246,7 +246,7 @@ where
                         content: format!(
                             "The previous response failed to parse with error: {}. Please fix the output to match the required format.",
                             e
-                        ),
+                        ).into(),
                         tool_call_id: None,
                         tool_calls: Vec::new(),
                     });

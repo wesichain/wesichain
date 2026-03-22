@@ -77,6 +77,17 @@ impl GoogleClient {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct GenerationConfig {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    max_output_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    stop_sequences: Option<Vec<String>>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct GenerateContentRequest {
     contents: Vec<Content>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -85,6 +96,8 @@ struct GenerateContentRequest {
     tools: Option<Vec<GeminiTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     tool_config: Option<ToolConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    generation_config: Option<GenerationConfig>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -149,8 +162,17 @@ struct FunctionCallingConfig {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct UsageMetadata {
+    prompt_token_count: Option<u32>,
+    candidates_token_count: Option<u32>,
+    total_token_count: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct GenerateContentResponse {
     candidates: Option<Vec<Candidate>>,
+    usage_metadata: Option<UsageMetadata>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -214,7 +236,7 @@ fn map_contents(messages: &[Message]) -> Vec<Content> {
                 contents.push(Content {
                     role: Some("user".to_string()),
                     parts: vec![Part {
-                        text: Some(message.content.clone()),
+                        text: Some(message.content.to_text_lossy()),
                         function_call: None,
                         function_response: None,
                     }],
@@ -224,7 +246,7 @@ fn map_contents(messages: &[Message]) -> Vec<Content> {
                 let mut parts = Vec::new();
                 if !message.content.is_empty() {
                     parts.push(Part {
-                        text: Some(message.content.clone()),
+                        text: Some(message.content.to_text_lossy()),
                         function_call: None,
                         function_response: None,
                     });
@@ -262,7 +284,7 @@ fn map_contents(messages: &[Message]) -> Vec<Content> {
                         function_call: None,
                         function_response: Some(FunctionResponse {
                             name,
-                            response: parse_tool_output(&message.content),
+                            response: parse_tool_output(&message.content.to_text_lossy()),
                             id: call_id,
                         }),
                     }],
@@ -380,12 +402,33 @@ fn parse_stream_response(
         .boxed()
 }
 
+fn build_generation_config(input: &LlmRequest) -> Option<GenerationConfig> {
+    let has_temp = input.temperature.is_some();
+    let has_max = input.max_tokens.is_some();
+    let has_stop = !input.stop_sequences.is_empty();
+
+    if !has_temp && !has_max && !has_stop {
+        return None;
+    }
+
+    Some(GenerationConfig {
+        temperature: input.temperature,
+        max_output_tokens: input.max_tokens,
+        stop_sequences: if has_stop {
+            Some(input.stop_sequences.clone())
+        } else {
+            None
+        },
+    })
+}
+
 fn build_request(input: &LlmRequest) -> GenerateContentRequest {
     GenerateContentRequest {
         contents: map_contents(&input.messages),
         system_instruction: system_instruction(&input.messages),
         tools: map_tools(&input.tools),
         tool_config: tool_config(&input.tools),
+        generation_config: build_generation_config(input),
     }
 }
 
@@ -394,7 +437,7 @@ fn system_instruction(messages: &[Message]) -> Option<Content> {
         .iter()
         .filter(|message| matches!(message.role, Role::System))
         .map(|message| Part {
-            text: Some(message.content.clone()),
+            text: Some(message.content.to_text_lossy()),
             function_call: None,
             function_response: None,
         })
@@ -427,13 +470,26 @@ impl Runnable<LlmRequest, LlmResponse> for GoogleClient {
             let message = serde_json::from_str::<GoogleErrorResponse>(&body)
                 .map(|e| e.error.message)
                 .unwrap_or_else(|_| format!("HTTP {}: {}", status, body));
-            return Err(WesichainError::LlmProvider(message));
+            return Err(match status.as_u16() {
+                401 | 403 => WesichainError::AuthenticationFailed {
+                    provider: "google".to_string(),
+                    message,
+                },
+                429 => WesichainError::RateLimitExceeded { retry_after: None },
+                _ => WesichainError::LlmProvider(message),
+            });
         }
 
         let response = response
             .json::<GenerateContentResponse>()
             .await
             .map_err(|err| WesichainError::LlmProvider(err.to_string()))?;
+
+        let usage = response.usage_metadata.as_ref().map(|u| wesichain_core::TokenUsage {
+            prompt_tokens: u.prompt_token_count.unwrap_or(0),
+            completion_tokens: u.candidates_token_count.unwrap_or(0),
+            total_tokens: u.total_token_count.unwrap_or(0),
+        });
 
         let candidate = response
             .candidates
@@ -478,15 +534,16 @@ impl Runnable<LlmRequest, LlmResponse> for GoogleClient {
                 .unwrap_or(false)
         {
             let reason = finish_reason.unwrap_or_else(|| "UNKNOWN".to_string());
-            return Err(WesichainError::LlmProvider(format!(
-                "Generation blocked: {}",
-                reason
-            )));
+            return Err(WesichainError::ContentPolicyViolation {
+                reason: format!("Generation blocked: {}", reason),
+            });
         }
 
         Ok(LlmResponse {
             content: text,
             tool_calls,
+            usage,
+            model: String::new(),
         })
     }
 
@@ -515,7 +572,14 @@ impl Runnable<LlmRequest, LlmResponse> for GoogleClient {
                         let message = serde_json::from_str::<GoogleErrorResponse>(&body)
                             .map(|e| e.error.message)
                             .unwrap_or_else(|_| format!("HTTP {}: {}", status, body));
-                        Err(WesichainError::LlmProvider(message))
+                        Err(match status.as_u16() {
+                            401 | 403 => WesichainError::AuthenticationFailed {
+                                provider: "google".to_string(),
+                                message,
+                            },
+                            429 => WesichainError::RateLimitExceeded { retry_after: None },
+                            _ => WesichainError::LlmProvider(message),
+                        })
                     })
                     .boxed()
                 }

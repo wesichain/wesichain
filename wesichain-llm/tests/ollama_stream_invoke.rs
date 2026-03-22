@@ -71,11 +71,14 @@ async fn ollama_stream_emits_events() {
         model: "llama3.1".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let events: Vec<_> = client.stream(req).collect().await;
@@ -98,11 +101,14 @@ async fn ollama_stream_surfaces_http_errors() {
         model: "llama3.1".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let mut events = client.stream(req);
@@ -125,11 +131,14 @@ async fn ollama_stream_stops_on_parse_error() {
         model: "llama3.1".to_string(),
         messages: vec![Message {
             role: Role::User,
-            content: "hi".to_string(),
+            content: "hi".into(),
             tool_call_id: None,
             tool_calls: Vec::new(),
         }],
         tools: vec![],
+        temperature: None,
+        max_tokens: None,
+        stop_sequences: vec![],
     };
 
     let mut events = client.stream(req);
