@@ -22,7 +22,7 @@ fi
 publish_crate() {
     local crate=$1
     echo -e "${GREEN}Processing ${crate}...${NC}"
-    
+
     if [ "$DRY_RUN" = true ]; then
         cargo publish -p "$crate" --dry-run
     else
@@ -34,34 +34,53 @@ publish_crate() {
     echo -e "${GREEN}Success: ${crate}${NC}\n"
 }
 
-# Tier 1: Core & Foundation
+# Tier 1: Core & Foundation (no wesichain deps)
 publish_crate "wesichain-macros"
 publish_crate "wesichain-core"
-publish_crate "wesichain-compat"
 
-# Tier 2: Middleware & Utilities
+# Tier 2: Providers & Prompt (depend on core only)
 publish_crate "wesichain-prompt"
 publish_crate "wesichain-embeddings"
-publish_crate "wesichain-memory"
 publish_crate "wesichain-llm"
+publish_crate "wesichain-anthropic"       # new in v0.3
 
-# Tier 3: Functional Logic
-publish_crate "wesichain-retrieval"
-publish_crate "wesichain-qdrant"
-publish_crate "wesichain-pinecone"
-publish_crate "wesichain-weaviate"
-publish_crate "wesichain-chroma"
-
-# Tier 4: Graph & Integrations
-publish_crate "wesichain-graph"
+# Tier 3: Checkpoints (depend on core)
 publish_crate "wesichain-checkpoint-sql"
 publish_crate "wesichain-checkpoint-sqlite"
 publish_crate "wesichain-checkpoint-postgres"
 publish_crate "wesichain-checkpoint-redis"
-publish_crate "wesichain-langsmith"
-publish_crate "wesichain-rag"
 
-# Tier 5: Top-Level
+# Tier 4: Agent & Memory
+publish_crate "wesichain-agent"
+publish_crate "wesichain-memory"
+publish_crate "wesichain-retrieval"
+publish_crate "wesichain-session"         # new in v0.3
+
+# Tier 5: MCP & Tools (depend on agent)
+publish_crate "wesichain-mcp"             # new in v0.3
+publish_crate "wesichain-tools"           # new in v0.3
+
+# Tier 6: Graph & RAG
+publish_crate "wesichain-graph"
+publish_crate "wesichain-rag"             # new in v0.3
+
+# Tier 7: Observability
+publish_crate "wesichain-otel"            # new in v0.3
+publish_crate "wesichain-langsmith"
+publish_crate "wesichain-langfuse"        # new in v0.3
+
+# Tier 8: Server & CLI
+publish_crate "wesichain-server"          # new in v0.3
+publish_crate "wesichain-cli"             # new in v0.3
+
+# Tier 9: Compat & Vector stores
+publish_crate "wesichain-compat"
+publish_crate "wesichain-pinecone"
+publish_crate "wesichain-qdrant"
+publish_crate "wesichain-weaviate"
+publish_crate "wesichain-chroma"
+
+# Tier 10: Facade (last — depends on everything)
 publish_crate "wesichain"
 
 echo -e "${GREEN}All crates processed successfully!${NC}"
