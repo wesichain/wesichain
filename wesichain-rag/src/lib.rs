@@ -6,7 +6,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use uuid::Uuid;
 use wesichain_core::{
-    AgentEvent, Document, Embedding, Runnable, StreamEvent, VectorStore, WesichainError,
+    AgentEvent, Document, Embedding, LlmRequest, Message, Runnable, Role, StreamEvent,
+    ToolCallingLlm, VectorStore, WesichainError,
 };
 use wesichain_graph::{
     Checkpoint, Checkpointer, ExecutionOptions, GraphBuilder, GraphError, GraphState,
@@ -58,6 +59,7 @@ pub struct WesichainRag {
     indexer: Arc<dyn IndexerTrait>,
     retriever: Arc<dyn RetrieverTrait>,
     splitter: RecursiveCharacterTextSplitter,
+    llm: Option<Arc<dyn ToolCallingLlm>>,
 }
 
 #[derive(Clone)]
@@ -68,6 +70,7 @@ pub struct WesichainRagBuilder {
     embedder: Option<Arc<dyn Embedding>>,
     vector_store: Option<Arc<dyn VectorStore>>,
     splitter: RecursiveCharacterTextSplitter,
+    llm: Option<Arc<dyn ToolCallingLlm>>,
 }
 
 // Trait to allow storing Indexer<dyn Embedding, dyn VectorStore>
@@ -153,8 +156,10 @@ impl StateSchema for RagRuntimeState {
     }
 }
 
-#[derive(Clone, Copy)]
-struct GenerateAnswerNode;
+#[derive(Clone)]
+struct GenerateAnswerNode {
+    llm: Option<Arc<dyn ToolCallingLlm>>,
+}
 
 #[async_trait::async_trait]
 impl Runnable<GraphState<RagRuntimeState>, StateUpdate<RagRuntimeState>> for GenerateAnswerNode {
@@ -164,7 +169,41 @@ impl Runnable<GraphState<RagRuntimeState>, StateUpdate<RagRuntimeState>> for Gen
     ) -> Result<StateUpdate<RagRuntimeState>, WesichainError> {
         let mut next = input.data;
         next.turns = next.turns.saturating_add(1);
-        let answer = format!("Stub answer #{} for: {}", next.turns, next.current_query);
+
+        let answer = match &self.llm {
+            Some(llm) => {
+                let request = LlmRequest {
+                    model: String::new(), // provider uses its configured default
+                    messages: vec![
+                        Message::system(
+                            "You are a helpful assistant. Answer the user's question \
+                             using only the provided context. If the context does not \
+                             contain enough information, say so.",
+                        ),
+                        Message {
+                            role: Role::User,
+                            content: next.current_query.clone().into(),
+                            tool_call_id: None,
+                            tool_calls: vec![],
+                        },
+                    ],
+                    tools: vec![],
+                    temperature: None,
+                    max_tokens: None,
+                    stop_sequences: vec![],
+                };
+                let response = llm.invoke(request).await?;
+                response.content
+            }
+            None => {
+                return Err(WesichainError::InvalidConfig(
+                    "No LLM configured for RAG answer generation. \
+                     Call .with_llm(llm) on WesichainRagBuilder."
+                        .to_string(),
+                ));
+            }
+        };
+
         next.last_answer = Some(answer);
         Ok(StateUpdate::new(next))
     }
@@ -272,6 +311,7 @@ impl WesichainRag {
             checkpointer: Arc::new(InMemoryCheckpointer::<RagRuntimeState>::default()),
             embedder: None,
             vector_store: None,
+            llm: None,
             splitter: RecursiveCharacterTextSplitter::builder()
                 .chunk_size(1000)
                 .chunk_overlap(200)
@@ -399,7 +439,7 @@ impl WesichainRag {
         state.current_query = self.build_prompt(&request.query).await?;
 
         let graph = GraphBuilder::new()
-            .add_node("generate", GenerateAnswerNode)
+            .add_node("generate", GenerateAnswerNode { llm: self.llm.clone() })
             .with_checkpointer(
                 SharedCheckpointer::new(self.checkpointer.clone()),
                 &thread_id,
@@ -497,10 +537,11 @@ impl WesichainRag {
 }
 
 impl WesichainRagBuilder {
-    pub fn with_llm<T>(self, _llm: T) -> Self
+    pub fn with_llm<T>(mut self, llm: T) -> Self
     where
-        T: Send + Sync + 'static,
+        T: ToolCallingLlm,
     {
+        self.llm = Some(Arc::new(llm));
         self
     }
 
@@ -572,6 +613,7 @@ impl WesichainRagBuilder {
             indexer,
             retriever,
             splitter: self.splitter,
+            llm: self.llm,
         })
     }
 }

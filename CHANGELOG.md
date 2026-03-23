@@ -2,6 +2,11 @@
 
 All notable changes to Wesichain will be documented in this file.
 
+## [0.3.1] - 2026-03-23
+
+### Fixed
+- `wesichain-rag`: `GenerateAnswerNode` was a stub returning placeholder text instead of calling the LLM. Now builds a real `LlmRequest` with system prompt + retrieved context and calls the configured LLM. `WesichainRagBuilder::with_llm()` was silently dropping the argument — it now stores it. Returns a clear `InvalidConfig` error if `query()` is called without an LLM configured.
+
 ## [0.3.0] - 2026-03-22
 
 ### New Crates
