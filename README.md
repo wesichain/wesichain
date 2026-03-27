@@ -42,6 +42,8 @@
 
 🚀 **[Get Started →](https://wesichain.vercel.app/docs/getting-started/installation)** · **[Explore Crates →](https://wesichain.vercel.app/crate-selector)** · **[View Benchmarks →](https://wesichain.vercel.app/benchmarks)**
 
+**🤖 AI Agent Setup:** Install [Wesichain Skills](https://github.com/wesichain/wesichain/releases) for Claude Code → drag into chat
+
 ---
 
 Wesichain `v0.2.1` is live as a modular crate family, with the v0.3 agent runtime track in active implementation.
